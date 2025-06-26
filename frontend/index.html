@@ -173,7 +173,10 @@
             <!-- Wrapped navigation links in a separate div with overflow-y-auto and flex-grow -->
             <div class="flex-grow overflow-y-auto">
                 <nav class="p-4">
-                    <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
+                    <a href="#" id="nav-home" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
+                        <i class="ph-bold ph-house-simple mr-3"></i> Home
+                    </a>
+                    <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
                     </a>
                     <a href="#" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
@@ -226,7 +229,30 @@
                 <div class="w-8"></div> <!-- Placeholder for right alignment to balance toggle button -->
             </header>
 
-            <div id="content-dashboard" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative">
+            <!-- New Home Content View -->
+            <div id="content-home" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative">
+                <div class="max-w-7xl mx-auto h-full flex flex-col items-center justify-center text-center py-12 px-4">
+                    <i class="ph-bold ph-coins text-8xl text-emerald-400 mb-8 animate-bounce-slow"></i>
+                    <h2 class="text-5xl font-bold text-white mb-6 leading-tight">Welcome to CoinShelf</h2>
+                    <p class="text-xl text-gray-300 mb-8 max-w-2xl">
+                        Your personal digital vault for managing and exploring your precious coin and banknote collection.
+                        Organize your treasures, track their value, and discover new countries to collect!
+                    </p>
+                    <p class="text-md text-gray-400 mb-10">
+                        Crafted with passion by <span class="font-semibold text-emerald-300">Oscar Brimelow</span>.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button id="home-signup-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md text-lg transition-colors shadow-lg">
+                            Get Started - Sign Up
+                        </button>
+                        <button id="home-learn-more-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-md text-lg transition-colors shadow-lg">
+                            Learn More (Go to Dashboard)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-dashboard" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
                 <!-- Dashboard Content Here -->
                 <div class="max-w-7xl mx-auto">
                     <!-- Dashboard content will be rendered inside this centered div -->
@@ -796,19 +822,24 @@
         }
     }
 
+    // --- HOMEPAGE RENDERING ---
+    function renderHome() {
+        const homeDiv = document.getElementById('content-home');
+        // No "sign in to view your collection" text here. Content is static.
+    }
+
+
     // --- DASHBOARD RENDERING ---
     function renderDashboard() {
         const dashboardDiv = document.getElementById('content-dashboard');
-        // Only render if authenticated
-        if (!isAuthenticated()) {
-            dashboardDiv.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view your dashboard.</p></div>`;
-            return;
-        }
-
         // Get the inner div where content will be rendered
         const dashboardContentWrapper = dashboardDiv.querySelector('.max-w-7xl.mx-auto');
-        if (!dashboardContentWrapper) return; // Should not happen with the new structure
 
+        if (!isAuthenticated()) {
+            dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view your dashboard.</p></div>`;
+            return;
+        }
+        
         dashboardContentWrapper.innerHTML = `
             <h2 class="text-3xl font-bold text-white mb-6">Dashboard Overview</h2>
 
@@ -1173,7 +1204,6 @@
         const dashboardContentWrapper = dashboardDiv.querySelector('.max-w-7xl.mx-auto');
         if (!dashboardContentWrapper) return;
 
-        // Add overlay if not authenticated
         if (!isAuthenticated()) {
             dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view region details.</p></div>`;
             return;
@@ -1222,7 +1252,7 @@
         dashboardContentWrapper.innerHTML = detailsHtml; // Render inside the wrapper
 
         document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
-            renderDashboard();
+            showView('content-dashboard'); // Go back to the main dashboard
         });
     }
 
@@ -1327,14 +1357,13 @@
 
     function renderCollection(filteredData = collectionData) {
         const collectionContent = document.getElementById('content-collection');
+        const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
+        if (!collectionContentWrapper) return;
+
         if (!isAuthenticated()) {
-            collectionContent.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
+            collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
             return;
         }
-
-        // Get the inner div where content will be rendered
-        const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
-        if (!collectionContentWrapper) return; // Should not happen with the new structure
 
         collectionContentWrapper.innerHTML = `
             <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
@@ -1602,11 +1631,53 @@
     }
 
     function renderAllViews() {
-        // These functions now check isAuthenticated() internally
-        renderDashboard();
-        renderCollection();
-        renderGeoChart();
-        renderMissingCountries();
+        // Only render views that are currently visible to prevent unnecessary work
+        // No authentication check needed for Home page
+        if (!document.getElementById('content-home').classList.contains('hidden')) {
+            renderHome();
+        }
+
+        // For authenticated views, check if authenticated before rendering
+        if (isAuthenticated()) {
+            if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
+                renderDashboard();
+            }
+            if (!document.getElementById('content-collection').classList.contains('hidden')) {
+                renderCollection();
+            }
+            if (!document.getElementById('content-map').classList.contains('hidden')) {
+                renderGeoChart();
+            }
+            if (!document.getElementById('content-missing').classList.contains('hidden')) {
+                renderMissingCountries();
+            }
+        } else {
+            // If not authenticated, ensure these views show their respective unauthenticated overlays
+            if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
+                const dashboardContentWrapper = document.getElementById('content-dashboard').querySelector('.max-w-7xl.mx-auto');
+                if (dashboardContentWrapper) {
+                    dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view your dashboard.</p></div>`;
+                }
+            }
+            if (!document.getElementById('content-collection').classList.contains('hidden')) {
+                const collectionContentWrapper = document.getElementById('content-collection').querySelector('.max-w-7xl.mx-auto');
+                if (collectionContentWrapper) {
+                    collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
+                }
+            }
+            if (!document.getElementById('content-map').classList.contains('hidden')) {
+                const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
+                if (mapContentWrapper) {
+                    mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
+                }
+            }
+            if (!document.getElementById('content-missing').classList.contains('hidden')) {
+                const missingCountriesContentWrapper = document.getElementById('content-missing').querySelector('.max-w-7xl.mx-auto');
+                if (missingCountriesContentWrapper) {
+                    missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
+                }
+            }
+        }
     }
 
     function handleUnauthorized() {
@@ -1614,7 +1685,7 @@
         showCustomConfirm('Your session has expired or is invalid. Please log in again.', () => {});
         updateAuthUI(false);
         collectionData = []; // Clear data on logout/unauthorized
-        renderAllViews(); // Re-render all views to show login prompts
+        showView('content-home'); // Redirect to home page
     }
 
     function updateAuthUI(loggedIn) {
@@ -1661,10 +1732,31 @@
     // --- EVENT LISTENERS ---
     function attachGlobalEventListeners() {
         // Navigation links
+        document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showView('content-home'); });
         document.getElementById('nav-dashboard').addEventListener('click', (e) => { e.preventDefault(); showView('content-dashboard'); });
         document.getElementById('nav-collection').addEventListener('click', (e) => { e.preventDefault(); showView('content-collection'); });
         document.getElementById('nav-map').addEventListener('click', (e) => { e.preventDefault(); showView('content-map'); });
         document.getElementById('nav-missing').addEventListener('click', (e) => { e.preventDefault(); showView('content-missing'); });
+
+        // Homepage buttons
+        document.getElementById('home-signup-btn').addEventListener('click', () => {
+            // Assuming the sign-up form is visible on the sidebar or can be revealed
+            // For now, let's just highlight the login/signup form by making the sidebar visible on mobile
+            if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
+                toggleSidebar(); // Open sidebar if closed
+            }
+            // Optionally, you could scroll the login form into view if it's not visible
+            document.getElementById('login-email').focus();
+        });
+
+        document.getElementById('home-learn-more-btn').addEventListener('click', () => {
+            showView('content-dashboard'); // Redirects to dashboard
+            // Close sidebar on mobile after clicking learn more
+            if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                toggleSidebar();
+            }
+        });
+
 
         // Quick Add button
         document.getElementById('quick-add-btn').addEventListener('click', () => {
@@ -1982,7 +2074,7 @@
         attachGlobalEventListeners();
         updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
         loadCollectionFromBackend(); // Attempt to load data if already authenticated
-        showView('content-dashboard'); // Default view on load
+        showView('content-home'); // Default view on load is now the home page
         console.log('App initialization completed successfully.');
     });
 
