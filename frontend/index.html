@@ -2484,6 +2484,115 @@
         sidebar.classList.toggle('open'); // Add/remove 'open' class for media query targeting
     }
 
+    // --- Export Functions ---
+    function exportCollectionAsJson() {
+        const jsonString = JSON.stringify(collectionData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'coinshelf_collection.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showCustomConfirm('Collection exported as JSON!', () => {});
+        closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+    }
+
+    function exportCollectionAsCsv() {
+        if (collectionData.length === 0) {
+            showCustomConfirm('No data to export.', () => {});
+            return;
+        }
+
+        const headers = ['id', 'type', 'country', 'year', 'denomination', 'value', 'notes', 'referenceUrl', 'localImagePath', 'region', 'isHistorical'];
+        let csv = headers.join(',') + '\n';
+
+        collectionData.forEach(item => {
+            const row = headers.map(header => {
+                let value = item[header];
+                if (value === null || typeof value === 'undefined') {
+                    value = '';
+                } else if (typeof value === 'string') {
+                    // Escape double quotes and enclose in double quotes if it contains comma or double quote
+                    value = `"${value.replace(/"/g, '""')}"`;
+                }
+                return value;
+            }).join(',');
+            csv += row + '\n';
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'coinshelf_collection.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showCustomConfirm('Collection exported as CSV!', () => {});
+        closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+    }
+
+    function printCollectionReport() {
+        // Create a new window or iframe for printing
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write('<html><head><title>CoinShelf Collection Report</title>');
+        // Include minimal styles for printing
+        printWindow.document.write('<style>');
+        printWindow.document.write('body { font-family: sans-serif; margin: 20px; }');
+        printWindow.document.write('h1 { text-align: center; margin-bottom: 20px; }');
+        printWindow.document.write('table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }');
+        printWindow.document.write('th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }');
+        printWindow.document.write('th { background-color: #f2f2f2; }');
+        printWindow.document.write('p { margin-bottom: 5px; }');
+        printWindow.document.write('</style>');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write('<h1>CoinShelf Collection Report</h1>');
+
+        if (collectionData.length === 0) {
+            printWindow.document.write('<p>No items in your collection to print.</p>');
+        } else {
+            // Summary
+            const totalItems = collectionData.length;
+            const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+            const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
+
+            printWindow.document.write('<h2>Summary</h2>');
+            printWindow.document.write(`<p><strong>Total Items:</strong> ${totalItems}</p>`);
+            printWindow.document.write(`<p><strong>Total Estimated Value:</strong> $${totalValue.toFixed(2)}</p>`);
+            printWindow.document.write(`<p><strong>Unique Countries:</strong> ${uniqueCountries}</p>`);
+
+            // Detailed table
+            printWindow.document.write('<h2>Detailed Collection</h2>');
+            printWindow.document.write('<table>');
+            printWindow.document.write('<thead><tr><th>Type</th><th>Country</th><th>Year</th><th>Denomination</th><th>Value</th><th>Notes</th></tr></thead>');
+            printWindow.document.write('<tbody>');
+            collectionData.forEach(item => {
+                printWindow.document.write(`
+                    <tr>
+                        <td>${item.type}</td>
+                        <td>${item.country}</td>
+                        <td>${item.year || 'N/A'}</td>
+                        <td>${item.denomination}</td>
+                        <td>$${(item.value || 0).toFixed(2)}</td>
+                        <td>${item.notes || 'N/A'}</td>
+                    </tr>
+                `);
+            });
+            printWindow.document.write('</tbody></table>');
+        }
+
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+    }
+
+
     // --- EVENT LISTENERS ---
     function attachGlobalEventListeners() {
         console.log('Attaching global event listeners...');
@@ -2989,7 +3098,7 @@
                     showCustomConfirm('Signed in successfully!', () => {});
                     updateAuthUI(true);
                     loadCollectionFromBackend(); // Load data after successful login
-                    history.replaceState(null, '', window.location.pathname); // Clear public URL param on login
+                    history.replaceState(null, '', window.location.pathname); // Clear public URL param
                 } catch (error) {
                     console.error("Login error:", error.message);
                     showCustomConfirm(`Login failed: ${error.message}`, () => {});
@@ -3057,7 +3166,7 @@
         const publicId = urlParams.get('public');
 
         if (publicId) {
-            // If public ID is in URL, render public collection view directly
+            // If public ID is present, render public collection view directly
             updateAuthUI(false); // Ensure logged out state for public view
             showView('content-public-collection'); // This will trigger loading public data
         } else {
