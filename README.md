@@ -52,7 +52,7 @@ https://mycoinshelf.com
 
 ## 📝 Notes
 
-- ⚠️ **Demo Account** – user/pass = demo@demo/demo
+- ⚠️ **Demo Account** – user/pass = demo@demo/DEMO
 - ⚠️ **Local images aren't available yet** – placeholder images are shown for now.
 - ⚠️ **No real login system** – username/password are just for your local session.  
   If you forget your password… tough luck 😅  
