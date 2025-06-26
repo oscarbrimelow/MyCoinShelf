@@ -155,6 +155,20 @@
                 margin-left: 0 !important;
             }
         }
+
+        /* Keyframe for subtle bounce animation */
+        @keyframes bounce-slow {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px); /* Smaller bounce */
+            }
+        }
+
+        .animate-bounce-slow {
+            animation: bounce-slow 3s infinite ease-in-out; /* Slower and smoother */
+        }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -623,10 +637,12 @@
     // Fetches collection data from the backend
     async function loadCollectionFromBackend() {
         if (!isAuthenticated()) {
+            console.log('Not authenticated, clearing collection data and rendering views.');
             collectionData = []; // Clear data if not authenticated
             renderAllViews();
             return;
         }
+        console.log('Authenticated, attempting to load collection data from backend...');
         try {
             const response = await fetch(`${API_BASE_URL}/coins`, {
                 method: 'GET',
@@ -637,13 +653,14 @@
             });
             if (!response.ok) {
                 if (response.status === 401) { // Unauthorized, token expired or invalid
+                    console.warn('Authentication failed during collection load (401 Unauthorized).');
                     handleUnauthorized();
                     return;
                 }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             collectionData = await response.json();
-            console.log("Collection data loaded from backend.");
+            console.log("Collection data loaded from backend:", collectionData);
 
             // Assign region and isHistorical on load for consistency
             collectionData.forEach(item => {
@@ -1631,6 +1648,7 @@
     }
 
     function renderAllViews() {
+        console.log('Rendering all views. Authenticated:', isAuthenticated());
         // Only render views that are currently visible to prevent unnecessary work
         // No authentication check needed for Home page
         if (!document.getElementById('content-home').classList.contains('hidden')) {
@@ -1681,6 +1699,7 @@
     }
 
     function handleUnauthorized() {
+        console.warn('Handling unauthorized state: session expired or invalid.');
         sessionStorage.removeItem('jwt_token');
         showCustomConfirm('Your session has expired or is invalid. Please log in again.', () => {});
         updateAuthUI(false);
@@ -1689,6 +1708,7 @@
     }
 
     function updateAuthUI(loggedIn) {
+        console.log('Updating Auth UI. Logged In:', loggedIn);
         const authStatusDiv = document.getElementById('auth-status');
         const loginForm = document.getElementById('login-form');
         const logoutBtn = document.getElementById('logout-btn');
@@ -1698,18 +1718,18 @@
 
         if (loggedIn) {
             authStatusDiv.innerHTML = `<span class="text-emerald-400 font-semibold">Logged in!</span>`;
-            loginForm.classList.add('hidden');
-            logoutBtn.classList.remove('hidden');
-            quickAddBtn.classList.remove('hidden'); // Show Quick Add
-            importDataBtn.classList.remove('hidden'); // Show Import Data
-            clearAllBtn.classList.remove('hidden'); // Show Clear All
+            if (loginForm) loginForm.classList.add('hidden');
+            if (logoutBtn) logoutBtn.classList.remove('hidden');
+            if (quickAddBtn) quickAddBtn.classList.remove('hidden'); // Show Quick Add
+            if (importDataBtn) importDataBtn.classList.remove('hidden'); // Show Import Data
+            if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
         } else {
             authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
-            loginForm.classList.remove('hidden');
-            logoutBtn.classList.add('hidden');
-            quickAddBtn.classList.add('hidden'); // Hide Quick Add
-            importDataBtn.classList.add('hidden'); // Hide Import Data
-            clearAllBtn.classList.add('hidden'); // Hide Clear All
+            if (loginForm) loginForm.classList.remove('hidden');
+            if (logoutBtn) logoutBtn.classList.add('hidden');
+            if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
+            if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
+            if (clearAllBtn) clearAllBtn.classList.add('hidden'); // Hide Clear All
         }
     }
 
@@ -1723,6 +1743,7 @@
 
     // Function to toggle sidebar visibility
     function toggleSidebar() {
+        console.log('Toggling sidebar...');
         sidebar.classList.toggle('-translate-x-full'); // Toggle sidebar's off-screen state
         mobileSidebarOverlay.classList.toggle('hidden'); // Toggle overlay visibility
         document.body.classList.toggle('overflow-hidden'); // Toggle body scroll
@@ -1731,123 +1752,191 @@
 
     // --- EVENT LISTENERS ---
     function attachGlobalEventListeners() {
+        console.log('Attaching global event listeners...');
+
         // Navigation links
-        document.getElementById('nav-home').addEventListener('click', (e) => { e.preventDefault(); showView('content-home'); });
-        document.getElementById('nav-dashboard').addEventListener('click', (e) => { e.preventDefault(); showView('content-dashboard'); });
-        document.getElementById('nav-collection').addEventListener('click', (e) => { e.preventDefault(); showView('content-collection'); });
-        document.getElementById('nav-map').addEventListener('click', (e) => { e.preventDefault(); showView('content-map'); });
-        document.getElementById('nav-missing').addEventListener('click', (e) => { e.preventDefault(); showView('content-missing'); });
+        const navHome = document.getElementById('nav-home');
+        if (navHome) {
+            console.log('Found nav-home');
+            navHome.addEventListener('click', (e) => { e.preventDefault(); showView('content-home'); });
+        } else { console.error('nav-home not found!'); }
+
+        const navDashboard = document.getElementById('nav-dashboard');
+        if (navDashboard) {
+            console.log('Found nav-dashboard');
+            navDashboard.addEventListener('click', (e) => { e.preventDefault(); showView('content-dashboard'); });
+        } else { console.error('nav-dashboard not found!'); }
+
+        const navCollection = document.getElementById('nav-collection');
+        if (navCollection) {
+            console.log('Found nav-collection');
+            navCollection.addEventListener('click', (e) => { e.preventDefault(); showView('content-collection'); });
+        } else { console.error('nav-collection not found!'); }
+
+        const navMap = document.getElementById('nav-map');
+        if (navMap) {
+            console.log('Found nav-map');
+            navMap.addEventListener('click', (e) => { e.preventDefault(); showView('content-map'); });
+        } else { console.error('nav-map not found!'); }
+
+        const navMissing = document.getElementById('nav-missing');
+        if (navMissing) {
+            console.log('Found nav-missing');
+            navMissing.addEventListener('click', (e) => { e.preventDefault(); showView('content-missing'); });
+        } else { console.error('nav-missing not found!'); }
+
 
         // Homepage buttons
-        document.getElementById('home-signup-btn').addEventListener('click', () => {
-            // Assuming the sign-up form is visible on the sidebar or can be revealed
-            // For now, let's just highlight the login/signup form by making the sidebar visible on mobile
-            if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
-                toggleSidebar(); // Open sidebar if closed
-            }
-            // Optionally, you could scroll the login form into view if it's not visible
-            document.getElementById('login-email').focus();
-        });
+        const homeSignupBtn = document.getElementById('home-signup-btn');
+        if (homeSignupBtn) {
+            console.log('Found home-signup-btn');
+            homeSignupBtn.addEventListener('click', () => {
+                console.log('home-signup-btn clicked');
+                // Assuming the sign-up form is visible on the sidebar or can be revealed
+                // For now, let's just highlight the login/signup form by making the sidebar visible on mobile
+                if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar(); // Open sidebar if closed
+                }
+                // Optionally, you could scroll the login form into view if it's not visible
+                const loginEmailInput = document.getElementById('login-email');
+                if (loginEmailInput) loginEmailInput.focus();
+            });
+        } else {
+            console.error('home-signup-btn not found!');
+        }
 
-        document.getElementById('home-learn-more-btn').addEventListener('click', () => {
-            showView('content-dashboard'); // Redirects to dashboard
-            // Close sidebar on mobile after clicking learn more
-            if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
-                toggleSidebar();
-            }
-        });
+        const homeLearnMoreBtn = document.getElementById('home-learn-more-btn');
+        if (homeLearnMoreBtn) {
+            console.log('Found home-learn-more-btn');
+            homeLearnMoreBtn.addEventListener('click', () => {
+                console.log('home-learn-more-btn clicked');
+                showView('content-dashboard'); // Redirects to dashboard
+                // Close sidebar on mobile after clicking learn more
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        } else {
+            console.error('home-learn-more-btn not found!');
+        }
 
 
         // Quick Add button
-        document.getElementById('quick-add-btn').addEventListener('click', () => {
-            if (!isAuthenticated()) {
-                showCustomConfirm('Please sign in to add new items.', () => {});
-                return;
-            }
-            clearItemForm();
-            openModal('item-modal');
-            // Close sidebar on mobile after clicking quick add
-            if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
-                toggleSidebar();
-            }
-        });
+        const quickAddBtn = document.getElementById('quick-add-btn');
+        if (quickAddBtn) {
+            console.log('Found quick-add-btn');
+            quickAddBtn.addEventListener('click', () => {
+                console.log('Quick Add button clicked');
+                if (!isAuthenticated()) {
+                    showCustomConfirm('Please sign in to add new items.', () => {});
+                    return;
+                }
+                clearItemForm();
+                openModal('item-modal');
+                // Close sidebar on mobile after clicking quick add
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
+                    toggleSidebar();
+                }
+            });
+        } else {
+            console.error('quick-add-btn not found!');
+        }
 
         // Import Data button
-        document.getElementById('import-data-btn').addEventListener('click', () => {
-            if (!isAuthenticated()) {
-                showCustomConfirm('Please sign in to import data.', () => {});
-                return;
-            }
-            document.getElementById('import-json-data').value = ''; // Clear previous data
-            openModal('import-modal');
-            // Close sidebar on mobile after clicking import data
-            if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
-                toggleSidebar();
-            }
-        });
-
-        // Handle import submission
-        document.getElementById('import-submit-btn').addEventListener('click', async () => {
-            const jsonData = document.getElementById('import-json-data').value;
-            let itemsToImport;
-            try {
-                itemsToImport = JSON.parse(jsonData);
-                if (!Array.isArray(itemsToImport)) {
-                    throw new Error("Pasted data is not a JSON array.");
-                }
-            } catch (error) {
-                showCustomConfirm(`Invalid JSON data: ${error.message}. Please paste a valid JSON array of coin objects.`, () => {});
-                return;
-            }
-
-            if (itemsToImport.length === 0) {
-                showCustomConfirm('No items found in the pasted data.', () => {});
-                return;
-            }
-
-            showCustomConfirm(`Are you sure you want to import ${itemsToImport.length} items? This will add them to your collection.`, async () => {
+        const importDataBtn = document.getElementById('import-data-btn');
+        if (importDataBtn) {
+            console.log('Found import-data-btn');
+            importDataBtn.addEventListener('click', () => {
+                console.log('Import Data button clicked');
                 if (!isAuthenticated()) {
                     showCustomConfirm('Please sign in to import data.', () => {});
                     return;
                 }
-                try {
-                    const response = await fetch(`${API_BASE_URL}/coins/bulk_upload`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${getAuthToken()}`
-                        },
-                        body: JSON.stringify(itemsToImport)
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            handleUnauthorized();
-                            return;
-                        }
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    let message = result.message || 'Import process completed.';
-                    if (result.errors && result.errors.length > 0) {
-                        message += ` Some items had errors: ${result.errors.map(err => err.substring(0, 50) + "...").join('; ')}`; // Truncate errors for message box
-                    }
-                    showCustomConfirm(message, () => {});
-                    loadCollectionFromBackend(); // Reload data after successful import
-                } catch (error) {
-                    console.error("Error during bulk import:", error);
-                    showCustomConfirm(`Failed to import data: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
-                } finally {
-                    closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
+                document.getElementById('import-json-data').value = ''; // Clear previous data
+                openModal('import-modal');
+                // Close sidebar on mobile after clicking import data
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
+                    toggleSidebar();
                 }
             });
-        });
+        } else {
+            console.error('import-data-btn not found!');
+        }
 
-        document.getElementById('import-cancel-btn').addEventListener('click', () => {
-            closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
-        });
+
+        // Handle import submission
+        const importSubmitBtn = document.getElementById('import-submit-btn');
+        if (importSubmitBtn) {
+            console.log('Found import-submit-btn');
+            importSubmitBtn.addEventListener('click', async () => {
+                console.log('Import submit button clicked');
+                const jsonData = document.getElementById('import-json-data').value;
+                let itemsToImport;
+                try {
+                    itemsToImport = JSON.parse(jsonData);
+                    if (!Array.isArray(itemsToImport)) {
+                        throw new Error("Pasted data is not a JSON array.");
+                    }
+                } catch (error) {
+                    showCustomConfirm(`Invalid JSON data: ${error.message}. Please paste a valid JSON array of coin objects.`, () => {});
+                    return;
+                }
+
+                if (itemsToImport.length === 0) {
+                    showCustomConfirm('No items found in the pasted data.', () => {});
+                    return;
+                }
+
+                showCustomConfirm(`Are you sure you want to import ${itemsToImport.length} items? This will add them to your collection.`, async () => {
+                    if (!isAuthenticated()) {
+                        showCustomConfirm('Please sign in to import data.', () => {});
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/coins/bulk_upload`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${getAuthToken()}`
+                            },
+                            body: JSON.stringify(itemsToImport)
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                handleUnauthorized();
+                                return;
+                            }
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        let message = result.message || 'Import process completed.';
+                        if (result.errors && result.errors.length > 0) {
+                            message += ` Some items had errors: ${result.errors.map(err => err.substring(0, 50) + "...").join('; ')}`; // Truncate errors for message box
+                        }
+                        showCustomConfirm(message, () => {});
+                        loadCollectionFromBackend(); // Reload data after successful import
+                    } catch (error) {
+                        console.error("Error during bulk import:", error);
+                        showCustomConfirm(`Failed to import data: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+                    } finally {
+                        closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
+                    }
+                });
+            });
+        } else { console.error('import-submit-btn not found!'); }
+
+        const importCancelBtn = document.getElementById('import-cancel-btn');
+        if (importCancelBtn) {
+            console.log('Found import-cancel-btn');
+            importCancelBtn.addEventListener('click', () => {
+                console.log('Import cancel button clicked');
+                closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
+            });
+        } else { console.error('import-cancel-btn not found!'); }
+
 
         // Clear All Items button and modal logic
         const clearAllBtn = document.getElementById('clear-all-btn');
@@ -1856,61 +1945,73 @@
         const clearAllConfirmBtn = document.getElementById('clear-all-confirm-btn');
         const clearAllCancelBtn = document.getElementById('clear-all-cancel-btn');
 
-        clearAllBtn.addEventListener('click', () => {
-            if (!isAuthenticated()) {
-                showCustomConfirm('Please sign in to clear items.', () => {});
-                return;
-            }
-            clearConfirmInput.value = ''; // Clear input field
-            openModal('clear-confirm-modal');
-            // Close sidebar on mobile after clicking clear all
-            if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
-                toggleSidebar();
-            }
-        });
-
-        clearAllConfirmBtn.addEventListener('click', async () => {
-            if (clearConfirmInput.value.trim() === 'CLEARYES') {
+        if (clearAllBtn) {
+            console.log('Found clear-all-btn');
+            clearAllBtn.addEventListener('click', () => {
+                console.log('Clear All button clicked');
                 if (!isAuthenticated()) {
                     showCustomConfirm('Please sign in to clear items.', () => {});
-                    closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
                     return;
                 }
-                try {
-                    const response = await fetch(`${API_BASE_URL}/coins/clear_all`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${getAuthToken()}`
-                        }
-                    });
-
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            handleUnauthorized();
-                            return;
-                        }
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    showCustomConfirm(result.message || 'All items deleted successfully!', () => {});
-                    collectionData = []; // Clear local data
-                    renderAllViews(); // Re-render UI
-                } catch (error) {
-                    console.error("Error clearing all items:", error);
-                    showCustomConfirm(`Failed to clear all items: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
-                } finally {
-                    closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
+                clearConfirmInput.value = ''; // Clear input field
+                openModal('clear-confirm-modal');
+                // Close sidebar on mobile after clicking clear all
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
+                    toggleSidebar();
                 }
-            } else {
-                showCustomConfirm('Incorrect confirmation phrase. Please type "CLEARYES" exactly to proceed.', () => {});
-            }
-        });
+            });
+        } else { console.error('clear-all-btn not found!'); }
 
-        clearAllCancelBtn.addEventListener('click', () => {
-            closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
-        });
+        if (clearAllConfirmBtn) {
+            console.log('Found clear-all-confirm-btn');
+            clearAllConfirmBtn.addEventListener('click', async () => {
+                console.log('Clear All confirm button clicked');
+                if (clearConfirmInput.value.trim() === 'CLEARYES') {
+                    if (!isAuthenticated()) {
+                        showCustomConfirm('Please sign in to clear items.', () => {});
+                        closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/coins/clear_all`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': `Bearer ${getAuthToken()}`
+                            }
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                handleUnauthorized();
+                                return;
+                            }
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        showCustomConfirm(result.message || 'All items deleted successfully!', () => {});
+                        collectionData = []; // Clear local data
+                        renderAllViews(); // Re-render UI
+                    } catch (error) {
+                        console.error("Error clearing all items:", error);
+                        showCustomConfirm(`Failed to clear all items: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+                    } finally {
+                        closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
+                    }
+                } else {
+                    showCustomConfirm('Incorrect confirmation phrase. Please type "CLEARYES" exactly to proceed.', () => {});
+                }
+            });
+        } else { console.error('clear-all-confirm-btn not found!'); }
+
+        if (clearAllCancelBtn) {
+            console.log('Found clear-all-cancel-btn');
+            clearAllCancelBtn.addEventListener('click', () => {
+                console.log('Clear All cancel button clicked');
+                closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
+            });
+        } else { console.error('clear-all-cancel-btn not found!'); }
 
 
         // Modal close listeners (click outside or ESC)
@@ -1919,52 +2020,63 @@
         const customConfirmModal = document.getElementById('custom-confirm-modal');
         const clearConfirmModalElement = document.getElementById('clear-confirm-modal'); // Renamed to avoid conflict
 
-        itemModal.addEventListener('click', function(event) {
-            const modalContent = this.querySelector('div');
-            if (!modalContent.contains(event.target)) {
-                closeModal(this, modalContent);
-                reinitItemForm();
-            }
-        });
+        if (itemModal) {
+            itemModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                    reinitItemForm();
+                }
+            });
+        } else { console.error('item-modal not found!'); }
 
-        importModal.addEventListener('click', function(event) {
-            const modalContent = this.querySelector('div');
-            if (!modalContent.contains(event.target)) {
-                closeModal(this, modalContent);
-            }
-        });
 
-        clearConfirmModalElement.addEventListener('click', function(event) {
-            const modalContent = this.querySelector('div');
-            if (!modalContent.contains(event.target)) {
-                closeModal(this, modalContent);
-            }
-        });
+        if (importModal) {
+            importModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+        } else { console.error('import-modal not found!'); }
 
-        customConfirmModal.addEventListener('click', function(event) {
-            const modalContent = this.querySelector('div');
-            if (!modalContent.contains(event.target)) {
-                closeModal(this, modalContent);
-            }
-        });
+        if (clearConfirmModalElement) {
+            clearConfirmModalElement.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+        } else { console.error('clear-confirm-modal not found!'); }
+
+
+        if (customConfirmModal) {
+            customConfirmModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+        } else { console.error('custom-confirm-modal not found!'); }
+
 
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
-                if (!itemModal.classList.contains('hidden')) {
+                if (itemModal && !itemModal.classList.contains('hidden')) {
                     closeModal(itemModal, itemModal.querySelector('div'));
                     reinitItemForm();
                 }
-                if (!importModal.classList.contains('hidden')) { // Close import modal
+                if (importModal && !importModal.classList.contains('hidden')) { // Close import modal
                     closeModal(importModal, importModal.querySelector('div'));
                 }
-                if (!customConfirmModal.classList.contains('hidden')) {
+                if (customConfirmModal && !customConfirmModal.classList.contains('hidden')) {
                     closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
                 }
-                 if (!clearConfirmModalElement.classList.contains('hidden')) { // Close clear all modal
+                 if (clearConfirmModalElement && !clearConfirmModalElement.classList.contains('hidden')) { // Close clear all modal
                     closeModal(clearConfirmModalElement, clearConfirmModalElement.querySelector('div'));
                 }
                 // Close sidebar if open on mobile
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) { // Check for 'open' class
                     toggleSidebar();
                 }
             }
@@ -1972,18 +2084,21 @@
 
         // Event listener for mobile menu toggle button
         if (mobileMenuToggle) { // Ensure button exists
+            console.log('Found mobile-menu-toggle');
             mobileMenuToggle.addEventListener('click', toggleSidebar);
-        }
+        } else { console.error('mobile-menu-toggle not found!'); }
 
         // Event listener for overlay to close sidebar
         if (mobileSidebarOverlay) { // Ensure overlay exists
+            console.log('Found mobile-sidebar-overlay');
             mobileSidebarOverlay.addEventListener('click', toggleSidebar);
-        }
+        } else { console.error('mobile-sidebar-overlay not found!'); }
+
 
         // Close sidebar if screen resizes to desktop and is currently open
         window.addEventListener('resize', () => {
             if (window.innerWidth >= 768) { // md breakpoint for Tailwind
-                if (sidebar.classList.contains('open')) { // If open in mobile state
+                if (sidebar && sidebar.classList.contains('open')) { // If open in mobile state
                     toggleSidebar(); // Close it and remove mobile-specific classes
                 }
             }
@@ -1992,7 +2107,7 @@
         // When a nav link is clicked (on mobile), close the sidebar
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', () => {
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) { // Check for 'open' class
                     toggleSidebar();
                 }
             });
@@ -2003,74 +2118,90 @@
 
 
         // --- AUTHENTICATION EVENT LISTENERS ---
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            try {
-                const response = await fetch(`${API_BASE_URL}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            console.log('Found login-form');
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('Login form submitted');
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                try {
+                    const response = await fetch(`${API_BASE_URL}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Login failed.');
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || 'Login failed.');
+                    }
+
+                    const result = await response.json();
+                    sessionStorage.setItem('jwt_token', result.token); // Store JWT
+                    showCustomConfirm('Signed in successfully!', () => {});
+                    updateAuthUI(true);
+                    loadCollectionFromBackend(); // Load data after successful login
+                } catch (error) {
+                    console.error("Login error:", error.message);
+                    showCustomConfirm(`Login failed: ${error.message}`, () => {});
                 }
+            });
+        } else { console.error('login-form not found during attachGlobalEventListeners!'); }
 
-                const result = await response.json();
-                sessionStorage.setItem('jwt_token', result.token); // Store JWT
-                showCustomConfirm('Signed in successfully!', () => {});
-                updateAuthUI(true);
-                loadCollectionFromBackend(); // Load data after successful login
-            } catch (error) {
-                console.error("Login error:", error.message);
-                showCustomConfirm(`Login failed: ${error.message}`, () => {});
-            }
-        });
-
-        document.getElementById('signup-btn').addEventListener('click', async () => {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            if (!email || !password) {
-                showCustomConfirm('Please enter both email and password to sign up.', () => {});
-                return;
-            }
-            try {
-                const response = await fetch(`${API_BASE_URL}/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Signup failed.');
+        const signupBtn = document.getElementById('signup-btn');
+        if (signupBtn) {
+            console.log('Found signup-btn');
+            signupBtn.addEventListener('click', async () => {
+                console.log('Sign Up button clicked');
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                if (!email || !password) {
+                    showCustomConfirm('Please enter both email and password to sign up.', () => {});
+                    return;
                 }
+                try {
+                    const response = await fetch(`${API_BASE_URL}/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
 
-                const result = await response.json();
-                showCustomConfirm(result.message || 'Signed up successfully! Please log in.', () => {
-                    // Optionally auto-login after signup if desired, but
-                    // for explicit flow, user logs in separately
-                });
-            } catch (error) {
-                console.error("Sign-up error:", error.message);
-                showCustomConfirm(`Sign-up failed: ${error.message}`, () => {});
-            }
-        });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || 'Signup failed.');
+                    }
 
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            sessionStorage.removeItem('jwt_token'); // Clear JWT
-            updateAuthUI(false);
-            collectionData = []; // Clear data when logged out
-            renderAllViews();
-            showCustomConfirm('Signed out successfully!', () => {});
-        });
+                    const result = await response.json();
+                    showCustomConfirm(result.message || 'Signed up successfully! Please log in.', () => {
+                        // Optionally auto-login after signup if desired, but
+                        // for explicit flow, user logs in separately
+                    });
+                } catch (error) {
+                    console.error("Sign-up error:", error.message);
+                    showCustomConfirm(`Sign-up failed: ${error.message}`, () => {});
+                }
+            });
+        } else { console.error('signup-btn not found during attachGlobalEventListeners!'); }
+
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            console.log('Found logout-btn');
+            logoutBtn.addEventListener('click', () => {
+                console.log('Logout button clicked');
+                sessionStorage.removeItem('jwt_token'); // Clear JWT
+                updateAuthUI(false);
+                collectionData = []; // Clear data when logged out
+                renderAllViews();
+                showCustomConfirm('Signed out successfully!', () => {});
+            });
+        } else { console.error('logout-btn not found during attachGlobalEventListeners!'); }
     }
 
     // --- INITIAL LOAD ---
     document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM Content Loaded. Starting app initialization...');
         attachGlobalEventListeners();
         updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
         loadCollectionFromBackend(); // Attempt to load data if already authenticated
