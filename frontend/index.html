@@ -322,6 +322,10 @@
                  <button id="clear-all-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
                     <i class="ph-bold ph-trash-simple mr-2"></i> Clear All Items
                 </button>
+                <!-- New Share Collection button -->
+                <button id="share-collection-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-share-network mr-2"></i> Share Collection
+                </button>
             </div>
 
             <!-- Authentication Section: flex-shrink-0 and mt-auto to ensure it stays at the very bottom -->
@@ -444,7 +448,7 @@
                         </div>
 
                         <!-- Theme Preference -->
-                        <div>
+                        <div class="mb-8">
                             <h3 class="text-xl font-semibold text-gray-300 mb-4">Theme Preference</h3>
                             <div class="flex items-center space-x-4">
                                 <label class="flex items-center cursor-pointer">
@@ -457,7 +461,71 @@
                                 </label>
                             </div>
                         </div>
+
+                        <!-- New Public Collection Link Section -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Public Collection Link</h3>
+                            <p class="text-gray-400 mb-4">Share a read-only view of your collection with others. Generate a unique URL below.</p>
+                            <div class="flex flex-col sm:flex-row gap-3 items-stretch">
+                                <input type="text" id="public-collection-url" class="flex-grow bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-purple-500 focus:border-purple-500 text-gray-300" readonly placeholder="Your public collection URL will appear here">
+                                <button id="copy-public-url-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors flex-shrink-0">
+                                    <i class="ph-bold ph-copy mr-2"></i> Copy
+                                </button>
+                            </div>
+                            <p id="public-url-status" class="text-xs mt-2 text-gray-500"></p>
+                            <button id="generate-public-url-btn" class="mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                                Generate/Update Public Link
+                            </button>
+                            <button id="revoke-public-url-btn" class="mt-4 ml-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                                Revoke Public Link
+                            </button>
+                        </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- New Public Collection View -->
+            <div id="content-public-collection" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
+                <div class="max-w-7xl mx-auto">
+                    <h2 id="public-collection-title" class="text-3xl font-bold text-white mb-6"></h2>
+                    <div id="public-collection-summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                            <h3 class="text-lg font-semibold text-gray-300">Total Items</h3>
+                            <p class="text-4xl font-bold text-emerald-400" id="public-total-items">0</p>
+                        </div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                            <h3 class="text-lg font-semibold text-gray-300">Total Value</h3>
+                            <p class="text-4xl font-bold text-emerald-400" id="public-total-value">$0.00</p>
+                        </div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                            <h3 class="text-lg font-semibold text-gray-300">Unique Countries</h3>
+                            <p class="text-4xl font-bold text-emerald-400" id="public-unique-countries">0</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-bold text-white mb-4">Collection Details</h3>
+                    <div class="flex-1 flex overflow-hidden">
+                        <div class="w-full flex flex-col">
+                            <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                                <table class="w-full text-left data-table min-w-max">
+                                    <thead class="bg-gray-700 sticky top-0">
+                                        <tr>
+                                            <th class="p-4 font-semibold">Type</th>
+                                            <th class="p-4 font-semibold">Country</th>
+                                            <th class="p-4 font-semibold">Year</th>
+                                            <th class="p-4 font-semibold">Denomination</th>
+                                            <th class="p-4 font-semibold">Value</th>
+                                            <th class="p-4 font-semibold">Notes & Ref.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="public-collection-table-body">
+                                        <!-- Public collection items will be rendered here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                     <div id="public-collection-status" class="text-gray-400 mt-6 text-center text-lg"></div>
                 </div>
             </div>
         </main>
@@ -631,6 +699,7 @@
 
     // --- Data Store ---
     let collectionData = []; // This will be populated from the backend
+    let publicCollectionData = []; // New: To store data for public view
 
     // List of all countries (you can expand this as needed)
     const ALL_COUNTRIES = [
@@ -893,6 +962,31 @@
             showCustomConfirm('Failed to load collection. Please try logging in again or check backend server.', () => {});
             collectionData = []; // Clear local data on load error
             renderAllViews();
+        }
+    }
+
+    // New function to fetch public collection data
+    async function loadPublicCollectionFromBackend(public_id) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/public_coins/${public_id}`);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error("Public collection not found or invalid URL.");
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            publicCollectionData = await response.json();
+            console.log("Public collection data loaded:", publicCollectionData);
+            renderPublicCollection();
+        } catch (error) {
+            console.error("Error loading public collection:", error);
+            const publicStatusDiv = document.getElementById('public-collection-status');
+            if (publicStatusDiv) {
+                publicStatusDiv.innerHTML = `<p class="text-xl text-red-400">Error loading public collection: ${error.message}</p>`;
+            }
+            document.getElementById('public-collection-summary').classList.add('hidden');
+            document.getElementById('public-collection-table-body').innerHTML = '';
+            document.getElementById('public-collection-title').innerText = 'Public Collection (Not Found)';
         }
     }
 
@@ -1967,6 +2061,9 @@
             changePasswordForm.removeEventListener('submit', handleChangePassword);
             changePasswordForm.addEventListener('submit', handleChangePassword);
         }
+
+        // Fetch and display public URL on settings load
+        fetchPublicUrl();
     }
 
     function handleThemeChange(event) {
@@ -2032,184 +2129,179 @@
         }
     }
 
-    // --- Export Functions ---
-    async function exportCollectionAsJson() {
+    // New: Public URL functionality
+    async function fetchPublicUrl() {
+        const publicUrlInput = document.getElementById('public-collection-url');
+        const publicUrlStatus = document.getElementById('public-url-status');
+        publicUrlInput.value = '';
+        publicUrlStatus.innerText = '';
+
         if (!isAuthenticated()) {
-            showCustomConfirm('Please sign in to export data.', () => {});
+            publicUrlInput.placeholder = "Sign in to generate your public link.";
             return;
         }
+
         try {
-            // Using the existing collectionData loaded from backend directly
-            const jsonData = JSON.stringify(collectionData, null, 2); // Pretty print JSON
-            const blob = new Blob([jsonData], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `coinshelf_collection_${new Date().toISOString().slice(0,10)}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showCustomConfirm('Collection exported as JSON.', () => {});
+            const response = await fetch(`${API_BASE_URL}/public_collection_link`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    publicUrlStatus.innerText = 'No public link generated yet.';
+                    publicUrlInput.placeholder = "Your public collection URL will appear here";
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const fullUrl = `${window.location.origin}/?public=${result.public_id}`; // Construct full URL
+            publicUrlInput.value = fullUrl;
+            publicUrlStatus.innerText = 'Your public collection link is active.';
+            publicUrlStatus.classList.remove('text-red-400');
+            publicUrlStatus.classList.add('text-emerald-400');
+
         } catch (error) {
-            console.error("Error exporting JSON:", error);
-            showCustomConfirm(`Failed to export JSON: ${error.message}`, () => {});
-        } finally {
-            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+            console.error("Error fetching public URL:", error);
+            publicUrlStatus.innerText = `Error: ${error.message}.`;
+            publicUrlStatus.classList.remove('text-emerald-400');
+            publicUrlStatus.classList.add('text-red-400');
+            publicUrlInput.placeholder = "Could not fetch public URL.";
         }
     }
 
-    async function exportCollectionAsCsv() {
+    async function generatePublicUrl() {
         if (!isAuthenticated()) {
-            showCustomConfirm('Please sign in to export data.', () => {});
+            showCustomConfirm('Please sign in to generate a public link.', () => {});
             return;
         }
-        if (collectionData.length === 0) {
-            showCustomConfirm('No data to export to CSV.', () => {});
-            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
-            return;
-        }
-
-        try {
-            const headers = Object.keys(collectionData[0]).filter(key => key !== 'localImagePath'); // Exclude image path from CSV
-            const csvRows = [];
-            csvRows.push(headers.join(',')); // Add header row
-
-            collectionData.forEach(item => {
-                const values = headers.map(header => {
-                    const value = item[header];
-                    // Handle null/undefined, and escape commas/quotes for CSV
-                    if (value === null || typeof value === 'undefined') {
-                        return '';
-                    }
-                    const stringValue = String(value);
-                    // If value contains comma, double-quote, or newline, wrap in double quotes
-                    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-                        return `"${stringValue.replace(/"/g, '""')}"`; // Escape double quotes
-                    }
-                    return stringValue;
+        showCustomConfirm('Generate a new public link? This will make your collection viewable by anyone with the link.', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/generate_public_collection_link`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getAuthToken()}` }
                 });
-                csvRows.push(values.join(','));
-            });
 
-            const csvString = csvRows.join('\n');
-            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `coinshelf_collection_${new Date().toISOString().slice(0,10)}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showCustomConfirm('Collection exported as CSV.', () => {});
-        } catch (error) {
-            console.error("Error exporting CSV:", error);
-            showCustomConfirm(`Failed to export CSV: ${error.message}`, () => {});
-        } finally {
-            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to generate public link.');
+                }
+
+                const result = await response.json();
+                const fullUrl = `${window.location.origin}/?public=${result.public_id}`;
+                document.getElementById('public-collection-url').value = fullUrl;
+                document.getElementById('public-url-status').innerText = 'Public link generated/updated!';
+                document.getElementById('public-url-status').classList.remove('text-red-400');
+                document.getElementById('public-url-status').classList.add('text-emerald-400');
+                showCustomConfirm('Public link generated/updated successfully! Copy it from settings.', () => {});
+            } catch (error) {
+                console.error("Error generating public URL:", error);
+                showCustomConfirm(`Failed to generate public link: ${error.message}`, () => {});
+            }
+        });
+    }
+
+    async function revokePublicUrl() {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to revoke your public link.', () => {});
+            return;
+        }
+        showCustomConfirm('Are you sure you want to revoke your public link? Your collection will no longer be shareable via URL.', async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/revoke_public_collection_link`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to revoke public link.');
+                }
+
+                const result = await response.json();
+                document.getElementById('public-collection-url').value = '';
+                document.getElementById('public-collection-url').placeholder = "Your public collection URL will appear here";
+                document.getElementById('public-url-status').innerText = 'Public link revoked.';
+                document.getElementById('public-url-status').classList.remove('text-emerald-400');
+                document.getElementById('public-url-status').classList.add('text-red-400');
+                showCustomConfirm('Public link revoked successfully!', () => {});
+            } catch (error) {
+                console.error("Error revoking public URL:", error);
+                showCustomConfirm(`Failed to revoke public link: ${error.message}`, () => {});
+            }
+        });
+    }
+
+    function copyPublicUrl() {
+        const publicUrlInput = document.getElementById('public-collection-url');
+        if (publicUrlInput.value) {
+            publicUrlInput.select();
+            document.execCommand('copy');
+            showCustomConfirm('Public URL copied to clipboard!', () => {});
+        } else {
+            showCustomConfirm('No public URL to copy. Generate one first.', () => {});
         }
     }
 
-    async function printCollectionReport() {
-        if (!isAuthenticated()) {
-            showCustomConfirm('Please sign in to generate a report.', () => {});
+
+    // --- Public Collection View Rendering ---
+    function renderPublicCollection() {
+        const publicContentView = document.getElementById('content-public-collection');
+        const publicTitle = document.getElementById('public-collection-title');
+        const publicTotalItems = document.getElementById('public-total-items');
+        const publicTotalValue = document.getElementById('public-total-value');
+        const publicUniqueCountries = document.getElementById('public-unique-countries');
+        const publicTableBody = document.getElementById('public-collection-table-body');
+        const publicStatus = document.getElementById('public-collection-status');
+        const publicSummary = document.getElementById('public-collection-summary');
+
+        publicStatus.innerText = ''; // Clear previous status messages
+
+        if (publicCollectionData.length === 0) {
+            publicTitle.innerText = 'Public Collection (Empty or Not Found)';
+            publicTotalItems.innerText = '0';
+            publicTotalValue.innerText = '$0.00';
+            publicUniqueCountries.innerText = '0';
+            publicTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">No items available in this public collection.</td></tr>';
+            publicSummary.classList.remove('grid');
+            publicSummary.classList.add('hidden');
             return;
         }
-        if (collectionData.length === 0) {
-            showCustomConfirm('No data to generate a report.', () => {});
-            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
-            return;
-        }
 
-        try {
-            let reportContent = `
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>CoinShelf Collection Report</title>
-                    <style>
-                        body { font-family: 'Inter', sans-serif; margin: 20px; color: #333; }
-                        h1 { color: #059669; } /* Emerald */
-                        h2 { color: #1f2937; margin-top: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #f2f2f2; }
-                        .summary { margin-bottom: 30px; }
-                        .summary p { margin: 5px 0; }
-                        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-                        .date { font-size: 0.9em; color: #666; }
-                        @media print {
-                            body { margin: 0; padding: 10px; }
-                            .header { display: block; text-align: center; margin-bottom: 10px; }
-                            .date { text-align: right; width: 100%; display: block; margin-top: 5px; }
-                            table, th, td { border-color: #aaa; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h1>CoinShelf Collection Report</h1>
-                        <p class="date">Report Date: ${new Date().toLocaleDateString()}</p>
-                    </div>
-                    <div class="summary">
-                        <p><strong>Total Items:</strong> ${collectionData.length}</p>
-                        <p><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => sum + (item.value || 0), 0).toFixed(2)}</p>
-                        <p><strong>Unique Countries:</strong> ${new Set(collectionData.map(item => item.country)).size}</p>
-                    </div>
-                    <h2>Detailed Collection List</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Type</th>
-                                <th>Country</th>
-                                <th>Year</th>
-                                <th>Denomination</th>
-                                <th>Value (USD)</th>
-                                <th>Notes</th>
-                                <th>Reference URL</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+        publicSummary.classList.add('grid'); // Ensure grid display for summary
+        publicSummary.classList.remove('hidden');
 
-            collectionData.forEach(item => {
-                reportContent += `
-                    <tr>
-                        <td>${item.id}</td>
-                        <td>${item.type}</td>
-                        <td>${item.country || 'N/A'}</td>
-                        <td>${item.year || 'N/A'}</td>
-                        <td>${item.denomination || 'N/A'}</td>
-                        <td>$${(item.value || 0).toFixed(2)}</td>
-                        <td>${item.notes || 'N/A'}</td>
-                        <td>${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank">Link</a>` : 'N/A'}</td>
-                    </tr>
-                `;
-            });
+        // Assuming publicCollectionData comes with a 'username' or similar property from backend
+        // If not, you might need to fetch it separately or pass it with the public data.
+        // For now, let's assume `publicCollectionData[0].owner_email` or similar might be available if user data is included.
+        // Otherwise, just call it "Shared Collection"
+        const ownerName = publicCollectionData[0] ? publicCollectionData[0].owner_email : 'Shared User'; // Placeholder
+        publicTitle.innerText = `${ownerName}'s Public Collection`;
 
-            reportContent += `
-                        </tbody>
-                    </table>
-                </body>
-                </html>
-            `;
+        const totalItems = publicCollectionData.length;
+        const totalValue = publicCollectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        const uniqueCountries = new Set(publicCollectionData.map(item => item.country)).size;
 
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(reportContent);
-            printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
-            showCustomConfirm('Printable report generated.', () => {});
+        publicTotalItems.innerText = totalItems;
+        publicTotalValue.innerText = `$${totalValue.toFixed(2)}`;
+        publicUniqueCountries.innerText = uniqueCountries;
 
-        } catch (error) {
-            console.error("Error generating print report:", error);
-            showCustomConfirm(`Failed to generate report: ${error.message}`, () => {});
-        } finally {
-            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
-        }
+        const tableRows = publicCollectionData.map(item => `
+            <tr class="border-b border-gray-700">
+                <td class="p-4">${item.type}</td>
+                <td class="p-4">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
+                <td class="p-4">${item.year || 'N/A'}</td>
+                <td class="p-4">${item.denomination}</td>
+                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
+                <td class="p-4">
+                    <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
+                    ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
+                </td>
+            </tr>
+        `).join('');
+        publicTableBody.innerHTML = tableRows;
     }
 
 
@@ -2224,7 +2316,12 @@
             link.classList.remove('bg-gray-700', 'text-white');
             link.classList.add('hover:bg-gray-700');
         });
-        document.getElementById(`nav-${viewId.replace('content-', '')}`).classList.add('bg-gray-700', 'text-white');
+        // Highlight active nav link, but only if it's one of the main ones (not for public view loaded via URL)
+        const navLinkId = `nav-${viewId.replace('content-', '')}`;
+        const activeNavLink = document.getElementById(navLinkId);
+        if (activeNavLink) {
+            activeNavLink.classList.add('bg-gray-700', 'text-white');
+        }
 
         renderAllViews();
     }
@@ -2233,6 +2330,22 @@
         console.log('Rendering all views. Authenticated:', isAuthenticated());
         // Apply theme on every render to ensure consistency
         applySavedTheme();
+
+        // Check URL for public collection ID
+        const urlParams = new URLSearchParams(window.location.search);
+        const publicId = urlParams.get('public');
+
+        if (publicId) {
+            // If public ID is present, force public collection view
+            document.querySelectorAll('.content-view').forEach(view => {
+                view.classList.add('hidden');
+            });
+            document.getElementById('content-public-collection').classList.remove('hidden');
+            loadPublicCollectionFromBackend(publicId);
+            // Do not update main nav links for public view
+            return; // Exit as we are in public view mode
+        }
+
 
         // No authentication check needed for Home page
         if (!document.getElementById('content-home').classList.contains('hidden')) {
@@ -2295,6 +2408,7 @@
         showCustomConfirm('Your session has expired or is invalid. Please log in again.', () => {});
         updateAuthUI(false);
         collectionData = []; // Clear data on logout/unauthorized
+        history.replaceState(null, '', window.location.pathname); // Clear public URL param
         showView('content-home'); // Redirect to home page
     }
 
@@ -2307,6 +2421,7 @@
         const importDataBtn = document.getElementById('import-data-btn');
         const exportDataBtn = document.getElementById('export-data-btn'); // New
         const clearAllBtn = document.getElementById('clear-all-btn'); // Get clear all button
+        const shareCollectionBtn = document.getElementById('share-collection-btn'); // New
 
         if (loggedIn) {
             authStatusDiv.innerHTML = `<span class="text-emerald-400 font-semibold">Logged in!</span>`;
@@ -2316,6 +2431,7 @@
             if (importDataBtn) importDataBtn.classList.remove('hidden'); // Show Import Data
             if (exportDataBtn) exportDataBtn.classList.remove('hidden'); // Show Export Data
             if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
+            if (shareCollectionBtn) shareCollectionBtn.classList.remove('hidden'); // Show Share Collection
         } else {
             authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
             if (loginForm) loginForm.classList.remove('hidden');
@@ -2324,6 +2440,7 @@
             if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
             if (exportDataBtn) exportDataBtn.classList.add('hidden'); // Hide Export Data
             if (clearAllBtn) clearAllBtn.classList.add('hidden'); // Hide Clear All
+            if (shareCollectionBtn) shareCollectionBtn.classList.add('hidden'); // Hide Share Collection
         }
         // Also update settings view authentication state
         const settingsContent = document.getElementById('settings-content');
@@ -2498,6 +2615,27 @@
         } else {
             console.error('export-data-btn not found!');
         }
+
+        // New: Share Collection button
+        const shareCollectionBtn = document.getElementById('share-collection-btn');
+        if (shareCollectionBtn) {
+            console.log('Found share-collection-btn');
+            shareCollectionBtn.addEventListener('click', () => {
+                console.log('Share Collection button clicked');
+                if (!isAuthenticated()) {
+                    showCustomConfirm('Please sign in to share your collection.', () => {});
+                    return;
+                }
+                showView('content-settings'); // Go to settings page
+                // Optionally scroll to the public link section in settings
+                setTimeout(() => {
+                    document.getElementById('generate-public-url-btn').scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+                 if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        } else { console.error('share-collection-btn not found!'); }
 
 
         // Handle import submission
@@ -2674,6 +2812,23 @@
         } else { console.error('clear-all-cancel-btn not found!'); }
 
 
+        // New: Public URL buttons
+        const generatePublicUrlBtn = document.getElementById('generate-public-url-btn');
+        if (generatePublicUrlBtn) {
+            generatePublicUrlBtn.addEventListener('click', generatePublicUrl);
+        } else { console.error('generate-public-url-btn not found!'); }
+
+        const revokePublicUrlBtn = document.getElementById('revoke-public-url-btn');
+        if (revokePublicUrlBtn) {
+            revokePublicUrlBtn.addEventListener('click', revokePublicUrl);
+        } else { console.error('revoke-public-url-btn not found!'); }
+
+        const copyPublicUrlBtn = document.getElementById('copy-public-url-btn');
+        if (copyPublicUrlBtn) {
+            copyPublicUrlBtn.addEventListener('click', copyPublicUrl);
+        } else { console.error('copy-public-url-btn not found!'); }
+
+
         // Modal close listeners (click outside or ESC)
         const itemModal = document.getElementById('item-modal');
         const importModal = document.getElementById('import-modal');
@@ -2834,6 +2989,7 @@
                     showCustomConfirm('Signed in successfully!', () => {});
                     updateAuthUI(true);
                     loadCollectionFromBackend(); // Load data after successful login
+                    history.replaceState(null, '', window.location.pathname); // Clear public URL param on login
                 } catch (error) {
                     console.error("Login error:", error.message);
                     showCustomConfirm(`Login failed: ${error.message}`, () => {});
@@ -2884,6 +3040,7 @@
                 sessionStorage.removeItem('jwt_token'); // Clear JWT
                 updateAuthUI(false);
                 collectionData = []; // Clear data when logged out
+                history.replaceState(null, '', window.location.pathname); // Clear public URL param on logout
                 renderAllViews();
                 showCustomConfirm('Signed out successfully!', () => {});
             });
@@ -2895,9 +3052,20 @@
         console.log('DOM Content Loaded. Starting app initialization...');
         applySavedTheme(); // Apply theme immediately on load
         attachGlobalEventListeners();
-        updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
-        loadCollectionFromBackend(); // Attempt to load data if already authenticated
-        showView('content-home'); // Default view on load is now the home page
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const publicId = urlParams.get('public');
+
+        if (publicId) {
+            // If public ID is in URL, render public collection view directly
+            updateAuthUI(false); // Ensure logged out state for public view
+            showView('content-public-collection'); // This will trigger loading public data
+        } else {
+            // Otherwise, proceed with normal authenticated app flow
+            updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
+            loadCollectionFromBackend(); // Attempt to load data if already authenticated
+            showView('content-home'); // Default view on load is now the home page
+        }
         console.log('App initialization completed successfully.');
     });
 
