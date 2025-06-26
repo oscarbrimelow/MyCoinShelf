@@ -70,14 +70,23 @@ def jwt_required(f):
         if 'Authorization' in request.headers:
             token = request.headers['Authorization'].split(" ")[1]
         if not token:
+            print("DEBUG: Token is missing from Authorization header.")
             return jsonify({'message': 'Token is missing!'}), 401
         try:
             data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
             current_user = User.query.get(data['user_id'])
+            if not current_user:
+                print(f"DEBUG: User with ID {data['user_id']} not found for token.")
+                return jsonify({'message': 'User not found!'}), 401
         except jwt.ExpiredSignatureError:
+            print("DEBUG: JWT ExpiredSignatureError caught.")
             return jsonify({'message': 'Token has expired!'}), 401
         except jwt.InvalidTokenError:
+            print("DEBUG: JWT InvalidTokenError caught.")
             return jsonify({'message': 'Token is invalid!'}), 401
+        except Exception as e:
+            print(f"DEBUG: Unexpected error in jwt_required: {e}")
+            return jsonify({'message': 'An error occurred during authentication.'}), 500
         return f(current_user, *args, **kwargs)
     return decorated
 
@@ -198,16 +207,18 @@ def register():
     password = data.get('password')
 
     if not email or not password:
+        print("DEBUG: Registration failed - missing email or password.")
         return jsonify({'message': 'Email and password are required'}), 400
 
     if User.query.filter_by(email=email).first():
+        print(f"DEBUG: Registration failed - user with email {email} already exists.")
         return jsonify({'message': 'User with that email already exists'}), 409
 
     hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
     new_user = User(email=email, password_hash=hashed_password)
     db.session.add(new_user)
     db.session.commit()
-
+    print(f"DEBUG: User {email} registered successfully.")
     return jsonify({'message': 'User registered successfully!'}), 201
 
 @app.route('/api/login', methods=['POST'])
@@ -216,9 +227,24 @@ def login():
     email = data.get('email')
     password = data.get('password')
 
+    print(f"DEBUG: Attempting login for email: {email}")
+
+    if not email or not password:
+        print("DEBUG: Login failed - Missing email or password in request.")
+        return jsonify({'message': 'Email and password are required'}), 400
+
     user = User.query.filter_by(email=email).first()
 
-    if not user or not check_password_hash(user.password_hash, password):
+    if not user:
+        print(f"DEBUG: Login failed - User with email {email} not found.")
+        return jsonify({'message': 'Invalid credentials'}), 401
+
+    print(f"DEBUG: User found: {user.email}")
+    print(f"DEBUG: Provided password: {password}")
+    print(f"DEBUG: Stored password hash: {user.password_hash}")
+
+    if not check_password_hash(user.password_hash, password):
+        print("DEBUG: Login failed - Password hash mismatch.")
         return jsonify({'message': 'Invalid credentials'}), 401
 
     token = jwt.encode({
@@ -226,6 +252,7 @@ def login():
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24) # Token expires in 24 hours
     }, app.config['JWT_SECRET_KEY'], algorithm="HS256")
 
+    print(f"DEBUG: User {email} logged in successfully. Token generated.")
     return jsonify({'token': token}), 200
 
 @app.route('/api/change_password', methods=['POST'])
@@ -364,7 +391,7 @@ def bulk_upload_coins(current_user):
 
             # Calculate region and isHistorical on the backend
             country_name = item_data.get('country').strip()
-            year_value = item_data.get('year')
+            year_value = item_data.get('year') # Corrected: Was year_data.get('year')
             region = get_region_for_country(country_name)
             is_historical = is_historical_item(country_name, year_value)
 
@@ -372,7 +399,7 @@ def bulk_upload_coins(current_user):
                 user_id=current_user.id,
                 type=item_data.get('type', 'Coin'), # Default to Coin if not provided
                 country=country_name,
-                year=year_data.get('year'), # Use year_value
+                year=year_value, # Corrected: Was year_data.get('year')
                 denomination=item_data.get('denomination').strip(),
                 value=item_data.get('value', 0.0),
                 notes=item_data.get('notes'),
