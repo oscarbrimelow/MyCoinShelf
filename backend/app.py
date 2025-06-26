@@ -92,7 +92,7 @@ def token_required(f):
 
     return decorated
 
-# --- UTILITY FOR REGION MAPPING (Moved to Backend) ---
+# --- UTILITY FOR REGION MAPPING & HISTORICAL FLAG (Moved to Backend) ---
 def get_region_for_country(country_name):
     # If country_name is None or empty, default to "Other"
     if not country_name:
@@ -173,6 +173,16 @@ def get_region_for_country(country_name):
     normalized_country = country_name.lower().strip()
     return country_to_region_map.get(normalized_country, "Other")
 
+def get_is_historical_flag(country_name, year):
+    historical_countries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"]
+    
+    country_for_check = country_name.lower() if country_name else ''
+    
+    is_historical = country_for_check in historical_countries or \
+                    (year is not None and year < 1900 and year != 0)
+    return is_historical
+
+
 # --- Routes ---
 
 @app.route('/')
@@ -220,6 +230,34 @@ def login():
 
     return jsonify({'token': token}), 200
 
+@app.route('/api/change_password', methods=['POST'])
+@token_required
+def change_password(current_user): # current_user is passed by the token_required decorator
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+
+    if not current_password or not new_password:
+        return jsonify({"message": "Current and new passwords are required."}), 400
+
+    # Frontend should handle new password matching confirmation, but backend can also re-check
+    # You might want to add a 'confirm_new_password' field to data and check it here too
+    # Example: if new_password != data.get('confirm_new_password'): return jsonify(...)
+
+    # Verify current password
+    if not check_password_hash(current_user.password_hash, current_password):
+        return jsonify({"message": "Invalid current password."}), 401
+
+    # Hash the new password
+    hashed_new_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+
+    # Update user's password in the database
+    current_user.password_hash = hashed_new_password
+    db.session.commit()
+
+    return jsonify({"message": "Password updated successfully!"}), 200
+
+
 @app.route('/api/coins', methods=['GET'])
 @token_required
 def get_coins(current_user):
@@ -230,21 +268,26 @@ def get_coins(current_user):
 @token_required
 def add_coin(current_user):
     data = request.get_json()
-    # No longer require country/denomination for single add either, aligns with nullable=True
-    # You might want frontend validation to still suggest these for a better UX
+    
+    country_input = data.get('country')
+    year_input = data.get('year') or None
+
+    # Calculate region and isHistorical on the backend
+    region = get_region_for_country(country_input)
+    is_historical = get_is_historical_flag(country_input, year_input)
 
     new_coin = Coin(
         user_id=current_user.id,
         type=data.get('type', 'Coin'),
-        country=data.get('country'), # Will be None if not provided
-        year=data.get('year') or None,
-        denomination=data.get('denomination'), # Will be None if not provided
+        country=country_input,
+        year=year_input,
+        denomination=data.get('denomination'),
         value=data.get('value', 0.0),
         notes=data.get('notes'),
         referenceUrl=data.get('referenceUrl'),
         localImagePath=data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
-        region=get_region_for_country(data.get('country')),
-        isHistorical=data.get('isHistorical', False)
+        region=region, # Set region from backend logic
+        isHistorical=is_historical # Set isHistorical from backend logic
     )
     db.session.add(new_coin)
     db.session.commit()
@@ -258,17 +301,25 @@ def update_coin(current_user, coin_id):
         return jsonify({'message': 'Coin not found or unauthorized!'}), 404
 
     data = request.get_json()
+    
+    country_input = data.get('country', coin.country) # Use existing if not provided
+    year_input = data.get('year', coin.year) or None # Use existing if not provided
+
+    # Calculate region and isHistorical on the backend
+    region = get_region_for_country(country_input)
+    is_historical = get_is_historical_flag(country_input, year_input)
+
     # Update fields if provided in the request
     coin.type = data.get('type', coin.type)
-    coin.country = data.get('country', coin.country) # Will update to None if passed as None
-    coin.year = data.get('year', coin.year) or None
-    coin.denomination = data.get('denomination', coin.denomination) # Will update to None if passed as None
+    coin.country = country_input # Use potentially updated country
+    coin.year = year_input # Use potentially updated year
+    coin.denomination = data.get('denomination', coin.denomination)
     coin.value = data.get('value', coin.value)
     coin.notes = data.get('notes', coin.notes)
     coin.referenceUrl = data.get('referenceUrl', coin.referenceUrl)
     coin.localImagePath = data.get('localImagePath', coin.localImagePath)
-    coin.region = get_region_for_country(data.get('country', coin.country))
-    coin.isHistorical = data.get('isHistorical', coin.isHistorical)
+    coin.region = region # Update region from backend logic
+    coin.isHistorical = is_historical # Update isHistorical from backend logic
 
     db.session.commit()
     return jsonify({'message': 'Coin updated successfully!'}), 200
@@ -297,9 +348,6 @@ def bulk_upload_coins(current_user):
 
     for item_data in data_list:
         try:
-            # Removed the check for country and denomination here.
-            # They are now nullable in the database.
-
             # Ensure 'id' is not set for new items, as the database generates it
             item_data.pop('id', None)
 
@@ -307,21 +355,13 @@ def bulk_upload_coins(current_user):
             year_input = item_data.get('year')
             parsed_year = year_input if isinstance(year_input, int) else (int(year_input) if str(year_input).isdigit() else None)
             
-            # Backend logic for isHistorical
-            historical_countries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"]
+            # Use provided country for region/historical check, default to empty string if not present
+            country_input_for_logic = item_data.get('country', '')
+
+            # Calculate region and isHistorical on the backend
+            final_region = get_region_for_country(country_input_for_logic)
+            final_is_historical = get_is_historical_flag(country_input_for_logic, parsed_year)
             
-            # Ensure country is treated as a string for this check, even if it's None
-            country_for_history_check = item_data.get('country', '').lower()
-
-            is_historical_flag = country_for_history_check in historical_countries or \
-                                 (parsed_year is not None and parsed_year < 1900 and parsed_year != 0)
-            
-            # Use provided isHistorical if exists, otherwise use calculated flag
-            final_is_historical = item_data.get('isHistorical', is_historical_flag)
-
-            # Ensure region is set on the backend based on provided country
-            final_region = get_region_for_country(item_data.get('country'))
-
             new_coin = Coin(
                 user_id=current_user.id,
                 type=item_data.get('type', 'Coin'),
@@ -332,8 +372,8 @@ def bulk_upload_coins(current_user):
                 notes=item_data.get('notes'),
                 referenceUrl=item_data.get('referenceUrl'),
                 localImagePath=item_data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
-                region=final_region,
-                isHistorical=final_is_historical
+                region=final_region, # Set region from backend logic
+                isHistorical=final_is_historical # Set isHistorical from backend logic
             )
             db.session.add(new_coin)
             imported_count += 1
