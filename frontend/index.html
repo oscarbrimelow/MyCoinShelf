@@ -37,6 +37,22 @@
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        /* Custom scrollbar for specific elements */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #2d3748; /* Darker track */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #60a5fa; /* Blue thumb */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6; /* Darker blue on hover */
+        }
+
 
         /* General styles for containers, no specific map library styles needed here */
         #map-container {
@@ -300,6 +316,9 @@
                  <button id="import-data-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
                     <i class="ph-bold ph-upload-simple mr-2"></i> Import Data
                 </button>
+                <button id="export-data-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-download-simple mr-2"></i> Export Data
+                </button>
                  <button id="clear-all-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
                     <i class="ph-bold ph-trash-simple mr-2"></i> Clear All Items
                 </button>
@@ -509,6 +528,29 @@
         </div>
     </div>
 
+    <!-- Export Data Modal -->
+    <div id="export-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-lg border border-gray-700 transform transition-all scale-95 opacity-0">
+            <h2 class="text-2xl font-bold text-white mb-6">Export Collection Data</h2>
+            <p class="text-gray-400 mb-6">Choose your desired export format:</p>
+            <div class="flex flex-col space-y-4">
+                <button id="export-json-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-file-json mr-2"></i> Export as JSON
+                </button>
+                <button id="export-csv-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-file-csv mr-2"></i> Export as CSV
+                </button>
+                <button id="export-print-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-printer mr-2"></i> Print Report
+                </button>
+            </div>
+            <div class="flex justify-end mt-6">
+                <button type="button" id="export-cancel-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Country Details Modal -->
     <div id="country-details-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
         <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-4xl h-full max-h-[90vh] flex flex-col border border-gray-700 transform transition-all scale-95 opacity-0">
@@ -630,7 +672,7 @@
         return function(...args) {
             const context = this;
             clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(context, delay), delay);
+            timeout = setTimeout(() => func.apply(context, args), delay);
         };
     }
 
@@ -679,10 +721,10 @@
             "south sudan": "Africa", "togo": "Africa", "uganda": "Africa",
 
             "taiwan": "Asia", "india": "Asia", "china": "Asia", "japan": "Asia", "philippines": "Asia",
-            "united arab Emirates": "Asia", "israel": "Asia", "vietnam": "Asia", "bangladesh": "Asia",
+            "united arab emirates": "Asia", "israel": "Asia", "vietnam": "Asia", "bangladesh": "Asia",
             "mongolia": "Asia", "myanmar (burma)": "Asia", "cambodia": "Asia", "lebanon": "Asia",
             "uzbekistan": "Asia", "indonesia": "Asia", "laos": "Asia", "nepal": "Asia",
-            "sri Lanka": "Asia", "iran": "Asia", "pakistan": "Asia", "jordan": "Asia",
+            "sri lanka": "Asia", "iran": "Asia", "pakistan": "Asia", "jordan": "Asia",
             "kazakhstan": "Asia", "kuwait": "Asia", "kyrgyzstan": "Asia", "malaysia": "Asia",
             "maldives": "Asia", "north korea": "Asia", "oman": "Asia", "palestine": "Asia",
             "qatar": "Asia", "saudi arabia": "Asia", "singapore": "Asia", "south korea": "Asia",
@@ -736,25 +778,7 @@
             "german democratic republic": "Ancient",
         };
         const normalizedCountry = countryName.toLowerCase().trim();
-        const geoChartCountry = getGeoChartCountryName(normalizedCountry);
-
-        if (countryToRegionMap[normalizedCountry]) {
-            return countryToRegionMap[normalizedCountry];
-        }
-        if (countryToRegionMap[geoChartCountry.toLowerCase()]) {
-             return countryToRegionMap[geoChartCountry.toLowerCase()];
-        }
-        if (normalizedCountry.includes("united states") || normalizedCountry === "usa") return "North America";
-        if (normalizedCountry.includes("uk") || normalizedCountry.includes("britain")) return "Europe";
-        if (normalizedCountry.includes("russia")) return "Europe";
-        if (normalizedCountry.includes("china")) return "Asia";
-        if (normalizedCountry.includes("india")) return "Asia";
-        if (normalizedCountry.includes("japan")) return "Asia";
-        if (normalizedCountry.includes("africa")) return "Africa";
-        if (normalizedCountry.includes("roman")) return "Ancient";
-        if (normalizedCountry.includes("greece")) return "Europe";
-
-        return "Other";
+        return countryToRegionMap.get(normalizedCountry, "Other");
     }
 
     // Custom confirmation modal instead of alert/confirm
@@ -848,16 +872,18 @@
             collectionData = await response.json();
             console.log("Collection data loaded from backend:", collectionData);
 
-            // Assign region and isHistorical on load for consistency
+            // Region and isHistorical are now calculated by the backend upon add/update.
+            // We just ensure the data is present in case older data exists or for consistency.
             collectionData.forEach(item => {
-                if (!item.region || item.region === "" || item.region === "Uncategorized") {
+                if (!item.region || item.region === "") { // Ensure region is not null/empty
                     item.region = getRegionForCountry(item.country);
                 }
-                if (typeof item.isHistorical === 'undefined') {
-                     const historicalCountries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"];
-                     const yearInput = item.year;
-                     const parsedYear = yearInput ? parseInt(yearInput) : null;
-                     item.isHistorical = historicalCountries.includes(item.country.toLowerCase()) || (parsedYear !== null && parsedYear < 1900 && parsedYear !== 0);
+                // If isHistorical is not explicitly set by backend or is missing
+                if (typeof item.isHistorical === 'undefined' || item.isHistorical === null) {
+                    const historicalCountries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"];
+                    const yearInput = item.year;
+                    const parsedYear = yearInput ? parseInt(yearInput) : null;
+                    item.isHistorical = historicalCountries.includes((item.country || '').toLowerCase()) || (parsedYear !== null && parsedYear < 1900 && parsedYear !== 0);
                 }
             });
             renderAllViews(); // Re-render UI with fresh data
@@ -973,22 +999,18 @@
             return;
         }
 
-        const historicalCountries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"];
-        const yearInput = document.getElementById('year').value;
-        const parsedYear = yearInput ? parseInt(yearInput) : null;
-        const isHistoricalFlag = historicalCountries.includes(countryValue.toLowerCase()) || (parsedYear !== null && parsedYear < 1900 && parsedYear !== 0);
-
         const itemData = {
             type: document.getElementById('type').value,
             country: countryValue,
-            year: parsedYear,
+            year: document.getElementById('year').value ? parseInt(document.getElementById('year').value) : null,
             denomination: document.getElementById('denomination').value.trim(),
             value: parseFloat(document.getElementById('value').value) || 0,
             notes: document.getElementById('notes').value.trim(),
             referenceUrl: document.getElementById('referenceUrl').value.trim(),
             localImagePath: document.getElementById('localImagePath').value.trim() || "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image",
-            region: getRegionForCountry(countryValue),
-            isHistorical: isHistoricalFlag
+            // Region and isHistorical are now calculated by the backend, no need to send from frontend
+            // region: getRegionForCountry(countryValue),
+            // isHistorical: isHistoricalFlag
         };
 
         const method = itemId ? 'PUT' : 'POST';
@@ -1405,6 +1427,7 @@
                     if (elements.length > 0) {
                         const firstElement = elements[0];
                         const label = chart.data.labels[firstElement.index];
+                        // If it's a region click, show region details (this was already there)
                         showRegionDetails(label);
                     }
                 }
@@ -1415,8 +1438,8 @@
     // New Chart: Value Distribution by Year/Decade
     function renderChartValueByYear() {
         const ctx = document.getElementById('chart-value-by-year').getContext('2d');
-        if (valueByYearChart) { // Destroy previous instance
-            valueByYearChart.destroy();
+        if (Chart.getChart('chart-value-by-year')) { // Use Chart.getChart to destroy specific chart instances
+            Chart.getChart('chart-value-by-year').destroy();
         }
 
         const yearValues = {};
@@ -1499,41 +1522,36 @@
         });
     }
 
-
-    function showRegionDetails(regionName) {
-        const dashboardDiv = document.getElementById('content-dashboard');
-        const dashboardContentWrapper = dashboardDiv.querySelector('.max-w-7xl.mx-auto');
-        if (!dashboardContentWrapper) return;
-
-        if (!isAuthenticated()) {
-            showCustomConfirm('Please sign in to view region details.', () => {});
-            return;
-        }
-        
-        // Use the new country details modal instead of rendering directly in dashboard
+    // Function to show country details in a modal
+    function showCountryDetailsModal(countryName) {
         const countryDetailsModal = document.getElementById('country-details-modal');
         const countryDetailsTitle = document.getElementById('country-details-title');
         const countryTotalItems = document.getElementById('country-total-items');
         const countryTotalValue = document.getElementById('country-total-value');
         const countryItemsTableBody = document.getElementById('country-items-table-body');
-        
-        const itemsInRegion = collectionData.filter(item => item.region === regionName);
 
-        // Calculate summary stats for the region
-        const totalItemsInRegion = itemsInRegion.length;
-        const totalValueInRegion = itemsInRegion.reduce((sum, item) => sum + (item.value || 0), 0);
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to view country details.', () => {});
+            return;
+        }
 
-        countryDetailsTitle.innerText = `${regionName} Collection Details`;
-        countryTotalItems.innerText = totalItemsInRegion;
-        countryTotalValue.innerText = `$${totalValueInRegion.toFixed(2)}`;
+        const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === countryName);
 
-        itemsInRegion.sort((a, b) => {
-            const countryCompare = a.country.localeCompare(b.country);
-            if (countryCompare !== 0) return countryCompare;
+        // Calculate summary stats for the country
+        const totalItemsInCountry = itemsInCountry.length;
+        const totalValueInCountry = itemsInCountry.reduce((sum, item) => sum + (item.value || 0), 0);
+
+        countryDetailsTitle.innerText = `${countryName} Collection Details`;
+        countryTotalItems.innerText = totalItemsInCountry;
+        countryTotalValue.innerText = `$${totalValueInCountry.toFixed(2)}`;
+
+        itemsInCountry.sort((a, b) => {
+            const yearCompare = (a.year || Infinity) - (b.year || Infinity); // Sort by year, N/A last
+            if (yearCompare !== 0) return yearCompare;
             return a.denomination.localeCompare(b.denomination);
         });
 
-        const tableRows = itemsInRegion.map(item => `
+        const tableRows = itemsInCountry.map(item => `
             <tr class="border-b border-gray-700">
                 <td class="p-4">${item.id}</td>
                 <td class="p-4">${item.type}</td>
@@ -1543,7 +1561,7 @@
                 <td class="p-4 text-xs">${item.notes || 'N/A'}</td>
             </tr>
         `).join('');
-        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="6" class="p-4 text-center text-gray-500">No items found for this region.</td></tr>`;
+        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="6" class="p-4 text-center text-gray-500">No items found for ${countryName}.</td></tr>`;
 
         openModal('country-details-modal');
     }
@@ -1863,45 +1881,6 @@
         }
     }
 
-    // Function to show country details in a modal
-    function showCountryDetailsModal(countryName) {
-        const countryDetailsModal = document.getElementById('country-details-modal');
-        const countryDetailsTitle = document.getElementById('country-details-title');
-        const countryTotalItems = document.getElementById('country-total-items');
-        const countryTotalValue = document.getElementById('country-total-value');
-        const countryItemsTableBody = document.getElementById('country-items-table-body');
-
-        const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === countryName);
-
-        // Calculate summary stats for the country
-        const totalItemsInCountry = itemsInCountry.length;
-        const totalValueInCountry = itemsInCountry.reduce((sum, item) => sum + (item.value || 0), 0);
-
-        countryDetailsTitle.innerText = `${countryName} Collection Details`;
-        countryTotalItems.innerText = totalItemsInCountry;
-        countryTotalValue.innerText = `$${totalValueInCountry.toFixed(2)}`;
-
-        itemsInCountry.sort((a, b) => {
-            const yearCompare = (a.year || Infinity) - (b.year || Infinity); // Sort by year, N/A last
-            if (yearCompare !== 0) return yearCompare;
-            return a.denomination.localeCompare(b.denomination);
-        });
-
-        const tableRows = itemsInCountry.map(item => `
-            <tr class="border-b border-gray-700">
-                <td class="p-4">${item.id}</td>
-                <td class="p-4">${item.type}</td>
-                <td class="p-4">${item.year || 'N/A'}</td>
-                <td class="p-4">${item.denomination}</td>
-                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
-                <td class="p-4 text-xs">${item.notes || 'N/A'}</td>
-            </tr>
-        `).join('');
-        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="6" class="p-4 text-center text-gray-500">No items found for ${countryName}.</td></tr>`;
-
-        openModal('country-details-modal');
-    }
-
 
     // --- MISSING COUNTRIES RENDERING ---
     function renderMissingCountries() {
@@ -1971,7 +1950,8 @@
 
         // Initialize theme preference radio buttons
         const currentTheme = localStorage.getItem('theme') || 'dark';
-        document.querySelector(`input[name="theme-preference"][value="${currentTheme}"]`).checked = true;
+        const themeRadio = document.querySelector(`input[name="theme-preference"][value="${currentTheme}"]`);
+        if(themeRadio) themeRadio.checked = true;
 
         // Add event listener for theme change (if not already attached)
         const themeRadios = document.querySelectorAll('input[name="theme-preference"]');
@@ -2049,6 +2029,186 @@
         } catch (error) {
             console.error("Change password error:", error.message);
             showCustomConfirm(`Failed to change password: ${error.message}`, () => {});
+        }
+    }
+
+    // --- Export Functions ---
+    async function exportCollectionAsJson() {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to export data.', () => {});
+            return;
+        }
+        try {
+            // Using the existing collectionData loaded from backend directly
+            const jsonData = JSON.stringify(collectionData, null, 2); // Pretty print JSON
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coinshelf_collection_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showCustomConfirm('Collection exported as JSON.', () => {});
+        } catch (error) {
+            console.error("Error exporting JSON:", error);
+            showCustomConfirm(`Failed to export JSON: ${error.message}`, () => {});
+        } finally {
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+        }
+    }
+
+    async function exportCollectionAsCsv() {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to export data.', () => {});
+            return;
+        }
+        if (collectionData.length === 0) {
+            showCustomConfirm('No data to export to CSV.', () => {});
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+            return;
+        }
+
+        try {
+            const headers = Object.keys(collectionData[0]).filter(key => key !== 'localImagePath'); // Exclude image path from CSV
+            const csvRows = [];
+            csvRows.push(headers.join(',')); // Add header row
+
+            collectionData.forEach(item => {
+                const values = headers.map(header => {
+                    const value = item[header];
+                    // Handle null/undefined, and escape commas/quotes for CSV
+                    if (value === null || typeof value === 'undefined') {
+                        return '';
+                    }
+                    const stringValue = String(value);
+                    // If value contains comma, double-quote, or newline, wrap in double quotes
+                    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                        return `"${stringValue.replace(/"/g, '""')}"`; // Escape double quotes
+                    }
+                    return stringValue;
+                });
+                csvRows.push(values.join(','));
+            });
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coinshelf_collection_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showCustomConfirm('Collection exported as CSV.', () => {});
+        } catch (error) {
+            console.error("Error exporting CSV:", error);
+            showCustomConfirm(`Failed to export CSV: ${error.message}`, () => {});
+        } finally {
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+        }
+    }
+
+    async function printCollectionReport() {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to generate a report.', () => {});
+            return;
+        }
+        if (collectionData.length === 0) {
+            showCustomConfirm('No data to generate a report.', () => {});
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+            return;
+        }
+
+        try {
+            let reportContent = `
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>CoinShelf Collection Report</title>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; margin: 20px; color: #333; }
+                        h1 { color: #059669; } /* Emerald */
+                        h2 { color: #1f2937; margin-top: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                        .summary { margin-bottom: 30px; }
+                        .summary p { margin: 5px 0; }
+                        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+                        .date { font-size: 0.9em; color: #666; }
+                        @media print {
+                            body { margin: 0; padding: 10px; }
+                            .header { display: block; text-align: center; margin-bottom: 10px; }
+                            .date { text-align: right; width: 100%; display: block; margin-top: 5px; }
+                            table, th, td { border-color: #aaa; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>CoinShelf Collection Report</h1>
+                        <p class="date">Report Date: ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    <div class="summary">
+                        <p><strong>Total Items:</strong> ${collectionData.length}</p>
+                        <p><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => sum + (item.value || 0), 0).toFixed(2)}</p>
+                        <p><strong>Unique Countries:</strong> ${new Set(collectionData.map(item => item.country)).size}</p>
+                    </div>
+                    <h2>Detailed Collection List</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Type</th>
+                                <th>Country</th>
+                                <th>Year</th>
+                                <th>Denomination</th>
+                                <th>Value (USD)</th>
+                                <th>Notes</th>
+                                <th>Reference URL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            collectionData.forEach(item => {
+                reportContent += `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.type}</td>
+                        <td>${item.country || 'N/A'}</td>
+                        <td>${item.year || 'N/A'}</td>
+                        <td>${item.denomination || 'N/A'}</td>
+                        <td>$${(item.value || 0).toFixed(2)}</td>
+                        <td>${item.notes || 'N/A'}</td>
+                        <td>${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank">Link</a>` : 'N/A'}</td>
+                    </tr>
+                `;
+            });
+
+            reportContent += `
+                        </tbody>
+                    </table>
+                </body>
+                </html>
+            `;
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(reportContent);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            showCustomConfirm('Printable report generated.', () => {});
+
+        } catch (error) {
+            console.error("Error generating print report:", error);
+            showCustomConfirm(`Failed to generate report: ${error.message}`, () => {});
+        } finally {
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
         }
     }
 
@@ -2145,6 +2305,7 @@
         const logoutBtn = document.getElementById('logout-btn');
         const quickAddBtn = document.getElementById('quick-add-btn');
         const importDataBtn = document.getElementById('import-data-btn');
+        const exportDataBtn = document.getElementById('export-data-btn'); // New
         const clearAllBtn = document.getElementById('clear-all-btn'); // Get clear all button
 
         if (loggedIn) {
@@ -2153,6 +2314,7 @@
             if (logoutBtn) logoutBtn.classList.remove('hidden');
             if (quickAddBtn) quickAddBtn.classList.remove('hidden'); // Show Quick Add
             if (importDataBtn) importDataBtn.classList.remove('hidden'); // Show Import Data
+            if (exportDataBtn) exportDataBtn.classList.remove('hidden'); // Show Export Data
             if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
         } else {
             authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
@@ -2160,6 +2322,7 @@
             if (logoutBtn) logoutBtn.classList.add('hidden');
             if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
             if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
+            if (exportDataBtn) exportDataBtn.classList.add('hidden'); // Hide Export Data
             if (clearAllBtn) clearAllBtn.classList.add('hidden'); // Hide Clear All
         }
         // Also update settings view authentication state
@@ -2317,6 +2480,25 @@
             console.error('import-data-btn not found!');
         }
 
+        // Export Data button
+        const exportDataBtn = document.getElementById('export-data-btn');
+        if (exportDataBtn) {
+            console.log('Found export-data-btn');
+            exportDataBtn.addEventListener('click', () => {
+                console.log('Export Data button clicked');
+                if (!isAuthenticated()) {
+                    showCustomConfirm('Please sign in to export data.', () => {});
+                    return;
+                }
+                openModal('export-modal'); // Open the new export options modal
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        } else {
+            console.error('export-data-btn not found!');
+        }
+
 
         // Handle import submission
         const importSubmitBtn = document.getElementById('import-submit-btn');
@@ -2390,6 +2572,31 @@
                 closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
             });
         } else { console.error('import-cancel-btn not found!'); }
+
+        // Export Modal Buttons
+        const exportJsonBtn = document.getElementById('export-json-btn');
+        if (exportJsonBtn) {
+            console.log('Found export-json-btn');
+            exportJsonBtn.addEventListener('click', exportCollectionAsJson);
+        } else { console.error('export-json-btn not found!'); }
+
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        if (exportCsvBtn) {
+            console.log('Found export-csv-btn');
+            exportCsvBtn.addEventListener('click', exportCollectionAsCsv);
+        } else { console.error('export-csv-btn not found!'); }
+
+        const exportPrintBtn = document.getElementById('export-print-btn');
+        if (exportPrintBtn) {
+            console.log('Found export-print-btn');
+            exportPrintBtn.addEventListener('click', printCollectionReport);
+        } else { console.error('export-print-btn not found!'); }
+
+        const exportCancelBtn = document.getElementById('export-cancel-btn');
+        if (exportCancelBtn) {
+            console.log('Found export-cancel-btn');
+            exportCancelBtn.addEventListener('click', () => closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div')));
+        } else { console.error('export-cancel-btn not found!'); }
 
 
         // Clear All Items button and modal logic
@@ -2470,7 +2677,8 @@
         // Modal close listeners (click outside or ESC)
         const itemModal = document.getElementById('item-modal');
         const importModal = document.getElementById('import-modal');
-        const countryDetailsModal = document.getElementById('country-details-modal'); // New modal
+        const exportModal = document.getElementById('export-modal'); // New modal
+        const countryDetailsModal = document.getElementById('country-details-modal');
         const customConfirmModal = document.getElementById('custom-confirm-modal');
         const clearConfirmModalElement = document.getElementById('clear-confirm-modal');
 
@@ -2494,14 +2702,24 @@
             });
         } else { console.error('import-modal not found!'); }
 
-        if (countryDetailsModal) { // New modal
+        if (exportModal) { // New modal
+            exportModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+        } else { console.error('export-modal not found!'); }
+
+
+        if (countryDetailsModal) {
             countryDetailsModal.addEventListener('click', function(event) {
                 const modalContent = this.querySelector('div');
                 if (!modalContent.contains(event.target)) {
                     closeModal(this, modalContent);
                 }
             });
-            document.getElementById('country-details-close-btn').addEventListener('click', () => { // Close button
+            document.getElementById('country-details-close-btn').addEventListener('click', () => {
                 closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
             });
         } else { console.error('country-details-modal not found!'); }
@@ -2533,16 +2751,19 @@
                     closeModal(itemModal, itemModal.querySelector('div'));
                     reinitItemForm();
                 }
-                if (importModal && !importModal.classList.contains('hidden')) { // Close import modal
+                if (importModal && !importModal.classList.contains('hidden')) {
                     closeModal(importModal, importModal.querySelector('div'));
                 }
-                if (countryDetailsModal && !countryDetailsModal.classList.contains('hidden')) { // Close country details modal
+                if (exportModal && !exportModal.classList.contains('hidden')) { // Close export modal
+                    closeModal(exportModal, exportModal.querySelector('div'));
+                }
+                if (countryDetailsModal && !countryDetailsModal.classList.contains('hidden')) {
                     closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
                 }
                 if (customConfirmModal && !customConfirmModal.classList.contains('hidden')) {
                     closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
                 }
-                 if (clearConfirmModalElement && !clearConfirmModalElement.classList.contains('hidden')) { // Close clear all modal
+                 if (clearConfirmModalElement && !clearConfirmModalElement.classList.contains('hidden')) {
                     closeModal(clearConfirmModalElement, clearConfirmModalElement.querySelector('div'));
                 }
                 // Close sidebar if open on mobile
@@ -2568,8 +2789,8 @@
         // Close sidebar if screen resizes to desktop and is currently open
         window.addEventListener('resize', () => {
             if (window.innerWidth >= 768) { // md breakpoint for Tailwind
-                if (sidebar && sidebar.classList.contains('open')) { // If open in mobile state
-                    toggleSidebar(); // Close it and remove mobile-specific classes
+                if (sidebar && sidebar.classList.contains('open')) {
+                    toggleSidebar();
                 }
             }
         });
