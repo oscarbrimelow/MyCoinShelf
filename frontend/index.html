@@ -119,6 +119,7 @@
         }
 
         /* Overlay for unauthenticated state */
+        /* Changed z-index from 50 to 20 to ensure sidebar and its content are visible above it */
         .unauthenticated-overlay {
             position: absolute;
             top: 0;
@@ -130,7 +131,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            z-index: 50; /* Above content, below modals */
+            z-index: 20; /* Adjusted from 50 */
             border-radius: 0.5rem; /* Match card styling */
         }
     </style>
@@ -1684,7 +1685,6 @@
                     let message = result.message || 'Import process completed.';
                     if (result.errors && result.errors.length > 0) {
                         message += ` Some items had errors: ${result.errors.map(err => err.substring(0, 50) + "...").join('; ')}`; // Truncate errors for message box
-                        console.error("Bulk import errors:", result.errors); // Log full errors to console
                     }
                     showCustomConfirm(message, () => {});
                     loadCollectionFromBackend(); // Reload data after successful import
