@@ -1,430 +1,2907 @@
-# backend/app.py
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<!-- Favicon for browser tab icon -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪙</text></svg>" type="image/svg+xml">
+<!-- You can also use a hosted image like this (replace URL with your own) -->
+<!-- <link rel="icon" href="https://placehold.co/32x32/1f2937/d1d5db?text=CO" type="image/png"> -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoinShelf - Collection Manager</title>
 
-import os
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
-from werkzeug.security import generate_password_hash, check_password_hash
-import jwt
-import datetime
-from functools import wraps
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-# Import configuration
-from config import Config
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-app = Flask(__name__)
-app.config.from_object(Config)
+    <!-- Google Charts for GeoChart -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 
-# Initialize SQLAlchemy
-db = SQLAlchemy(app)
+    <!-- Phosphor Icons for a clean icon set -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-# Initialize CORS for cross-origin requests from your frontend
-# For production, replace "*" with your actual frontend domain (e.g., 'https://your-netlify-app.netlify.app')
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+    <style>
+        /* Custom styles for a more polished look */
+        body {
+            background-color: #111827; /* Dark gray background */
+            color: #d1d5db; /* Light gray text */
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-# --- Database Models ---
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    coins = db.relationship('Coin', backref='owner', lazy=True) # One user has many coins
-
-    def __repr__(self):
-        return f'<User {self.email}>'
-
-class Coin(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    type = db.Column(db.String(50), nullable=False, default='Coin') # Default added
-    country = db.Column(db.String(100), nullable=True) # CHANGED to nullable=True
-    year = db.Column(db.Integer, nullable=True)
-    denomination = db.Column(db.String(100), nullable=True) # CHANGED to nullable=True
-    value = db.Column(db.Float, nullable=False, default=0.0) # Default added
-    notes = db.Column(db.Text, nullable=True)
-    # MODIFIED: Changed from db.String(255) to db.Text to allow longer URLs
-    referenceUrl = db.Column(db.Text, nullable=True)
-    # MODIFIED: Changed from db.String(255) to db.Text to allow longer image paths/URLs
-    localImagePath = db.Column(db.Text, nullable=True)
-    region = db.Column(db.String(100), nullable=True)
-    isHistorical = db.Column(db.Boolean, nullable=False, default=False)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'type': self.type,
-            'country': self.country,
-            'year': self.year,
-            'denomination': self.denomination,
-            'value': self.value,
-            'notes': self.notes,
-            'referenceUrl': self.referenceUrl,
-            'localImagePath': self.localImagePath,
-            'region': self.region,
-            'isHistorical': self.isHistorical
+        /* Custom scrollbar for a modern feel */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        
+        /* Custom scrollbar for specific elements */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #2d3748; /* Darker track */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #60a5fa; /* Blue thumb */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6; /* Darker blue on hover */
         }
 
-    def __repr__(self):
-        return f'<Coin {self.country} {self.denomination}>'
 
-# --- JWT Authentication Decorator ---
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        # JWT is passed in the Authorization header as "Bearer <token>"
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split(" ")[1]
+        /* General styles for containers, no specific map library styles needed here */
+        #map-container {
+            width: 100%;
+            /* min-height can be adjusted based on desired aspect ratio. 500px is a good start. */
+            min-height: 500px;
+            display: flex; /* Flex to center content if needed, though GeoChart fills its container */
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            border: 1px solid #374151;
+            overflow: hidden; /* Hide any overflow from the chart */
+        }
+        /* Make sure Google Charts fits its container */
+        #map-container > div {
+            width: 100% !important;
+            height: 100% !important;
+        }
 
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 401
+        /* --- Google Charts Tooltip Custom Styles --- */
+        /* This targets the main tooltip container, typically generated by Google Charts */
+        .google-visualization-tooltip {
+            background-color: #1f2937 !important; /* Dark background */
+            border: 1px solid #4b5563 !important; /* Darker border */
+            color: #d1d5db !important; /* Light text */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4) !important; /* Soft shadow */
+            border-radius: 0.5rem !important; /* Rounded corners */
+            padding: 0.75rem 1rem !important; /* Padding inside */
+            font-family: 'Inter', sans-serif !important; /* Match app font */
+            font-size: 0.875rem !important; /* Standard text size */
+            line-height: 1.5 !important; /* Better line spacing */
+        }
+        /* Style for text within the tooltip */
+        .google-visualization-tooltip p {
+            margin-bottom: 0.25rem !important;
+        }
+        /* Style for headers within the tooltip if any */
+        .google-visualization-tooltip h3 {
+            color: #34D399 !important; /* Highlight color for headers, e.g., emerald */
+            font-size: 1.125rem !important; /* Slightly larger heading */
+            margin-bottom: 0.5rem !important;
+        }
+        /* Style for scrollable content within tooltip */
+        .google-visualization-tooltip .tooltip-scroll-content {
+            max-height: 100px; /* Limit height */
+            overflow-y: auto; /* Enable scroll if content overflows */
+            padding-right: 5px; /* Space for scrollbar */
+        }
+        /* Custom scrollbar for tooltip content */
+        .google-visualization-tooltip .tooltip-scroll-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .google-visualization-tooltip .tooltip-scroll-content::-webkit-scrollbar-track {
+            background: #2d3748; /* Darker track */
+        }
+        .google-visualization-tooltip .tooltip-scroll-content::-webkit-scrollbar-thumb {
+            background: #60a5fa; /* Blue thumb */
+            border-radius: 3px;
+        }
+        .google-visualization-tooltip .tooltip-scroll-content::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6; /* Darker blue on hover */
+        }
 
-        try:
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-            current_user = User.query.get(data['user_id'])
-            if not current_user:
-                return jsonify({'message': 'Token is invalid or user not found!'}), 401
-        except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'Token has expired!'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'message': 'Token is invalid!'}), 401
+        /* Table hover effect */
+        .data-table tbody tr:hover {
+            background-color: #1f2937;
+        }
 
-        return f(current_user, *args, **kwargs)
+        /* Modal backdrop */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.75);
+        }
 
-    return decorated
+        /* Chart.js tooltip custom styles */
+        .chartjs-tooltip {
+            background: #1f2937 !important;
+            border: 1px solid #4b5563 !important;
+            border-radius: 0.5rem !important;
+            color: #d1d5db !important;
+        }
 
-# --- UTILITY FOR REGION MAPPING & HISTORICAL FLAG (Moved to Backend) ---
-def get_region_for_country(country_name):
-    # If country_name is None or empty, default to "Other"
-    if not country_name:
-        return "Other"
+        /* Overlay for unauthenticated state */
+        .unauthenticated-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(17, 24, 39, 0.9); /* Same as body bg with transparency */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 20;
+            border-radius: 0.5rem; /* Match card styling */
+        }
 
-    country_to_region_map = {
-        "south africa": "Africa", "eswatini": "Africa", "kenya": "Africa", "central african states": "Africa",
-        "mauritius": "Africa", "ghana": "Africa", "rwanda": "Africa", "zimbabwe": "Africa",
-        "tanzania": "Africa", "mozambique": "Africa", "botswana": "Africa", "zambia": "Africa",
-        "eritrea": "Africa", "somalia": "Africa", "sudan": "Africa", "malawi": "Africa",
-        "ethiopia": "Africa", "nigeria": "Africa", "egypt": "Africa", "algeria": "Africa", "angola": "Africa",
-        "benin": "Africa", "burkina faso": "Africa", "burundi": "Africa", "cabo verde": "Africa",
-        "cameroon": "Africa", "chad": "Africa", "comoros": "Africa", "congo (brazzaville)": "Africa",
-        "congo (kinshasa)": "Africa", "djibouti": "Africa", "equatorial guinea": "Africa",
-        "gabon": "Africa", "gambia": "Africa", "guinea": "Africa", "guinea-bissau": "Africa",
-        "lesotho": "Africa", "liberia": "Africa", "libya": "Africa", "liechtenstein": "Europe", "madagascar": "Africa",
-        "mali": "Africa", "mauritania": "Africa", "morocco": "Africa", "niger": "Africa",
-        "sao tome and principe": "Africa", "senegal": "Africa", "sierra leone": "Africa",
-        "south sudan": "Africa", "togo": "Africa", "uganda": "Africa",
+        /* Ensure main content takes full height to allow its own scrolling */
+        #main-content-area {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow-y: auto; /* This allows the main content to scroll independently */
+        }
+        
+        /* On small screens, hide the fixed sidebar to allow full width for content */
+        @media (max-width: 767px) {
+            #sidebar {
+                transform: translateX(-100%); /* Hidden by default */
+            }
+            #sidebar.open {
+                transform: translateX(0); /* Shown when open */
+            }
+            /* Main content takes full width on mobile */
+            .md\:ml-64 { /* Override Tailwind's md:ml-64 on mobile */
+                margin-left: 0 !important;
+            }
+        }
 
-        "taiwan": "Asia", "india": "Asia", "china": "Asia", "japan": "Asia", "philippines": "Asia",
-        "united arab emirates": "Asia", "israel": "Asia", "vietnam": "Asia", "bangladesh": "Asia",
-        "mongolia": "Asia", "myanmar (burma)": "Asia", "cambodia": "Asia", "lebanon": "Asia",
-        "uzbekistan": "Asia", "indonesia": "Asia", "laos": "Asia", "nepal": "Asia",
-        "sri lanka": "Asia", "iran": "Asia", "pakistan": "Asia", "jordan": "Asia",
-        "kazakhstan": "Asia", "kuwait": "Asia", "kyrgyzstan": "Asia", "malaysia": "Asia",
-        "maldives": "Asia", "north korea": "Asia", "oman": "Asia", "palestine": "Asia",
-        "qatar": "Asia", "saudi arabia": "Asia", "singapore": "Asia", "south korea": "Asia",
-        "syria": "Asia", "tajikistan": "Asia", "turkey": "Asia", "turkmenistan": "Asia",
-        "yemen": "Asia", "afghanistan": "Asia", "azerbaijan": "Asia", "bahrain": "Asia",
-        "brunei": "Asia", "east timor (timor-leste)": "Asia", "georgia": "Asia",
-        "iraq": "Asia",
+        /* Keyframe for subtle bounce animation */
+        @keyframes bounce-slow {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px); /* Smaller bounce */
+            }
+        }
 
-        "netherlands": "Europe", "united kingdom": "Europe", "belgium": "Europe",
-        "eu": "Europe", "ireland": "Europe", "spain": "Europe", "portugal": "Europe",
-        "isle of man": "Europe", "germany": "Europe", "bulgaria": "Europe",
-        "france": "Europe", "croatia": "Europe", "moldova": "Europe",
-        "ukraine": "Europe", "denmark": "Europe", "finland": "Europe",
-        "norway": "Europe", "san marino": "Europe", "switzerland": "Europe",
-        "belarus": "Europe", "albania": "Europe",
-        "andorra": "Europe", "austria": "Europe", "bosnia and herzegovina": "Europe",
-        "czechia (czech republic)": "Europe", "estonia": "Europe",
-        "greece": "Europe", "hungary": "Europe", "iceland": "Europe",
-        "italy": "Europe", "latvia": "Europe", "lithuania": "Europe",
-        "luxembourg": "Europe", "malta": "Europe",
-        "monaco": "Europe", "montenegro": "Europe", "north macedonia (macedonia)": "Europe",
-        "poland": "Europe", "romania": "Europe", "serbia": "Europe",
-        "slovakia": "Europe", "slovenia": "Europe", "sweden": "Europe",
-        "vatican city": "Europe", "russia": "Europe",
+        .animate-bounce-slow {
+            animation: bounce-slow 3s infinite ease-in-out; /* Slower and smoother */
+        }
+        
+        /* For light mode */
+        html.light body {
+            background-color: #f3f4f6; /* Light gray */
+            color: #1f2937; /* Dark text */
+        }
+        html.light #sidebar {
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+        }
+        html.light #sidebar .border-b, html.light #sidebar .border-t {
+            border-color: #e5e7eb;
+        }
+        html.light #sidebar h1 {
+            color: #1f2937;
+        }
+        html.light #sidebar .nav-link {
+            color: #4b5563;
+        }
+        html.light #sidebar .nav-link:hover {
+            background-color: #f3f4f6;
+        }
+        html.light #sidebar .nav-link.bg-gray-700 { /* Active link */
+            background-color: #e5e7eb;
+            color: #1f2937;
+        }
+        html.light .bg-gray-800 { /* Main content cards */
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+        }
+        html.light .bg-gray-700 { /* Inputs, table headers, etc. */
+            background-color: #f3f4f6;
+            border-color: #d1d5db;
+        }
+        html.light input, html.light select, html.light textarea {
+            background-color: #f9fafb;
+            border-color: #d1d5db;
+            color: #1f2937;
+        }
+        html.light .text-gray-300 { /* General text */
+            color: #374151;
+        }
+        html.light .text-gray-400 { /* Secondary text */
+            color: #6b7280;
+        }
+        html.light .text-gray-500 { /* Placeholder text */
+            color: #9ca3af;
+        }
+        html.light .data-table tbody tr:hover {
+            background-color: #f3f4f6;
+        }
+        html.light #map-container {
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+        }
+        html.light .google-visualization-tooltip {
+            background-color: #ffffff !important;
+            border-color: #e5e7eb !important;
+            color: #1f2937 !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+        }
+        html.light .google-visualization-tooltip .tooltip-scroll-content::-webkit-scrollbar-track {
+            background: #e5e7eb;
+        }
+        html.light .chartjs-tooltip {
+            background: #ffffff !important;
+            border: 1px solid #e5e7eb !important;
+            color: #1f2937 !important;
+        }
+        html.light #auth-status {
+            color: #374151;
+        }
+        html.light #home-signup-btn, html.light #home-learn-more-btn {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        html.light #main-content-area header {
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+        }
+        html.light #main-content-area header h1, html.light #main-content-area header button {
+            color: #1f2937;
+        }
+        html.light .unauthenticated-overlay {
+            background-color: rgba(243, 244, 246, 0.9);
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+    <!-- Overlay for mobile sidebar when open -->
+    <div id="mobile-sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
 
-        "canada": "North America", "united states": "North America", "mexico": "North America",
-        "antigua and barbuda": "North America", "bahamas": "North America", "barbados": "North America",
-        "belize": "North America", "costa rica": "North America", "cuba": "North America",
-        "dominica": "North America", "dominican republic": "North America", "el salvador": "North America",
-        "grenada": "North America", "guatemala": "North America", "haiti": "North America",
-        "honduras": "North America", "jamaica": "North America", "nicaragua": "North America",
-        "panama": "North America", "saint kitts and nevis": "North America", "saint lucia": "North America",
-        "saint vincent and the grenadines": "North America", "trinidad and tobago": "North America",
+    <!-- Main App Content -->
+    <div id="app-content" class="flex flex-col md:flex-row min-h-screen bg-gray-900 text-gray-300">
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 border-r border-gray-700 flex flex-col
+                                  transform -translate-x-full md:translate-x-0 md:flex-shrink-0 transition-transform duration-300 ease-in-out">
+            <div class="h-16 flex items-center justify-center border-b border-gray-700 flex-shrink-0">
+                <i class="ph-bold ph-coins text-3xl text-emerald-400"></i>
+                <h1 class="text-xl font-bold ml-2">CoinShelf by Oscar</h1>
+            </div>
+            <!-- Wrapped navigation links in a separate div with overflow-y-auto and flex-grow -->
+            <div class="flex-grow overflow-y-auto">
+                <nav class="p-4">
+                    <a href="#" id="nav-home" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
+                        <i class="ph-bold ph-house-simple mr-3"></i> Home
+                    </a>
+                    <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
+                    </a>
+                    <a href="#" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-list-dashes mr-3"></i> Collection
+                    </a>
+                    <a href="#" id="nav-map" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-map-trifold mr-3"></i> World Map
+                    </a>
+                    <a href="#" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-flag mr-3"></i> Missing Countries
+                    </a>
+                    <a href="#" id="nav-settings" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-gear mr-3"></i> Account Settings
+                    </a>
+                </nav>
+            </div>
+            <!-- Buttons Section: flex-shrink-0 to keep it from shrinking -->
+            <div class="p-4 border-t border-gray-700 flex flex-col space-y-3 flex-shrink-0">
+                <button id="quick-add-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-plus-circle mr-2"></i> Quick Add Item
+                </button>
+                 <button id="import-data-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-upload-simple mr-2"></i> Import Data
+                </button>
+                <button id="export-data-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-download-simple mr-2"></i> Export Data
+                </button>
+                 <button id="clear-all-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-trash-simple mr-2"></i> Clear All Items
+                </button>
+            </div>
 
-        "brazil": "South America", "argentina": "South America", "peru": "South America",
-        "colombia": "South America", "chile": "South America", "bolivia": "South America",
-        "ecuador": "South America", "guyana": "South America", "paraguay": "South America",
-        "suriname": "South America", "uruguay": "South America", "venezuela": "South America",
+            <!-- Authentication Section: flex-shrink-0 and mt-auto to ensure it stays at the very bottom -->
+            <div class="p-4 border-t border-gray-700 mt-auto flex-shrink-0">
+                <div id="auth-status" class="text-center text-sm mb-2"></div>
+                <div id="auth-form-container">
+                    <form id="login-form" class="space-y-3">
+                        <input type="email" id="login-email" placeholder="Email" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="password" id="login-password" placeholder="Password" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors">Sign In</button>
+                        <button type="button" id="signup-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors">Sign Up</button>
+                    </form>
+                    <button type="button" id="logout-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md text-sm mt-3 hidden transition-colors">Sign Out</button>
+                </div>
+            </div>
+        </aside>
 
-        "australia": "Oceania", "new zealand": "Oceania", "fiji": "Oceania",
-        "kiribati": "Oceania", "marshall islands": "Oceania", "micronesia": "Oceania",
-        "nauru": "Oceania", "palau": "Oceania", "papua new guinea": "Oceania",
-        "samoa": "Oceania", "solomon islands": "Oceania", "tonga": "Oceania",
-        "tuvalu": "Oceania", "vanuatu": "Oceania",
+        <!-- Main Content -->
+        <main id="main-content-area" class="flex-1 flex flex-col md:ml-64">
+            <!-- Top bar for mobile (hamburger menu and title) -->
+            <header class="bg-gray-800 p-4 md:hidden flex items-center justify-between border-b border-gray-700 flex-shrink-0">
+                <button id="mobile-menu-toggle" class="text-white text-2xl focus:outline-none">
+                    <i class="ph-bold ph-list"></i>
+                </button>
+                <h1 class="text-xl font-bold text-white">CoinShelf</h1>
+                <div class="w-8"></div> <!-- Placeholder for right alignment to balance toggle button -->
+            </header>
 
-        "siscia": "Ancient", "consz": "Ancient", "rome": "Ancient", "nicomedia": "Ancient",
-        "constantinople": "Ancient", "mediolanum (milan)": "Ancient", "antioch": "Ancient",
-        "ancient greece": "Ancient", "?": "Ancient",
-        "thessalonica": "Ancient", "ussr": "Ancient", "yugoslavia": "Ancient",
-        "rhodesia": "Ancient", "czechoslovakia": "Ancient", "east germany": "Ancient",
-        "german democratic republic": "Ancient",
+            <!-- New Home Content View -->
+            <div id="content-home" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative">
+                <div class="max-w-7xl mx-auto h-full flex flex-col items-center justify-center text-center py-12 px-4">
+                    <i class="ph-bold ph-coins text-8xl text-emerald-400 mb-8 animate-bounce-slow"></i>
+                    <h2 class="text-5xl font-bold text-white mb-6 leading-tight">Welcome to CoinShelf</h2>
+                    <p class="text-xl text-gray-300 mb-8 max-w-2xl">
+                        Your personal digital vault for managing and exploring your precious coin and banknote collection.
+                        Organize your treasures, track their value, and discover new countries to collect!
+                    </p>
+                    <p class="text-md text-gray-400 mb-2">
+                        Crafted with passion by <span class="font-semibold text-emerald-300">Oscar Brimelow</span>.
+                    </p>
+                    <p class="text-md text-gray-400 mb-10 flex items-center">
+                        <a href="https://www.instagram.com/oscarbrimelow/" target="_blank" class="text-pink-400 hover:text-pink-300 transition-colors flex items-center">
+                            <i class="ph-bold ph-instagram-logo text-xl mr-2"></i> Follow on Instagram
+                        </a>
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button id="home-signup-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md text-lg transition-colors shadow-lg">
+                            Get Started - Sign Up
+                        </button>
+                        <button id="home-learn-more-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-md text-lg transition-colors shadow-lg">
+                            Learn More (Go to Dashboard)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-dashboard" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
+                <!-- Dashboard Content Here -->
+                <div class="max-w-7xl mx-auto">
+                    <!-- Dashboard content will be rendered inside this centered div -->
+                </div>
+            </div>
+
+            <div id="content-collection" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
+                <!-- Collection Content Here -->
+                <div class="max-w-7xl mx-auto">
+                    <!-- Collection content will be rendered inside this centered div -->
+                </div>
+            </div>
+
+            <div id="content-map" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
+                <!-- Map Content Here -->
+                <div class="max-w-7xl mx-auto h-full">
+                    <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
+                        <!-- Google GeoChart will be rendered here -->
+                        <div id="geochart-canvas"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Missing Countries Content -->
+            <div id="content-missing" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
+                <div class="max-w-7xl mx-auto">
+                    <h2 class="text-3xl font-bold text-white mb-6">Countries to Collect</h2>
+                    <div id="missing-countries-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        <!-- Missing countries will be rendered here -->
+                    </div>
+                    <div id="missing-countries-status" class="text-gray-400 mt-6 text-center"></div>
+                </div>
+            </div>
+
+            <!-- Account Settings Content -->
+            <div id="content-settings" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
+                <div class="max-w-3xl mx-auto bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h2 class="text-3xl font-bold text-white mb-6">Account Settings</h2>
+
+                    <div id="settings-unauthenticated-overlay" class="unauthenticated-overlay ${isAuthenticated() ? 'hidden' : ''}">
+                         <p class="text-xl text-red-400">Please sign in to manage your account settings.</p>
+                    </div>
+
+                    <div id="settings-content" class="${isAuthenticated() ? '' : 'hidden'}">
+                        <!-- Password Change Form -->
+                        <div class="mb-8">
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Change Password</h3>
+                            <form id="change-password-form" class="space-y-4">
+                                <div>
+                                    <label for="current-password" class="block text-sm font-medium text-gray-400">Current Password</label>
+                                    <input type="password" id="current-password" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                </div>
+                                <div>
+                                    <label for="new-password" class="block text-sm font-medium text-gray-400">New Password</label>
+                                    <input type="password" id="new-password" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                </div>
+                                <div>
+                                    <label for="confirm-new-password" class="block text-sm font-medium text-gray-400">Confirm New Password</label>
+                                    <input type="password" id="confirm-new-password" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                </div>
+                                <button type="submit" id="change-password-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Update Password</button>
+                            </form>
+                        </div>
+
+                        <!-- Theme Preference -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Theme Preference</h3>
+                            <div class="flex items-center space-x-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="theme-preference" value="dark" class="form-radio h-4 w-4 text-emerald-600" checked>
+                                    <span class="ml-2 text-gray-300">Dark Mode</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="theme-preference" value="light" class="form-radio h-4 w-4 text-emerald-600">
+                                    <span class="ml-2 text-gray-300">Light Mode</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="item-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
+            <h2 id="modal-title" class="text-2xl font-bold mb-6">Add New Item</h2>
+            <form id="item-form">
+                <input type="hidden" id="item-id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Form fields -->
+                    <div>
+                        <label for="type" class="block text-sm font-medium text-gray-400">Type</label>
+                        <select id="type" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            <option>Coin</option>
+                            <option>Banknote</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="country" class="block text-sm font-medium text-gray-400">Country</label>
+                        <input type="text" id="country" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label for="year" class="block text-sm font-medium text-gray-400">Year</label>
+                        <input type="number" id="year" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                     <div>
+                        <label for="value" class="block text-sm font-medium text-gray-400">Estimated Value (USD)</label>
+                        <input type="number" step="0.01" id="value" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="denomination" class="block text-sm font-medium text-gray-400">Denomination</label>
+                        <input type="text" id="denomination" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="notes" class="block text-sm font-medium text-gray-400">Notes</label>
+                        <textarea id="notes" rows="3" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="referenceUrl" class="block text-sm font-medium text-gray-400">Reference URL (eBay, etc.)</label>
+                        <input type="text" id="referenceUrl" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="localImagePath" class="block text-sm font-medium text-gray-400">Local Image Path</label>
+                        <input type="text" id="localImagePath" placeholder="e.g., C:\Users\YourName\Pictures\Coins\my_coin.jpg" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                </div>
+                <div class="flex justify-end mt-8">
+                    <button type="button" id="cancel-btn" class="mr-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
+                    <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-md transition-colors">Save Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import Data Modal -->
+    <div id="import-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
+            <h2 class="text-2xl font-bold mb-6">Import Collection Data</h2>
+            <p class="text-gray-400 mb-4">Paste your coin collection data as a JSON array below.</p>
+            <textarea id="import-json-data" rows="15" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-white p-3 font-mono text-sm"></textarea>
+            <div class="flex justify-end mt-6">
+                <button type="button" id="import-cancel-btn" class="mr-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
+                <button type="button" id="import-submit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition-colors">Upload & Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Data Modal -->
+    <div id="export-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-lg border border-gray-700 transform transition-all scale-95 opacity-0">
+            <h2 class="text-2xl font-bold text-white mb-6">Export Collection Data</h2>
+            <p class="text-gray-400 mb-6">Choose your desired export format:</p>
+            <div class="flex flex-col space-y-4">
+                <button id="export-json-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-file-json mr-2"></i> Export as JSON
+                </button>
+                <button id="export-csv-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-file-csv mr-2"></i> Export as CSV
+                </button>
+                <button id="export-print-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-printer mr-2"></i> Print Report
+                </button>
+            </div>
+            <div class="flex justify-end mt-6">
+                <button type="button" id="export-cancel-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Country Details Modal -->
+    <div id="country-details-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-4xl h-full max-h-[90vh] flex flex-col border border-gray-700 transform transition-all scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="country-details-title" class="text-2xl font-bold text-white"></h2>
+                <button id="country-details-close-btn" class="text-gray-400 hover:text-gray-200">
+                    <i class="ph-bold ph-x-circle text-2xl"></i>
+                </button>
+            </div>
+            <div class="flex-grow overflow-y-auto custom-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Items</h3>
+                        <p id="country-total-items" class="text-3xl font-bold text-emerald-400">0</p>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Value</h3>
+                        <p id="country-total-value" class="text-3xl font-bold text-emerald-400">$0.00</p>
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-semibold text-gray-300 mb-4">Items from this Country</h3>
+                <div class="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
+                    <table class="w-full text-left data-table">
+                        <thead class="bg-gray-700 sticky top-0">
+                            <tr>
+                                <th class="p-4 font-semibold">ID</th>
+                                <th class="p-4 font-semibold">Type</th>
+                                <th class="p-4 font-semibold">Year</th>
+                                <th class="p-4 font-semibold">Denomination</th>
+                                <th class="p-4 font-semibold">Value</th>
+                                <th class="p-4 font-semibold">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="country-items-table-body">
+                            <!-- Country specific items will be rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Custom Confirmation Modal -->
+    <div id="custom-confirm-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-sm text-center transform transition-all scale-95 opacity-0">
+            <p id="confirm-message" class="text-lg font-semibold mb-6"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirm-cancel" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors">Cancel</button>
+                <button id="confirm-ok" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear All Confirmation Modal -->
+    <div id="clear-confirm-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-md text-center transform transition-all scale-95 opacity-0">
+            <h2 class="text-2xl font-bold text-red-400 mb-4">CONFIRM CLEAR ALL DATA</h2>
+            <p class="text-lg text-gray-300 mb-6">
+                This action will permanently delete ALL your coin collection data.
+                To proceed, please type "<span class="font-bold text-red-300">CLEARYES</span>" into the box below.
+            </p>
+            <input type="text" id="clear-confirm-input" placeholder="Type CLEARYES here"
+                   class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500 text-white p-3 text-center text-lg uppercase mb-6">
+            <div class="flex justify-center space-x-4">
+                <button type="button" id="clear-all-cancel-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
+                <button type="button" id="clear-all-confirm-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-md transition-colors">Delete All Data</button>
+            </div>
+        </div>
+    </div>
+
+
+<script>
+    // --- Backend API Base URL ---
+    // This will be updated later with your actual Render backend URL
+    const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
+
+    // --- Data Store ---
+    let collectionData = []; // This will be populated from the backend
+
+    // List of all countries (you can expand this as needed)
+    const ALL_COUNTRIES = [
+        "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+        "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi",
+        "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo (Brazzaville)", "Congo (Kinshasa)", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czechia (Czech Republic)",
+        "Denmark", "Djibouti", "Dominica", "Dominican Republic",
+        "East Timor (Timor-Leste)", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia",
+        "Fiji", "Finland", "France",
+        "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana",
+        "Haiti", "Honduras", "Hungary",
+        "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast",
+        "Jamaica", "Japan", "Jordan",
+        "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan",
+        "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg",
+        "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar (Burma)",
+        "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia (Macedonia)", "Norway",
+        "Oman",
+        "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal",
+        "Qatar",
+        "Romania", "Russia", "Rwanda",
+        "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
+        "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu",
+        "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan",
+        "Vanuatu", "Vatican City", "Venezuela", "Vietnam",
+        "Yemen",
+        "Zambia", "Zimbabwe"
+    ].sort();
+
+
+    // --- UTILS ---
+    let chartInstance = null; // To store the Chart.js instance for dashboard chart
+    let valueByYearChart = null; // To store the Chart.js instance for value by year chart
+    let geoChart = null; // To store the Google GeoChart instance
+
+    // Debounce function to limit how often a function is called
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), delay);
+        };
     }
-    normalized_country = country_name.lower().strip()
-    return country_to_region_map.get(normalized_country, "Other")
 
-def get_is_historical_flag(country_name, year):
-    historical_countries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"]
-    
-    country_for_check = country_name.lower() if country_name else ''
-    
-    is_historical = country_for_check in historical_countries or \
-                    (year is not None and year < 1900 and year != 0)
-    return is_historical
+    // Map for standardizing country names for Google Charts GeoChart
+    const countryAliasMap = {
+        "united states of america": "United States", "usa": "United States", "uk": "United Kingdom",
+        "britain": "United Kingdom", "russia": "Russia", "china": "China", "india": "India",
+        "japan": "Japan", "germany": "Germany", "deutschland": "Germany", "france": "France",
+        "italy": "Italy", "brazil": "Brazil", "brasil": "Brazil", "south africa": "South Africa",
+        "eswatini": "Eswatini", "rome": "Italy", "constantinople": "Turkey", "nicomedia": "Turkey",
+        "antioch": "Syria", "ancient greece": "Greece", "seleucid": "Syria", "ussr": "Russia",
+        "yugoslavia": "Serbia", "east germany": "Germany", "german democratic republic": "Germany",
+        "phillipines": "Philippines",
+    };
 
+    /**
+     * Gets the standardized country name for Google GeoChart.
+     * @param {string} countryName - The country name from your data.
+     * @returns {string} The standardized country name or the original if no alias found.
+     */
+    function getGeoChartCountryName(countryName) {
+        if (!countryName) return "";
+        const normalized = countryName.toLowerCase().trim();
+        return countryAliasMap[normalized] || countryName;
+    }
 
-# --- Routes ---
+    /**
+     * Retrieves the geographic region for a given country.
+     * @param {string} countryName The country name.
+     * @returns {string} The region name, or 'Other' if not found.
+     */
+    function getRegionForCountry(countryName) {
+        const countryToRegionMap = {
+            "south africa": "Africa", "eswatini": "Africa", "kenya": "Africa", "central african states": "Africa",
+            "mauritius": "Africa", "ghana": "Africa", "rwanda": "Africa", "zimbabwe": "Africa",
+            "tanzania": "Africa", "mozambique": "Africa", "botswana": "Africa", "zambia": "Africa",
+            "eritrea": "Africa", "somalia": "Africa", "sudan": "Africa", "malawi": "Africa",
+            "ethiopia": "Africa", "nigeria": "Africa", "egypt": "Africa", "algeria": "Africa", "angola": "Africa",
+            "benin": "Africa", "burkina faso": "Africa", "burundi": "Africa", "cabo verde": "Africa",
+            "cameroon": "Africa", "chad": "Africa", "comoros": "Africa", "congo (brazzaville)": "Africa",
+            "congo (kinshasa)": "Africa", "djibouti": "Africa", "equatorial guinea": "Africa",
+            "gabon": "Africa", "gambia": "Africa", "guinea": "Africa", "guinea-bissau": "Africa",
+            "lesotho": "Africa", "liberia": "Africa", "libya": "Africa", "liechtenstein": "Europe", "madagascar": "Africa",
+            "mali": "Africa", "mauritania": "Africa", "morocco": "Africa", "niger": "Africa",
+            "sao tome and principe": "Africa", "senegal": "Africa", "sierra leone": "Africa",
+            "south sudan": "Africa", "togo": "Africa", "uganda": "Africa",
 
-@app.route('/')
-def home():
-    return "CoinShelf Backend is Running!"
+            "taiwan": "Asia", "india": "Asia", "china": "Asia", "japan": "Asia", "philippines": "Asia",
+            "united arab emirates": "Asia", "israel": "Asia", "vietnam": "Asia", "bangladesh": "Asia",
+            "mongolia": "Asia", "myanmar (burma)": "Asia", "cambodia": "Asia", "lebanon": "Asia",
+            "uzbekistan": "Asia", "indonesia": "Asia", "laos": "Asia", "nepal": "Asia",
+            "sri lanka": "Asia", "iran": "Asia", "pakistan": "Asia", "jordan": "Asia",
+            "kazakhstan": "Asia", "kuwait": "Asia", "kyrgyzstan": "Asia", "malaysia": "Asia",
+            "maldives": "Asia", "north korea": "Asia", "oman": "Asia", "palestine": "Asia",
+            "qatar": "Asia", "saudi arabia": "Asia", "singapore": "Asia", "south korea": "Asia",
+            "syria": "Asia", "tajikistan": "Asia", "turkey": "Asia", "turkmenistan": "Asia",
+            "yemen": "Asia", "afghanistan": "Asia", "azerbaijan": "Asia", "bahrain": "Asia",
+            "brunei": "Asia", "east timor (timor-leste)": "Asia", "georgia": "Asia",
+            "iraq": "Asia",
 
-@app.route('/api/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+            "netherlands": "Europe", "united kingdom": "Europe", "belgium": "Europe",
+            "eu": "Europe", "ireland": "Europe", "spain": "Europe", "portugal": "Europe",
+            "isle of man": "Europe", "germany": "Germany", "bulgaria": "Europe",
+            "france": "Europe", "croatia": "Europe", "moldova": "Europe",
+            "ukraine": "Europe", "denmark": "Europe", "finland": "Europe",
+            "norway": "Europe", "san marino": "Europe", "switzerland": "Europe",
+            "belarus": "Europe", "albania": "Europe",
+            "andorra": "Europe", "austria": "Europe", "bosnia and herzegovina": "Europe",
+            "czechia (czech republic)": "Europe", "estonia": "Europe",
+            "greece": "Europe", "hungary": "Europe", "iceland": "Europe",
+            "italy": "Europe", "latvia": "Europe", "lithuania": "Europe",
+            "luxembourg": "Europe", "malta": "Europe",
+            "monaco": "Europe", "montenegro": "Europe", "north macedonia (macedonia)": "Europe",
+            "poland": "Europe", "romania": "Europe", "serbia": "Europe",
+            "slovakia": "Europe", "slovenia": "Europe", "sweden": "Europe",
+            "vatican city": "Europe", "russia": "Europe",
 
-    if not email or not password:
-        return jsonify({'message': 'Email and password are required!'}), 400
+            "canada": "North America", "united states": "North America", "mexico": "North America",
+            "antigua and barbuda": "North America", "bahamas": "North America", "barbados": "North America",
+            "belize": "North America", "costa rica": "North America", "cuba": "North America",
+            "dominica": "North America", "dominican republic": "North America", "el salvador": "North America",
+            "grenada": "North America", "guatemala": "North America", "haiti": "North America",
+            "honduras": "North America", "jamaica": "North America", "nicaragua": "North America",
+            "panama": "North America", "saint kitts and nevis": "North America", "saint lucia": "North America",
+            "saint vincent and the grenadines": "North America", "trinidad and tobago": "North America",
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({'message': 'User already exists!'}), 409
+            "brazil": "South America", "argentina": "South America", "peru": "South America",
+            "colombia": "South America", "chile": "South America", "bolivia": "South America",
+            "ecuador": "South America", "guyana": "South America", "paraguay": "South America",
+            "suriname": "South America", "uruguay": "South America", "venezuela": "South America",
 
-    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-    new_user = User(email=email, password_hash=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
+            "australia": "Oceania", "new zealand": "Oceania", "fiji": "Oceania",
+            "kiribati": "Oceania", "marshall islands": "Oceania", "micronesia": "Oceania",
+            "nauru": "Oceania", "palau": "Oceania", "papua new guinea": "Oceania",
+            "samoa": "Oceania", "solomon islands": "Oceania", "tonga": "Oceania",
+            "tuvalu": "Oceania", "vanuatu": "Oceania",
 
-    return jsonify({'message': 'User registered successfully!'}), 201
+            "siscia": "Ancient", "consz": "Ancient", "rome": "Ancient", "nicomedia": "Ancient",
+            "constantinople": "Ancient", "mediolanum (milan)": "Ancient", "antioch": "Ancient",
+            "ancient greece": "Ancient", "?": "Ancient",
+            "thessalonica": "Ancient", "ussr": "Ancient", "yugoslavia": "Ancient",
+            "rhodesia": "Ancient", "czechoslovakia": "Ancient", "east germany": "Ancient",
+            "german democratic republic": "Ancient",
+        };
+        const normalizedCountry = countryName.toLowerCase().trim();
+        return countryToRegionMap.get(normalizedCountry, "Other");
+    }
 
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+    // Custom confirmation modal instead of alert/confirm
+    function showCustomConfirm(message, onConfirmCallback) {
+        const confirmModal = document.getElementById('custom-confirm-modal');
+        const confirmMessage = document.getElementById('confirm-message');
+        const confirmOkBtn = document.getElementById('confirm-ok');
+        const confirmCancelBtn = document.getElementById('confirm-cancel');
 
-    if not email or not password:
-        return jsonify({'message': 'Email and password are required!'}), 400
-
-    user = User.query.filter_by(email=email).first()
-
-    if not user or not check_password_hash(user.password_hash, password):
-        return jsonify({'message': 'Invalid credentials!'}), 401
-
-    # Generate JWT
-    token = jwt.encode({
-        'user_id': user.id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24) # Token expires in 24 hours
-    }, app.config['SECRET_KEY'], algorithm="HS256")
-
-    return jsonify({'token': token}), 200
-
-@app.route('/api/change_password', methods=['POST'])
-@token_required
-def change_password(current_user): # current_user is passed by the token_required decorator
-    data = request.get_json()
-    current_password = data.get('current_password')
-    new_password = data.get('new_password')
-
-    if not current_password or not new_password:
-        return jsonify({"message": "Current and new passwords are required."}), 400
-
-    # Frontend should handle new password matching confirmation, but backend can also re-check
-    # You might want to add a 'confirm_new_password' field to data and check it here too
-    # Example: if new_password != data.get('confirm_new_password'): return jsonify(...)
-
-    # Verify current password
-    if not check_password_hash(current_user.password_hash, current_password):
-        return jsonify({"message": "Invalid current password."}), 401
-
-    # Hash the new password
-    hashed_new_password = generate_password_hash(new_password, method='pbkdf2:sha256')
-
-    # Update user's password in the database
-    current_user.password_hash = hashed_new_password
-    db.session.commit()
-
-    return jsonify({"message": "Password updated successfully!"}), 200
-
-
-@app.route('/api/coins', methods=['GET'])
-@token_required
-def get_coins(current_user):
-    coins = Coin.query.filter_by(user_id=current_user.id).all()
-    return jsonify([coin.to_dict() for coin in coins]), 200
-
-@app.route('/api/coins', methods=['POST'])
-@token_required
-def add_coin(current_user):
-    data = request.get_json()
-    
-    country_input = data.get('country')
-    year_input = data.get('year') or None
-
-    # Calculate region and isHistorical on the backend
-    region = get_region_for_country(country_input)
-    is_historical = get_is_historical_flag(country_input, year_input)
-
-    new_coin = Coin(
-        user_id=current_user.id,
-        type=data.get('type', 'Coin'),
-        country=country_input,
-        year=year_input,
-        denomination=data.get('denomination'),
-        value=data.get('value', 0.0),
-        notes=data.get('notes'),
-        referenceUrl=data.get('referenceUrl'),
-        localImagePath=data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
-        region=region, # Set region from backend logic
-        isHistorical=is_historical # Set isHistorical from backend logic
-    )
-    db.session.add(new_coin)
-    db.session.commit()
-    return jsonify({'message': 'Coin added successfully!', 'coin_id': new_coin.id}), 201
-
-@app.route('/api/coins/<int:coin_id>', methods=['PUT'])
-@token_required
-def update_coin(current_user, coin_id):
-    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
-    if not coin:
-        return jsonify({'message': 'Coin not found or unauthorized!'}), 404
-
-    data = request.get_json()
-    
-    country_input = data.get('country', coin.country) # Use existing if not provided
-    year_input = data.get('year', coin.year) or None # Use existing if not provided
-
-    # Calculate region and isHistorical on the backend
-    region = get_region_for_country(country_input)
-    is_historical = get_is_historical_flag(country_input, year_input)
-
-    # Update fields if provided in the request
-    coin.type = data.get('type', coin.type)
-    coin.country = country_input # Use potentially updated country
-    coin.year = year_input # Use potentially updated year
-    coin.denomination = data.get('denomination', coin.denomination)
-    coin.value = data.get('value', coin.value)
-    coin.notes = data.get('notes', coin.notes)
-    coin.referenceUrl = data.get('referenceUrl', coin.referenceUrl)
-    coin.localImagePath = data.get('localImagePath', coin.localImagePath)
-    coin.region = region # Update region from backend logic
-    coin.isHistorical = is_historical # Update isHistorical from backend logic
-
-    db.session.commit()
-    return jsonify({'message': 'Coin updated successfully!'}), 200
-
-@app.route('/api/coins/<int:coin_id>', methods=['DELETE'])
-@token_required
-def delete_coin(current_user, coin_id):
-    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
-    if not coin:
-        return jsonify({'message': 'Coin not found or unauthorized!'}), 404
-
-    db.session.delete(coin)
-    db.session.commit()
-    return jsonify({'message': 'Coin deleted successfully!'}), 200
-
-@app.route('/api/coins/bulk_upload', methods=['POST'])
-@token_required
-def bulk_upload_coins(current_user):
-    data_list = request.get_json()
-
-    if not isinstance(data_list, list):
-        return jsonify({'message': 'Expected a JSON array of coin objects.'}), 400
-
-    imported_count = 0
-    errors = []
-
-    for item_data in data_list:
-        try:
-            # Ensure 'id' is not set for new items, as the database generates it
-            item_data.pop('id', None)
-
-            # Handle year parsing
-            year_input = item_data.get('year')
-            parsed_year = year_input if isinstance(year_input, int) else (int(year_input) if str(year_input).isdigit() else None)
-            
-            # Use provided country for region/historical check, default to empty string if not present
-            country_input_for_logic = item_data.get('country', '')
-
-            # Calculate region and isHistorical on the backend
-            final_region = get_region_for_country(country_input_for_logic)
-            final_is_historical = get_is_historical_flag(country_input_for_logic, parsed_year)
-            
-            new_coin = Coin(
-                user_id=current_user.id,
-                type=item_data.get('type', 'Coin'),
-                country=item_data.get('country'), # Will be None if not provided in JSON
-                year=parsed_year,
-                denomination=item_data.get('denomination'), # Will be None if not provided in JSON
-                value=item_data.get('value', 0.0),
-                notes=item_data.get('notes'),
-                referenceUrl=item_data.get('referenceUrl'),
-                localImagePath=item_data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
-                region=final_region, # Set region from backend logic
-                isHistorical=final_is_historical # Set isHistorical from backend logic
-            )
-            db.session.add(new_coin)
-            imported_count += 1
-        except Exception as e:
-            errors.append(f"Error processing item (raw data: {item_data}): {str(e)}") # Added raw data for better debugging
-            db.session.rollback() # Rollback current transaction if an error occurs
-
-    db.session.commit() # Commit all successfully added items that didn't error out
-
-    if errors:
-        return jsonify({
-            'message': f'Successfully imported {imported_count} items with some errors.',
-            'errors': errors
-        }), 207 # 207 Multi-Status
-    else:
-        return jsonify({'message': f'Successfully imported {imported_count} items.'}), 201
-
-@app.route('/api/coins/clear_all', methods=['DELETE'])
-@token_required
-def clear_all_coins(current_user):
-    try:
-        # Delete all coins belonging to the current user
-        num_deleted = Coin.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
-        return jsonify({'message': f'Successfully deleted {num_deleted} items from your collection.'}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'message': f'Failed to clear collection: {str(e)}'}), 500
+        // Reset previous listeners
+        confirmOkBtn.replaceWith(confirmOkBtn.cloneNode(true));
+        confirmCancelBtn.replaceWith(confirmCancelBtn.cloneNode(true));
+        const newConfirmOkBtn = document.getElementById('confirm-ok');
+        const newConfirmCancelBtn = document.getElementById('confirm-cancel');
 
 
-# --- Database Initialization (Run once to create tables) ---
-# NOTE: @app.before_request is used instead of @app.before_first_request due to Flask version compatibility.
-# This function will run before each request, but db.create_all() only creates tables if they don't exist.
-@app.before_request
-def create_tables():
-    # Only create tables if they don't exist. This is safe to call on every request.
-    # We use app.app_context() to ensure we're in the right Flask application context.
-    with app.app_context():
-        db.create_all()
-        # Optional: Create a default user if none exists for easy setup
-        if not User.query.first():
-            print("No users found. Creating a default admin user.")
-            # CHANGE THIS DEFAULT EMAIL/PASSWORD for your own initial setup!
-            default_email = os.environ.get('DEFAULT_ADMIN_EMAIL') or 'admin@example.com'
-            default_password = os.environ.get('DEFAULT_ADMIN_PASSWORD') or 'password123'
-            hashed_password = generate_password_hash(default_password, method='pbkdf2:sha256')
-            default_user = User(email=default_email, password_hash=hashed_password)
-            db.session.add(default_user)
-            db.session.commit()
-            print(f"Default user '{default_email}' created. Please change this in production!")
+        confirmMessage.innerText = message;
+        confirmModal.classList.remove('hidden');
+        confirmModal.classList.add('flex');
+        setTimeout(() => {
+            confirmModal.querySelector('div').classList.remove('scale-95', 'opacity-0');
+            confirmModal.querySelector('div').classList.add('scale-100', 'opacity-100');
+        }, 10);
 
-if __name__ == '__main__':
-    # When running locally, you can access the backend at http://127.0.0.1:5000
-    app.run(debug=True, host='0.0.0.0', port=5000)
+        const handleConfirm = () => {
+            onConfirmCallback();
+            closeModal(confirmModal, confirmModal.querySelector('div'));
+        };
+
+        const handleCancel = () => {
+            closeModal(confirmModal, confirmModal.querySelector('div'));
+        };
+
+        newConfirmOkBtn.addEventListener('click', handleConfirm);
+        newConfirmCancelBtn.addEventListener('click', handleCancel);
+    }
+
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.querySelector('div').classList.remove('scale-95', 'opacity-0');
+            modal.querySelector('div').classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function closeModal(modalElement, modalContentElement) {
+        modalContentElement.classList.remove('scale-100', 'opacity-100');
+        modalContentElement.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modalElement.classList.add('hidden');
+            modalElement.classList.remove('flex');
+        }, 300);
+    }
+
+    // --- Data Operations (interacting with Flask Backend) ---
+    function getAuthToken() {
+        return sessionStorage.getItem('jwt_token');
+    }
+
+    function isAuthenticated() {
+        return !!getAuthToken();
+    }
+
+    // Fetches collection data from the backend
+    async function loadCollectionFromBackend() {
+        if (!isAuthenticated()) {
+            console.log('Not authenticated, clearing collection data and rendering views.');
+            collectionData = []; // Clear data if not authenticated
+            renderAllViews();
+            return;
+        }
+        console.log('Authenticated, attempting to load collection data from backend...');
+        try {
+            const response = await fetch(`${API_BASE_URL}/coins`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                }
+            });
+            if (!response.ok) {
+                if (response.status === 401) { // Unauthorized, token expired or invalid
+                    console.warn('Authentication failed during collection load (401 Unauthorized).');
+                    handleUnauthorized();
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            collectionData = await response.json();
+            console.log("Collection data loaded from backend:", collectionData);
+
+            // Region and isHistorical are now calculated by the backend upon add/update.
+            // We just ensure the data is present in case older data exists or for consistency.
+            collectionData.forEach(item => {
+                if (!item.region || item.region === "") { // Ensure region is not null/empty
+                    item.region = getRegionForCountry(item.country);
+                }
+                // If isHistorical is not explicitly set by backend or is missing
+                if (typeof item.isHistorical === 'undefined' || item.isHistorical === null) {
+                    const historicalCountries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"];
+                    const yearInput = item.year;
+                    const parsedYear = yearInput ? parseInt(yearInput) : null;
+                    item.isHistorical = historicalCountries.includes((item.country || '').toLowerCase()) || (parsedYear !== null && parsedYear < 1900 && parsedYear !== 0);
+                }
+            });
+            renderAllViews(); // Re-render UI with fresh data
+        }
+        catch (error) {
+            console.error("Error loading collection from backend:", error);
+            showCustomConfirm('Failed to load collection. Please try logging in again or check backend server.', () => {});
+            collectionData = []; // Clear local data on load error
+            renderAllViews();
+        }
+    }
+
+    function clearItemForm() {
+        document.getElementById('item-id').value = '';
+        document.getElementById('type').value = 'Coin';
+        document.getElementById('country').value = '';
+        document.getElementById('year').value = '';
+        document.getElementById('denomination').value = '';
+        document.getElementById('value').value = '';
+        document.getElementById('notes').value = '';
+        document.getElementById('referenceUrl').value = '';
+        document.getElementById('localImagePath').value = '';
+        document.getElementById('modal-title').innerText = 'Add New Item';
+    }
+
+    function reinitItemForm() {
+        const form = document.getElementById('item-form');
+        // Check if the form content has been replaced (e.g., by the map's country details)
+        if (!document.getElementById('denomination')) {
+            form.innerHTML = `
+                <input type="hidden" id="item-id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="type" class="block text-sm font-medium text-gray-400">Type</label>
+                        <select id="type" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            <option>Coin</option>
+                            <option>Banknote</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="country" class="block text-sm font-medium text-gray-400">Country</label>
+                        <input type="text" id="country" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label for="year" class="block text-sm font-medium text-gray-400">Year</label>
+                        <input type="number" id="year" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                     <div>
+                        <label for="value" class="block text-sm font-medium text-gray-400">Estimated Value (USD)</label>
+                        <input type="number" step="0.01" id="value" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="denomination" class="block text-sm font-medium text-gray-400">Denomination</label>
+                        <input type="text" id="denomination" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="notes" class="block text-sm font-medium text-gray-400">Notes</label>
+                        <textarea id="notes" rows="3" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="referenceUrl" class="block text-sm font-medium text-gray-400">Reference URL (eBay, etc.)</label>
+                        <input type="text" id="referenceUrl" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="localImagePath" class="block text-sm font-medium text-gray-400">Local Image Path</label>
+                        <input type="text" id="localImagePath" placeholder="e.g., C:\Users\YourName\Pictures\Coins\my_coin.jpg" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                </div>
+                <div class="flex justify-end mt-8">
+                    <button type="button" id="cancel-btn" class="mr-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
+                    <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-md transition-colors">Save Item</button>
+                </div>
+            `;
+            attachFormEventListeners(); // Re-attach event listeners after recreating elements
+        }
+        document.getElementById('modal-title').innerText = 'Add New Item'; // Reset title
+    }
+
+    function attachFormEventListeners() {
+        const form = document.getElementById('item-form');
+        const modalElement = document.getElementById('item-modal');
+        const modalContentElement = modalElement.querySelector('div');
+
+        // Remove existing listeners by replacing buttons with clones
+        const oldCancelBtn = document.getElementById('cancel-btn');
+        if (oldCancelBtn) { // Check if element exists before replacing
+            const newCancelBtn = oldCancelBtn.cloneNode(true);
+            oldCancelBtn.parentNode.replaceChild(newCancelBtn, oldCancelBtn);
+            newCancelBtn.addEventListener('click', () => closeModal(modalElement, modalContentElement));
+        }
+
+
+        const oldSubmitBtn = form.querySelector('button[type="submit"]');
+        if (oldSubmitBtn) { // Check if element exists before replacing
+            const newSubmitBtn = oldSubmitBtn.cloneNode(true);
+            oldSubmitBtn.parentNode.replaceChild(newSubmitBtn, oldSubmitBtn);
+            newSubmitBtn.addEventListener('click', handleFormSubmission);
+        }
+    }
+
+    async function handleFormSubmission(e) {
+        e.preventDefault();
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to save items.', () => {});
+            return;
+        }
+
+        const itemId = document.getElementById('item-id').value;
+        const countryValue = document.getElementById('country').value.trim();
+
+        if (!countryValue || !document.getElementById('denomination').value.trim()) {
+            showCustomConfirm('Country and Denomination are required fields.', () => {});
+            return;
+        }
+
+        const itemData = {
+            type: document.getElementById('type').value,
+            country: countryValue,
+            year: document.getElementById('year').value ? parseInt(document.getElementById('year').value) : null,
+            denomination: document.getElementById('denomination').value.trim(),
+            value: parseFloat(document.getElementById('value').value) || 0,
+            notes: document.getElementById('notes').value.trim(),
+            referenceUrl: document.getElementById('referenceUrl').value.trim(),
+            localImagePath: document.getElementById('localImagePath').value.trim() || "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image",
+            // Region and isHistorical are now calculated by the backend, no need to send from frontend
+            // region: getRegionForCountry(countryValue),
+            // isHistorical: isHistoricalFlag
+        };
+
+        const method = itemId ? 'PUT' : 'POST';
+        const url = itemId ? `${API_BASE_URL}/coins/${itemId}` : `${API_BASE_URL}/coins`;
+
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                },
+                body: JSON.stringify(itemData)
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    handleUnauthorized();
+                    return;
+                }
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            showCustomConfirm(result.message || 'Item saved successfully!', () => {});
+            loadCollectionFromBackend(); // Reload data after successful save
+        } catch (error) {
+            console.error("Error saving item:", error);
+            showCustomConfirm(`Failed to save item: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+        } finally {
+            closeModal(document.getElementById('item-modal'), document.getElementById('item-modal').querySelector('div'));
+            clearItemForm();
+        }
+    }
+
+    // --- HOMEPAGE RENDERING ---
+    function renderHome() {
+        // Content is static, no dynamic rendering needed here.
+    }
+
+
+    // --- DASHBOARD RENDERING ---
+    function renderDashboard() {
+        const dashboardDiv = document.getElementById('content-dashboard');
+        // Get the inner div where content will be rendered
+        const dashboardContentWrapper = dashboardDiv.querySelector('.max-w-7xl.mx-auto');
+
+        if (!isAuthenticated()) {
+            dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view your dashboard.</p></div>`;
+            return;
+        }
+        
+        dashboardContentWrapper.innerHTML = `
+            <h2 class="text-3xl font-bold text-white mb-6">Dashboard Overview</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-300">Total Items</h3>
+                    <p class="text-4xl font-bold text-emerald-400" id="dashboard-total-items">0</p>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-300">Total Value</h3>
+                    <p class="text-4xl font-bold text-emerald-400" id="dashboard-total-value">$0.00</p>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-300">Unique Countries</h3>
+                    <p class="text-4xl font-bold text-emerald-400" id="dashboard-unique-countries">0</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Combined Collection Highlights and Top 5 Countries -->
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-xl font-bold text-emerald-400 mb-4">Collection Overview</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="text-lg font-semibold text-blue-400 mb-2">Collection Highlights</h4>
+                            <div id="collection-highlights" class="text-gray-300 text-sm leading-relaxed">
+                                <!-- Highlights will be rendered here -->
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold text-yellow-400 mb-2">Top 5 Countries by Items</h4>
+                            <ul id="top-countries-list" class="list-disc list-inside text-gray-300">
+                                <!-- Top countries will be rendered here -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items by Region (Pie Chart) -->
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-xl font-bold text-gray-300 mb-4">Items by Region</h3>
+                    <div style="position: relative; height:320px; width:100%;">
+                        <canvas id="chart-by-region-pie" height="320"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Items by Type (Pie Chart) -->
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-xl font-bold text-gray-300 mb-4">Items by Type</h3>
+                    <div style="position: relative; height:320px; width:100%;">
+                        <canvas id="chart-by-type" height="320"></canvas>
+                    </div>
+                </div>
+                <!-- Value by Region (Bar Chart) -->
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-xl font-bold text-gray-300 mb-4">Value by Region</h3>
+                    <div style="position: relative; height:320px; width:100%;">
+                        <canvas id="chart-by-value-region" height="320"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Chart: Value Distribution by Year/Decade -->
+            <div class="grid grid-cols-1 mt-6">
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-xl font-bold text-gray-300 mb-4">Value Distribution by Year/Decade</h3>
+                    <div style="position: relative; height:320px; width:100%;">
+                        <canvas id="chart-value-by-year" height="320"></canvas>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Update dashboard stats
+        const totalItems = collectionData.length;
+        const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
+
+        document.getElementById('dashboard-total-items').innerText = totalItems;
+        document.getElementById('dashboard-total-value').innerText = `$${totalValue.toFixed(2)}`;
+        document.getElementById('dashboard-unique-countries').innerText = uniqueCountries;
+
+        // Render additional dashboard content
+        renderCollectionHighlights();
+        renderTop5Countries();
+
+        // Render Charts
+        renderChartByType();
+        renderChartByValueRegion();
+        renderChartByRegionPie();
+        renderChartValueByYear(); // New chart render call
+    }
+
+    function renderCollectionHighlights() {
+        const highlightsDiv = document.getElementById('collection-highlights');
+        if (collectionData.length === 0) {
+            highlightsDiv.innerHTML = '<p>No items in collection yet. Start adding items to see highlights!</p>';
+            return;
+        }
+
+        const oldestItem = collectionData.reduce((oldest, current) => {
+            if (current.year && (!oldest || current.year < oldest.year)) {
+                return current;
+            }
+            return oldest;
+        }, null);
+
+        const newestItem = collectionData.reduce((newest, current) => {
+            if (current.year && (!newest || current.year > newest.year)) {
+                return current;
+            }
+            return newest;
+        }, null);
+
+        const highestValueItem = collectionData.reduce((highest, current) => {
+            if (current.value && (!highest || current.value > highest.value)) {
+                return current;
+            }
+            return highest;
+        }, null);
+
+        let highlightsHtml = '<ul class="space-y-2">';
+        highlightsHtml += `<li><strong>Total Items:</strong> ${collectionData.length}</li>`;
+        highlightsHtml += `<li><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => sum + (item.value || 0), 0).toFixed(2)}</li>`;
+        highlightsHtml += `<li><strong>Unique Countries Represented:</strong> ${new Set(collectionData.map(item => item.country)).size}</li>`;
+
+        if (oldestItem) {
+            highlightsHtml += `<li><strong>Oldest Item:</strong> ${oldestItem.denomination} from ${oldestItem.country} (${oldestItem.year})</li>`;
+        }
+        if (newestItem) {
+            highlightsHtml += `<li><strong>Newest Item:</strong> ${newestItem.denomination} from ${newestItem.country} (${newestItem.year})</li>`;
+        }
+        if (highestValueItem) {
+            highlightsHtml += `<li><strong>Highest Value Item:</strong> ${highestValueItem.denomination} from ${highestValueItem.country} ($${highestValueItem.value.toFixed(2)})</li>`;
+        }
+        highlightsHtml += '</ul>';
+        highlightsDiv.innerHTML = highlightsHtml;
+    }
+
+    function renderTop5Countries() {
+        const topCountriesList = document.getElementById('top-countries-list');
+        topCountriesList.innerHTML = ''; // Clear previous list
+
+        if (collectionData.length === 0) {
+            topCountriesList.innerHTML = '<li>No data to show. Add items to see top countries.</li>';
+            return;
+        }
+
+        const countryItemCounts = collectionData.reduce((acc, item) => {
+            acc[item.country] = (acc[item.country] || 0) + 1;
+            return acc;
+        }, {});
+
+        const sortedCountries = Object.entries(countryItemCounts)
+            .sort(([, countA], [, countB]) => countB - countA)
+            .slice(0, 5); // Get top 5
+
+        if (sortedCountries.length > 0) {
+            sortedCountries.forEach(([country, count]) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="font-medium">${country}:</span> ${count} items`;
+                topCountriesList.appendChild(li);
+            });
+        } else {
+            topCountriesList.innerHTML = '<li>No data to show.</li>';
+        }
+    }
+
+
+    function renderChartByType() {
+        const ctx = document.getElementById('chart-by-type').getContext('2d');
+        if (Chart.getChart('chart-by-type')) { // Use Chart.getChart to destroy specific chart instances
+            Chart.getChart('chart-by-type').destroy();
+        }
+
+        const typeCounts = collectionData.reduce((acc, item) => {
+            acc[item.type] = (acc[item.type] || 0) + 1;
+            return acc;
+        }, {});
+
+        new Chart(ctx, { // Assign to chartInstance
+            type: 'pie',
+            data: {
+                labels: Object.keys(typeCounts),
+                datasets: [{
+                    data: Object.values(typeCounts),
+                    backgroundColor: [
+                        '#34D399', // Emerald
+                        '#60A5FA', // Blue
+                        '#FCD34D', // Yellow
+                        '#FB7185'  // Rose
+                    ],
+                    borderColor: '#111827',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#d1d5db' // Light gray for legend text
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        position: 'nearest',
+                        backgroundColor: '#1f2937', // Dark background for tooltip
+                        borderColor: '#4b5563', // Border for tooltip
+                        borderWidth: 1,
+                        titleColor: '#d1d5db',
+                        bodyColor: '#d1d5db',
+                        titleFont: { weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        cornerRadius: 8,
+                        padding: 12,
+                    }
+                }
+            }
+        });
+    }
+
+    function renderChartByValueRegion() {
+        const ctx = document.getElementById('chart-by-value-region').getContext('2d');
+        if (Chart.getChart('chart-by-value-region')) {
+            Chart.getChart('chart-by-value-region').destroy();
+        }
+
+        const regionValues = collectionData.reduce((acc, item) => {
+            const region = item.region || 'Unknown';
+            acc[region] = (acc[region] || 0) + (item.value || 0);
+            return acc;
+        }, {});
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(regionValues),
+                datasets: [{
+                    label: 'Total Value (USD)',
+                    data: Object.values(regionValues),
+                    backgroundColor: '#34D399', // Emerald
+                    borderColor: '#111827',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#d1d5db'
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        position: 'nearest',
+                        backgroundColor: '#1f2937',
+                        borderColor: '#4b5563',
+                        borderWidth: 1,
+                        titleColor: '#d1d5db',
+                        bodyColor: '#d1d5db',
+                        titleFont: { weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#d1d5db' },
+                        grid: { color: '#374151' }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#d1d5db',
+                            callback: function(value) {
+                                return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+                            }
+                        },
+                        grid: { color: '#374151' }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderChartByRegionPie() {
+        const ctx = document.getElementById('chart-by-region-pie').getContext('2d');
+        if (Chart.getChart('chart-by-region-pie')) {
+            Chart.getChart('chart-by-region-pie').destroy();
+        }
+
+        const regionCounts = collectionData.reduce((acc, item) => {
+            acc[item.region] = (acc[item.region] || 0) + 1;
+            return acc;
+        }, {});
+
+        const chartColors = [
+            '#8b5cf6', '#60A5FA', '#FCD34D', '#34D399', '#FB7185', '#a855f7', '#ec4899', '#eab308',
+            '#facc15', '#6ee7b7', '#93c5fd', '#f87171', '#fb923c', '#c084fc', '#fde047'
+        ];
+
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(regionCounts),
+                datasets: [{
+                    data: Object.values(regionCounts),
+                    backgroundColor: chartColors,
+                    borderColor: '#111827',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#d1d5db'
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        position: 'nearest',
+                        backgroundColor: '#1f2937',
+                        borderColor: '#4b5563',
+                        borderWidth: 1,
+                        titleColor: '#d1d5db',
+                        bodyColor: '#d1d5db',
+                        titleFont: { weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        cornerRadius: 8,
+                        padding: 12,
+                    }
+                },
+                onClick: (event, elements, chart) => {
+                    if (elements.length > 0) {
+                        const firstElement = elements[0];
+                        const label = chart.data.labels[firstElement.index];
+                        // If it's a region click, show region details (this was already there)
+                        showRegionDetails(label);
+                    }
+                }
+            }
+        });
+    }
+
+    // New Chart: Value Distribution by Year/Decade
+    function renderChartValueByYear() {
+        const ctx = document.getElementById('chart-value-by-year').getContext('2d');
+        if (Chart.getChart('chart-value-by-year')) { // Use Chart.getChart to destroy specific chart instances
+            Chart.getChart('chart-value-by-year').destroy();
+        }
+
+        const yearValues = {};
+        collectionData.forEach(item => {
+            if (item.year) {
+                const decade = Math.floor(item.year / 10) * 10;
+                yearValues[decade] = (yearValues[decade] || 0) + (item.value || 0);
+            }
+        });
+
+        // Sort by year/decade
+        const sortedYears = Object.keys(yearValues).sort((a, b) => parseInt(a) - parseInt(b));
+        const sortedValues = sortedYears.map(year => yearValues[year]);
+
+        valueByYearChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedYears.map(year => `${year}s`),
+                datasets: [{
+                    label: 'Total Value (USD)',
+                    data: sortedValues,
+                    backgroundColor: '#FCD34D', // Yellow
+                    borderColor: '#111827',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#d1d5db'
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        position: 'nearest',
+                        backgroundColor: '#1f2937',
+                        borderColor: '#4b5563',
+                        borderWidth: 1,
+                        titleColor: '#d1d5db',
+                        bodyColor: '#d1d5db',
+                        titleFont: { weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#d1d5db' },
+                        grid: { color: '#374151' }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#d1d5db',
+                            callback: function(value) {
+                                return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+                            }
+                        },
+                        grid: { color: '#374151' }
+                    }
+                }
+            }
+        });
+    }
+
+    // Function to show country details in a modal
+    function showCountryDetailsModal(countryName) {
+        const countryDetailsModal = document.getElementById('country-details-modal');
+        const countryDetailsTitle = document.getElementById('country-details-title');
+        const countryTotalItems = document.getElementById('country-total-items');
+        const countryTotalValue = document.getElementById('country-total-value');
+        const countryItemsTableBody = document.getElementById('country-items-table-body');
+
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to view country details.', () => {});
+            return;
+        }
+
+        const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === countryName);
+
+        // Calculate summary stats for the country
+        const totalItemsInCountry = itemsInCountry.length;
+        const totalValueInCountry = itemsInCountry.reduce((sum, item) => sum + (item.value || 0), 0);
+
+        countryDetailsTitle.innerText = `${countryName} Collection Details`;
+        countryTotalItems.innerText = totalItemsInCountry;
+        countryTotalValue.innerText = `$${totalValueInCountry.toFixed(2)}`;
+
+        itemsInCountry.sort((a, b) => {
+            const yearCompare = (a.year || Infinity) - (b.year || Infinity); // Sort by year, N/A last
+            if (yearCompare !== 0) return yearCompare;
+            return a.denomination.localeCompare(b.denomination);
+        });
+
+        const tableRows = itemsInCountry.map(item => `
+            <tr class="border-b border-gray-700">
+                <td class="p-4">${item.id}</td>
+                <td class="p-4">${item.type}</td>
+                <td class="p-4">${item.year || 'N/A'}</td>
+                <td class="p-4">${item.denomination}</td>
+                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
+                <td class="p-4 text-xs">${item.notes || 'N/A'}</td>
+            </tr>
+        `).join('');
+        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="6" class="p-4 text-center text-gray-500">No items found for ${countryName}.</td></tr>`;
+
+        openModal('country-details-modal');
+    }
+
+
+    // --- COLLECTION INTERACTIVITY ---
+    function initializeFilters() {
+        const searchInput = document.getElementById('search-input');
+        const regionFilter = document.getElementById('region-filter');
+        const typeFilter = document.getElementById('type-filter');
+
+        const applyFilters = () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedRegion = regionFilter.value;
+            const selectedType = typeFilter.value;
+
+            const filtered = collectionData.filter(item => {
+                const matchesSearch = searchTerm === '' ||
+                                      String(item.id).toLowerCase().includes(searchTerm) ||
+                                      (item.country && item.country.toLowerCase().includes(searchTerm)) || // Added null check
+                                      (item.denomination && item.denomination.toLowerCase().includes(searchTerm)) || // Added null check
+                                      (item.notes && item.notes.toLowerCase().includes(searchTerm)) ||
+                                      (item.year && item.year.toString().includes(searchTerm));
+                const matchesRegion = selectedRegion === '' || item.region === selectedRegion;
+                const matchesType = selectedType === '' || item.type === selectedType;
+                return matchesSearch && matchesRegion && matchesType;
+            });
+            renderCollectionTable(filtered);
+        };
+
+        const uniqueRegions = [...new Set(collectionData.map(item => item.region))].sort();
+        regionFilter.innerHTML = '<option value="">All Regions</option>' + uniqueRegions.map(r => `<option value="${r}">${r}</option>`).join('');
+
+        const uniqueTypes = [...new Set(collectionData.map(item => item.type))].sort();
+        typeFilter.innerHTML = '<option value="">All Types</option>' + uniqueTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+
+
+        searchInput.addEventListener('input', debounce(applyFilters, 300));
+        regionFilter.addEventListener('change', applyFilters);
+        typeFilter.addEventListener('change', applyFilters);
+    }
+
+    function initializeActionButtons() {
+        document.querySelectorAll('.edit-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(button.dataset.id); // Ensure ID is parsed as integer
+                const item = collectionData.find(d => d.id === id);
+                if (item) {
+                    document.getElementById('item-id').value = item.id;
+                    document.getElementById('modal-title').innerText = 'Edit Item';
+                    document.getElementById('type').value = item.type;
+                    document.getElementById('country').value = item.country;
+                    document.getElementById('year').value = item.year;
+                    document.getElementById('denomination').value = item.denomination;
+                    document.getElementById('value').value = item.value;
+                    document.getElementById('notes').value = item.notes;
+                    document.getElementById('referenceUrl').value = item.referenceUrl;
+                    document.getElementById('localImagePath').value = item.localImagePath;
+                    openModal('item-modal'); // Pass modal ID
+                }
+            });
+        });
+
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idToDelete = parseInt(button.dataset.id);
+                showCustomConfirm('Are you sure you want to delete this item?', async () => {
+                    if (!isAuthenticated()) {
+                        showCustomConfirm('Please sign in to delete items.', () => {});
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/coins/${idToDelete}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                handleUnauthorized();
+                                return;
+                            }
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        showCustomConfirm(result.message || 'Item deleted successfully!', () => {});
+                        loadCollectionFromBackend(); // Reload data after deletion
+                    } catch (error) {
+                        console.error("Error deleting item:", error);
+                        showCustomConfirm(`Failed to delete item: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+                    }
+                });
+            });
+        });
+    }
+
+    // --- COLLECTION RENDERING ---
+    let currentSort = { column: null, direction: 'asc' };
+
+    function renderCollection(filteredData = collectionData) {
+        const collectionContent = document.getElementById('content-collection');
+        const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
+        if (!collectionContentWrapper) return;
+
+        if (!isAuthenticated()) {
+            collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
+            return;
+        }
+
+        collectionContentWrapper.innerHTML = `
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
+                <h1 class="text-3xl font-bold text-white">Collection</h1>
+                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+                    <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2">
+                    <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                    <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                </div>
+            </div>
+            <div class="flex-1 flex overflow-hidden">
+                <div class="w-full flex flex-col">
+                    <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                        <table class="w-full text-left data-table min-w-max"> <!-- min-w-max to prevent crushing columns -->
+                            <thead class="bg-gray-700 sticky top-0">
+                                <tr>
+                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
+                                    <th class="p-4 font-semibold">Type</th>
+                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="country">Country</th>
+                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="year">Year</th>
+                                    <th class="p-4 font-semibold">Denomination</th>
+                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="value">Value</th>
+                                    <th class="p-4 font-semibold">Notes & Ref.</th>
+                                    <th class="p-4 font-semibold">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="collection-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        initializeFilters();
+        renderCollectionTable(filteredData);
+        attachSortEventListeners();
+    };
+
+    function renderCollectionTable(dataToRender) {
+        const tableBody = document.getElementById('collection-table-body');
+        const tableRows = dataToRender.map(item => `
+            <tr class="border-b border-gray-700 cursor-pointer" data-item-id="${item.id}">
+                <td class="p-4">${item.id}</td>
+                <td class="p-4">${item.type}</td>
+                <td class="p-4">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
+                <td class="p-4">${item.year || 'N/A'}</td>
+                <td class="p-4">${item.denomination}</td>
+                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
+                <td class="p-4">
+                    <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
+                    ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
+                </td>
+                <td class="p-4">
+                     <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
+                     <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+        tableBody.innerHTML = tableRows;
+
+        initializeActionButtons();
+    }
+
+    function attachSortEventListeners() {
+        document.querySelectorAll('.data-table th[data-sort-column]').forEach(header => {
+            header.addEventListener('click', () => {
+                const column = header.dataset.sortColumn;
+                let direction = 'asc';
+
+                if (currentSort.column === column) {
+                    direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                }
+
+                sortCollection(column, direction);
+                currentSort = { column, direction };
+            });
+        });
+    }
+
+    function sortCollection(column, direction) {
+        const sortedData = [...collectionData].sort((a, b) => {
+            let valA = a[column];
+            let valB = b[column];
+
+            if (column === 'year' || column === 'value' || column === 'id') {
+                // Ensure numbers are treated as numbers and handle N/A/null for sorting
+                valA = (valA === null || valA === 'N/A') ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valA);
+                valB = (valB === null || valB === 'N/A') ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valB);
+                return direction === 'asc' ? valA - valB : valB - valA;
+            } else { // String comparison
+                return direction === 'asc' ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
+            }
+        });
+        renderCollectionTable(sortedData);
+    }
+
+
+    // Render Map
+    function renderGeoChart() {
+        const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
+        if (!mapContentWrapper) {
+            console.error('Error: GeoChart content wrapper element not found!');
+            return;
+        }
+
+        if (!isAuthenticated()) {
+            mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
+            return;
+        }
+        
+        // Ensure the map container is present within the wrapper before rendering
+        if (!mapContentWrapper.querySelector('#map-container')) {
+             mapContentWrapper.innerHTML = `
+                <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
+                    <div id="geochart-canvas"></div>
+                </div>`;
+        }
+
+        const mapContainer = document.getElementById('geochart-canvas');
+
+
+        if (geoChart) {
+            geoChart.clearChart();
+            mapContainer.innerHTML = '';
+        }
+
+        google.charts.load('current', {'packages': ['geochart']});
+        google.charts.setOnLoadCallback(drawRegionsMap);
+
+        function drawRegionsMap() {
+            const countryCounts = {};
+            collectionData.forEach(item => {
+                const geoChartCountry = getGeoChartCountryName(item.country);
+                if (geoChartCountry) {
+                    countryCounts[geoChartCountry] = (countryCounts[geoChartCountry] || 0) + 1;
+                }
+            });
+
+            if (Object.keys(countryCounts).length === 0) {
+                 mapContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-500 text-lg">No collection data to display on the map.</div>`;
+                 return;
+            }
+
+            const dataTable = new google.visualization.DataTable();
+            dataTable.addColumn('string', 'Country');
+            dataTable.addColumn('number', 'Items');
+            dataTable.addColumn({ type: 'string', role: 'tooltip', 'p': {'html': true} });
+
+            const countriesWithItems = Object.keys(countryCounts);
+            const maxItems = Math.max(...Object.values(countryCounts));
+
+            countriesWithItems.forEach(country => {
+                const itemCount = countryCounts[country];
+                let tooltipContent = `<div class="p-2 font-semibold">${country}</div>`;
+                tooltipContent += `<div class="px-2 pb-1">Items: ${itemCount}</div>`;
+
+                const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === country);
+                tooltipContent += `<div class="px-2 text-sm text-gray-400 tooltip-scroll-content">`;
+                itemsInCountry.forEach(item => {
+                    tooltipContent += `<div>${item.denomination} (${item.year || 'N/A'}) - $${(item.value || 0).toFixed(2)}</div>`;
+                });
+                tooltipContent += `</div>`;
+                dataTable.addRow([country, itemCount, tooltipContent]);
+            });
+
+
+            const options = {
+                colorAxis: {
+                    colors: ['#d9f99d', '#65a30d', '#facc15', '#f97316', '#dc2626'],
+                    minValue: 1,
+                    maxValue: maxItems,
+                },
+                backgroundColor: {
+                    fill: '#1f2937',
+                },
+                defaultColor: '#4b5563',
+                tooltip: {
+                    isHtml: true,
+                    trigger: 'focus',
+                    textStyle: { color: '#d1d5db' },
+                },
+                keepAspectRatio: true,
+                legend: { textStyle: { color: '#d1d5db' } },
+            };
+
+            if (!geoChart) {
+                geoChart = new google.visualization.GeoChart(mapContainer);
+            }
+
+            geoChart.draw(dataTable, options);
+
+            // Add event listener for country click
+            google.visualization.events.addListener(geoChart, 'select', () => {
+                const selection = geoChart.getSelection();
+                if (selection.length > 0) {
+                    const selectedCountryName = dataTable.getValue(selection[0].row, 0);
+                    showCountryDetailsModal(selectedCountryName);
+                }
+            });
+
+            window.addEventListener('resize', debounce(() => {
+                if (geoChart) {
+                    geoChart.draw(dataTable, options);
+                }
+            }, 250));
+        }
+    }
+
+
+    // --- MISSING COUNTRIES RENDERING ---
+    function renderMissingCountries() {
+        const missingCountriesContentWrapper = document.getElementById('content-missing').querySelector('.max-w-7xl.mx-auto');
+        const missingCountriesListDiv = missingCountriesContentWrapper.querySelector('#missing-countries-list');
+        const missingCountriesStatusDiv = missingCountriesContentWrapper.querySelector('#missing-countries-status');
+
+
+        if (!isAuthenticated()) {
+            missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
+            return;
+        }
+
+        // Clear existing content to prevent duplicates on re-render
+        missingCountriesListDiv.innerHTML = '';
+
+
+        const collectedCountriesNormalized = new Set(collectionData.map(item => getGeoChartCountryName(item.country)));
+        const missingCountries = ALL_COUNTRIES.filter(country => !collectedCountriesNormalized.has(getGeoChartCountryName(country)));
+
+        if (missingCountries.length === 0) {
+            missingCountriesStatusDiv.innerHTML = '<p class="text-2xl text-emerald-400 font-semibold">🥳 Congratulations! You have collected items from all tracked countries!</p>';
+            missingCountriesListDiv.classList.add('hidden');
+        } else {
+            missingCountriesStatusDiv.innerHTML = `<p class="text-lg">You still need to collect items from <span class="font-bold text-red-400">${missingCountries.length}</span> countries.</p>`;
+            missingCountriesListDiv.classList.remove('hidden');
+
+            missingCountries.forEach(country => {
+                const countryElement = document.createElement('div');
+                countryElement.className = 'bg-gray-800 p-4 rounded-md shadow-md border border-gray-700 flex items-center justify-between transition-transform transform hover:scale-102';
+                countryElement.innerHTML = `
+                    <span class="text-gray-200 font-medium">${country}</span>
+                    <button class="add-missing-country-btn text-emerald-400 hover:text-emerald-300 transition-colors" data-country="${country}" title="Quick Add Item from ${country}">
+                        <i class="ph-bold ph-plus-circle text-xl"></i>
+                    </button>
+                `;
+                missingCountriesListDiv.appendChild(countryElement);
+            });
+
+            document.querySelectorAll('.add-missing-country-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const countryToAdd = e.currentTarget.dataset.country;
+                    clearItemForm();
+                    document.getElementById('country').value = countryToAdd;
+                    document.getElementById('modal-title').innerText = `Quick Add Item from ${countryToAdd}`;
+                    openModal('item-modal');
+                });
+            });
+        }
+    }
+
+    // --- SETTINGS RENDERING ---
+    function renderSettings() {
+        const settingsDiv = document.getElementById('content-settings');
+        const settingsContent = document.getElementById('settings-content');
+        const settingsOverlay = document.getElementById('settings-unauthenticated-overlay');
+        const htmlElement = document.documentElement; // Get the <html> element
+
+        if (!isAuthenticated()) {
+            settingsContent.classList.add('hidden');
+            settingsOverlay.classList.remove('hidden');
+            return;
+        } else {
+            settingsContent.classList.remove('hidden');
+            settingsOverlay.classList.add('hidden');
+        }
+
+        // Initialize theme preference radio buttons
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        const themeRadio = document.querySelector(`input[name="theme-preference"][value="${currentTheme}"]`);
+        if(themeRadio) themeRadio.checked = true;
+
+        // Add event listener for theme change (if not already attached)
+        const themeRadios = document.querySelectorAll('input[name="theme-preference"]');
+        themeRadios.forEach(radio => {
+            // Remove existing listener to prevent duplicates
+            radio.removeEventListener('change', handleThemeChange);
+            radio.addEventListener('change', handleThemeChange);
+        });
+
+        // Add event listener for password change form (if not already attached)
+        const changePasswordForm = document.getElementById('change-password-form');
+        if (changePasswordForm) {
+            changePasswordForm.removeEventListener('submit', handleChangePassword);
+            changePasswordForm.addEventListener('submit', handleChangePassword);
+        }
+    }
+
+    function handleThemeChange(event) {
+        const newTheme = event.target.value;
+        document.documentElement.classList.remove('light', 'dark');
+        document.documentElement.classList.add(newTheme);
+        localStorage.setItem('theme', newTheme);
+        showCustomConfirm(`Theme set to ${newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}.`, () => {});
+    }
+
+    async function handleChangePassword(e) {
+        e.preventDefault();
+
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmNewPassword = document.getElementById('confirm-new-password').value;
+
+        if (!currentPassword || !newPassword || !confirmNewPassword) {
+            showCustomConfirm('All password fields are required.', () => {});
+            return;
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            showCustomConfirm('New password and confirmation do not match.', () => {});
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            showCustomConfirm('New password must be at least 6 characters long.', () => {});
+            return;
+        }
+
+        if (!isAuthenticated()) {
+            showCustomConfirm('You must be logged in to change your password.', () => {});
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/change_password`, { // Assuming this endpoint exists on your backend
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                },
+                body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to change password.');
+            }
+
+            const result = await response.json();
+            showCustomConfirm(result.message || 'Password changed successfully!', () => {
+                // Clear password fields after success
+                document.getElementById('current-password').value = '';
+                document.getElementById('new-password').value = '';
+                document.getElementById('confirm-new-password').value = '';
+            });
+        } catch (error) {
+            console.error("Change password error:", error.message);
+            showCustomConfirm(`Failed to change password: ${error.message}`, () => {});
+        }
+    }
+
+    // --- Export Functions ---
+    async function exportCollectionAsJson() {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to export data.', () => {});
+            return;
+        }
+        try {
+            // Using the existing collectionData loaded from backend directly
+            const jsonData = JSON.stringify(collectionData, null, 2); // Pretty print JSON
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coinshelf_collection_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showCustomConfirm('Collection exported as JSON.', () => {});
+        } catch (error) {
+            console.error("Error exporting JSON:", error);
+            showCustomConfirm(`Failed to export JSON: ${error.message}`, () => {});
+        } finally {
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+        }
+    }
+
+    async function exportCollectionAsCsv() {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to export data.', () => {});
+            return;
+        }
+        if (collectionData.length === 0) {
+            showCustomConfirm('No data to export to CSV.', () => {});
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+            return;
+        }
+
+        try {
+            const headers = Object.keys(collectionData[0]).filter(key => key !== 'localImagePath'); // Exclude image path from CSV
+            const csvRows = [];
+            csvRows.push(headers.join(',')); // Add header row
+
+            collectionData.forEach(item => {
+                const values = headers.map(header => {
+                    const value = item[header];
+                    // Handle null/undefined, and escape commas/quotes for CSV
+                    if (value === null || typeof value === 'undefined') {
+                        return '';
+                    }
+                    const stringValue = String(value);
+                    // If value contains comma, double-quote, or newline, wrap in double quotes
+                    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                        return `"${stringValue.replace(/"/g, '""')}"`; // Escape double quotes
+                    }
+                    return stringValue;
+                });
+                csvRows.push(values.join(','));
+            });
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coinshelf_collection_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showCustomConfirm('Collection exported as CSV.', () => {});
+        } catch (error) {
+            console.error("Error exporting CSV:", error);
+            showCustomConfirm(`Failed to export CSV: ${error.message}`, () => {});
+        } finally {
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+        }
+    }
+
+    async function printCollectionReport() {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to generate a report.', () => {});
+            return;
+        }
+        if (collectionData.length === 0) {
+            showCustomConfirm('No data to generate a report.', () => {});
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+            return;
+        }
+
+        try {
+            let reportContent = `
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>CoinShelf Collection Report</title>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; margin: 20px; color: #333; }
+                        h1 { color: #059669; } /* Emerald */
+                        h2 { color: #1f2937; margin-top: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                        .summary { margin-bottom: 30px; }
+                        .summary p { margin: 5px 0; }
+                        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+                        .date { font-size: 0.9em; color: #666; }
+                        @media print {
+                            body { margin: 0; padding: 10px; }
+                            .header { display: block; text-align: center; margin-bottom: 10px; }
+                            .date { text-align: right; width: 100%; display: block; margin-top: 5px; }
+                            table, th, td { border-color: #aaa; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>CoinShelf Collection Report</h1>
+                        <p class="date">Report Date: ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    <div class="summary">
+                        <p><strong>Total Items:</strong> ${collectionData.length}</p>
+                        <p><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => sum + (item.value || 0), 0).toFixed(2)}</p>
+                        <p><strong>Unique Countries:</strong> ${new Set(collectionData.map(item => item.country)).size}</p>
+                    </div>
+                    <h2>Detailed Collection List</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Type</th>
+                                <th>Country</th>
+                                <th>Year</th>
+                                <th>Denomination</th>
+                                <th>Value (USD)</th>
+                                <th>Notes</th>
+                                <th>Reference URL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            collectionData.forEach(item => {
+                reportContent += `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.type}</td>
+                        <td>${item.country || 'N/A'}</td>
+                        <td>${item.year || 'N/A'}</td>
+                        <td>${item.denomination || 'N/A'}</td>
+                        <td>$${(item.value || 0).toFixed(2)}</td>
+                        <td>${item.notes || 'N/A'}</td>
+                        <td>${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank">Link</a>` : 'N/A'}</td>
+                    </tr>
+                `;
+            });
+
+            reportContent += `
+                        </tbody>
+                    </table>
+                </body>
+                </html>
+            `;
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(reportContent);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            showCustomConfirm('Printable report generated.', () => {});
+
+        } catch (error) {
+            console.error("Error generating print report:", error);
+            showCustomConfirm(`Failed to generate report: ${error.message}`, () => {});
+        } finally {
+            closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+        }
+    }
+
+
+    // --- NAVIGATION & UI Management ---
+    function showView(viewId) {
+        document.querySelectorAll('.content-view').forEach(view => {
+            view.classList.add('hidden');
+        });
+        document.getElementById(viewId).classList.remove('hidden');
+
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('bg-gray-700', 'text-white');
+            link.classList.add('hover:bg-gray-700');
+        });
+        document.getElementById(`nav-${viewId.replace('content-', '')}`).classList.add('bg-gray-700', 'text-white');
+
+        renderAllViews();
+    }
+
+    function renderAllViews() {
+        console.log('Rendering all views. Authenticated:', isAuthenticated());
+        // Apply theme on every render to ensure consistency
+        applySavedTheme();
+
+        // No authentication check needed for Home page
+        if (!document.getElementById('content-home').classList.contains('hidden')) {
+            renderHome();
+        }
+
+        // For authenticated views, check if authenticated before rendering
+        if (isAuthenticated()) {
+            if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
+                renderDashboard();
+            }
+            if (!document.getElementById('content-collection').classList.contains('hidden')) {
+                renderCollection();
+            }
+            if (!document.getElementById('content-map').classList.contains('hidden')) {
+                renderGeoChart();
+            }
+            if (!document.getElementById('content-missing').classList.contains('hidden')) {
+                renderMissingCountries();
+            }
+            if (!document.getElementById('content-settings').classList.contains('hidden')) {
+                renderSettings();
+            }
+        } else {
+            // If not authenticated, ensure these views show their respective unauthenticated overlays
+            if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
+                const dashboardContentWrapper = document.getElementById('content-dashboard').querySelector('.max-w-7xl.mx-auto');
+                if (dashboardContentWrapper) {
+                    dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view your dashboard.</p></div>`;
+                }
+            }
+            if (!document.getElementById('content-collection').classList.contains('hidden')) {
+                const collectionContentWrapper = document.getElementById('content-collection').querySelector('.max-w-7xl.mx-auto');
+                if (collectionContentWrapper) {
+                    collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
+                }
+            }
+            if (!document.getElementById('content-map').classList.contains('hidden')) {
+                const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
+                if (mapContentWrapper) {
+                    mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
+                }
+            }
+            if (!document.getElementById('content-missing').classList.contains('hidden')) {
+                const missingCountriesContentWrapper = document.getElementById('content-missing').querySelector('.max-w-7xl.mx-auto');
+                if (missingCountriesContentWrapper) {
+                    missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
+                }
+            }
+            // For settings, it has its own internal overlay that renderSettings will handle
+            if (!document.getElementById('content-settings').classList.contains('hidden')) {
+                renderSettings(); // Calls renderSettings, which handles its own overlay
+            }
+        }
+    }
+
+    function handleUnauthorized() {
+        console.warn('Handling unauthorized state: session expired or invalid.');
+        sessionStorage.removeItem('jwt_token');
+        showCustomConfirm('Your session has expired or is invalid. Please log in again.', () => {});
+        updateAuthUI(false);
+        collectionData = []; // Clear data on logout/unauthorized
+        showView('content-home'); // Redirect to home page
+    }
+
+    function updateAuthUI(loggedIn) {
+        console.log('Updating Auth UI. Logged In:', loggedIn);
+        const authStatusDiv = document.getElementById('auth-status');
+        const loginForm = document.getElementById('login-form');
+        const logoutBtn = document.getElementById('logout-btn');
+        const quickAddBtn = document.getElementById('quick-add-btn');
+        const importDataBtn = document.getElementById('import-data-btn');
+        const exportDataBtn = document.getElementById('export-data-btn'); // New
+        const clearAllBtn = document.getElementById('clear-all-btn'); // Get clear all button
+
+        if (loggedIn) {
+            authStatusDiv.innerHTML = `<span class="text-emerald-400 font-semibold">Logged in!</span>`;
+            if (loginForm) loginForm.classList.add('hidden');
+            if (logoutBtn) logoutBtn.classList.remove('hidden');
+            if (quickAddBtn) quickAddBtn.classList.remove('hidden'); // Show Quick Add
+            if (importDataBtn) importDataBtn.classList.remove('hidden'); // Show Import Data
+            if (exportDataBtn) exportDataBtn.classList.remove('hidden'); // Show Export Data
+            if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
+        } else {
+            authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
+            if (loginForm) loginForm.classList.remove('hidden');
+            if (logoutBtn) logoutBtn.classList.add('hidden');
+            if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
+            if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
+            if (exportDataBtn) exportDataBtn.classList.add('hidden'); // Hide Export Data
+            if (clearAllBtn) clearAllBtn.classList.add('hidden'); // Hide Clear All
+        }
+        // Also update settings view authentication state
+        const settingsContent = document.getElementById('settings-content');
+        const settingsOverlay = document.getElementById('settings-unauthenticated-overlay');
+        if (settingsContent && settingsOverlay) {
+            if (loggedIn) {
+                settingsContent.classList.remove('hidden');
+                settingsOverlay.classList.add('hidden');
+            } else {
+                settingsContent.classList.add('hidden');
+                settingsOverlay.classList.remove('hidden');
+            }
+        }
+    }
+
+    function applySavedTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.classList.remove('light', 'dark');
+            document.documentElement.classList.add(savedTheme);
+        } else {
+            // Default to dark if no theme is saved
+            document.documentElement.classList.add('dark');
+        }
+    }
+
+
+    // --- GLOBAL UI Elements ---
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const mobileSidebarOverlay = document.getElementById('mobile-sidebar-overlay');
+    // We target document.body for overflow-hidden to prevent background scroll when sidebar is open
+    // const appContent = document.getElementById('app-content'); // No longer directly used for overflow control
+
+    // Function to toggle sidebar visibility
+    function toggleSidebar() {
+        console.log('Toggling sidebar...');
+        sidebar.classList.toggle('-translate-x-full'); // Toggle sidebar's off-screen state
+        mobileSidebarOverlay.classList.toggle('hidden'); // Toggle overlay visibility
+        document.body.classList.toggle('overflow-hidden'); // Toggle body scroll
+        sidebar.classList.toggle('open'); // Add/remove 'open' class for media query targeting
+    }
+
+    // --- EVENT LISTENERS ---
+    function attachGlobalEventListeners() {
+        console.log('Attaching global event listeners...');
+
+        // Navigation links
+        const navHome = document.getElementById('nav-home');
+        if (navHome) {
+            console.log('Found nav-home');
+            navHome.addEventListener('click', (e) => { e.preventDefault(); showView('content-home'); });
+        } else { console.error('nav-home not found!'); }
+
+        const navDashboard = document.getElementById('nav-dashboard');
+        if (navDashboard) {
+            console.log('Found nav-dashboard');
+            navDashboard.addEventListener('click', (e) => { e.preventDefault(); showView('content-dashboard'); });
+        } else { console.error('nav-dashboard not found!'); }
+
+        const navCollection = document.getElementById('nav-collection');
+        if (navCollection) {
+            console.log('Found nav-collection');
+            navCollection.addEventListener('click', (e) => { e.preventDefault(); showView('content-collection'); });
+        } else { console.error('nav-collection not found!'); }
+
+        const navMap = document.getElementById('nav-map');
+        if (navMap) {
+            console.log('Found nav-map');
+            navMap.addEventListener('click', (e) => { e.preventDefault(); showView('content-map'); });
+        } else { console.error('nav-map not found!'); }
+
+        const navMissing = document.getElementById('nav-missing');
+        if (navMissing) {
+            console.log('Found nav-missing');
+            navMissing.addEventListener('click', (e) => { e.preventDefault(); showView('content-missing'); });
+        } else { console.error('nav-missing not found!'); }
+
+        const navSettings = document.getElementById('nav-settings');
+        if (navSettings) {
+            console.log('Found nav-settings');
+            navSettings.addEventListener('click', (e) => { e.preventDefault(); showView('content-settings'); });
+        } else { console.error('nav-settings not found!'); }
+
+
+        // Homepage buttons
+        const homeSignupBtn = document.getElementById('home-signup-btn');
+        if (homeSignupBtn) {
+            console.log('Found home-signup-btn');
+            homeSignupBtn.addEventListener('click', () => {
+                console.log('home-signup-btn clicked');
+                if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar(); // Open sidebar if closed
+                }
+                const loginEmailInput = document.getElementById('login-email');
+                if (loginEmailInput) loginEmailInput.focus();
+            });
+        } else {
+            console.error('home-signup-btn not found!');
+        }
+
+        const homeLearnMoreBtn = document.getElementById('home-learn-more-btn');
+        if (homeLearnMoreBtn) {
+            console.log('Found home-learn-more-btn');
+            homeLearnMoreBtn.addEventListener('click', () => {
+                console.log('home-learn-more-btn clicked');
+                showView('content-dashboard'); // Redirects to dashboard
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        } else {
+            console.error('home-learn-more-btn not found!');
+        }
+
+
+        // Quick Add button
+        const quickAddBtn = document.getElementById('quick-add-btn');
+        if (quickAddBtn) {
+            console.log('Found quick-add-btn');
+            quickAddBtn.addEventListener('click', () => {
+                console.log('Quick Add button clicked');
+                if (!isAuthenticated()) {
+                    showCustomConfirm('Please sign in to add new items.', () => {});
+                    return;
+                }
+                clearItemForm();
+                openModal('item-modal');
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        } else {
+            console.error('quick-add-btn not found!');
+        }
+
+        // Import Data button
+        const importDataBtn = document.getElementById('import-data-btn');
+        if (importDataBtn) {
+            console.log('Found import-data-btn');
+            importDataBtn.addEventListener('click', () => {
+                console.log('Import Data button clicked');
+                if (!isAuthenticated()) {
+                    showCustomConfirm('Please sign in to import data.', () => {});
+                    return;
+                }
+                document.getElementById('import-json-data').value = ''; // Clear previous data
+                openModal('import-modal');
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        } else {
+            console.error('import-data-btn not found!');
+        }
+
+        // Export Data button
+        const exportDataBtn = document.getElementById('export-data-btn');
+        if (exportDataBtn) {
+            console.log('Found export-data-btn');
+            exportDataBtn.addEventListener('click', () => {
+                console.log('Export Data button clicked');
+                if (!isAuthenticated()) {
+                    showCustomConfirm('Please sign in to export data.', () => {});
+                    return;
+                }
+                openModal('export-modal'); // Open the new export options modal
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        } else {
+            console.error('export-data-btn not found!');
+        }
+
+
+        // Handle import submission
+        const importSubmitBtn = document.getElementById('import-submit-btn');
+        if (importSubmitBtn) {
+            console.log('Found import-submit-btn');
+            importSubmitBtn.addEventListener('click', async () => {
+                console.log('Import submit button clicked');
+                const jsonData = document.getElementById('import-json-data').value;
+                let itemsToImport;
+                try {
+                    itemsToImport = JSON.parse(jsonData);
+                    if (!Array.isArray(itemsToImport)) {
+                        throw new Error("Pasted data is not a JSON array.");
+                    }
+                } catch (error) {
+                    showCustomConfirm(`Invalid JSON data: ${error.message}. Please paste a valid JSON array of coin objects.`, () => {});
+                    return;
+                }
+
+                if (itemsToImport.length === 0) {
+                    showCustomConfirm('No items found in the pasted data.', () => {});
+                    return;
+                }
+
+                showCustomConfirm(`Are you sure you want to import ${itemsToImport.length} items? This will add them to your collection.`, async () => {
+                    if (!isAuthenticated()) {
+                        showCustomConfirm('Please sign in to import data.', () => {});
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/coins/bulk_upload`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${getAuthToken()}`
+                            },
+                            body: JSON.stringify(itemsToImport)
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                handleUnauthorized();
+                                return;
+                            }
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        let message = result.message || 'Import process completed.';
+                        if (result.errors && result.errors.length > 0) {
+                            message += ` Some items had errors: ${result.errors.map(err => err.substring(0, 50) + "...").join('; ')}`; // Truncate errors for message box
+                        }
+                        showCustomConfirm(message, () => {});
+                        loadCollectionFromBackend(); // Reload data after successful import
+                    } catch (error) {
+                        console.error("Error during bulk import:", error);
+                        showCustomConfirm(`Failed to import data: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+                    } finally {
+                        closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
+                    }
+                });
+            });
+        } else { console.error('import-submit-btn not found!'); }
+
+        const importCancelBtn = document.getElementById('import-cancel-btn');
+        if (importCancelBtn) {
+            console.log('Found import-cancel-btn');
+            importCancelBtn.addEventListener('click', () => {
+                console.log('Import cancel button clicked');
+                closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
+            });
+        } else { console.error('import-cancel-btn not found!'); }
+
+        // Export Modal Buttons
+        const exportJsonBtn = document.getElementById('export-json-btn');
+        if (exportJsonBtn) {
+            console.log('Found export-json-btn');
+            exportJsonBtn.addEventListener('click', exportCollectionAsJson);
+        } else { console.error('export-json-btn not found!'); }
+
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        if (exportCsvBtn) {
+            console.log('Found export-csv-btn');
+            exportCsvBtn.addEventListener('click', exportCollectionAsCsv);
+        } else { console.error('export-csv-btn not found!'); }
+
+        const exportPrintBtn = document.getElementById('export-print-btn');
+        if (exportPrintBtn) {
+            console.log('Found export-print-btn');
+            exportPrintBtn.addEventListener('click', printCollectionReport);
+        } else { console.error('export-print-btn not found!'); }
+
+        const exportCancelBtn = document.getElementById('export-cancel-btn');
+        if (exportCancelBtn) {
+            console.log('Found export-cancel-btn');
+            exportCancelBtn.addEventListener('click', () => closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div')));
+        } else { console.error('export-cancel-btn not found!'); }
+
+
+        // Clear All Items button and modal logic
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const clearConfirmModal = document.getElementById('clear-confirm-modal');
+        const clearConfirmInput = document.getElementById('clear-confirm-input');
+        const clearAllConfirmBtn = document.getElementById('clear-all-confirm-btn');
+        const clearAllCancelBtn = document.getElementById('clear-all-cancel-btn');
+
+        if (clearAllBtn) {
+            console.log('Found clear-all-btn');
+            clearAllBtn.addEventListener('click', () => {
+                console.log('Clear All button clicked');
+                if (!isAuthenticated()) {
+                    showCustomConfirm('Please sign in to clear items.', () => {});
+                    return;
+                }
+                clearConfirmInput.value = ''; // Clear input field
+                openModal('clear-confirm-modal');
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        } else { console.error('clear-all-btn not found!'); }
+
+        if (clearAllConfirmBtn) {
+            console.log('Found clear-all-confirm-btn');
+            clearAllConfirmBtn.addEventListener('click', async () => {
+                console.log('Clear All confirm button clicked');
+                if (clearConfirmInput.value.trim() === 'CLEARYES') {
+                    if (!isAuthenticated()) {
+                        showCustomConfirm('Please sign in to clear items.', () => {});
+                        closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/coins/clear_all`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': `Bearer ${getAuthToken()}`
+                            }
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                handleUnauthorized();
+                                return;
+                            }
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        showCustomConfirm(result.message || 'All items deleted successfully!', () => {});
+                        collectionData = []; // Clear local data
+                        renderAllViews(); // Re-render UI
+                    } catch (error) {
+                        console.error("Error clearing all items:", error);
+                        showCustomConfirm(`Failed to clear all items: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+                    } finally {
+                        closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
+                    }
+                } else {
+                    showCustomConfirm('Incorrect confirmation phrase. Please type "CLEARYES" exactly to proceed.', () => {});
+                }
+            });
+        } else { console.error('clear-all-confirm-btn not found!'); }
+
+        if (clearAllCancelBtn) {
+            console.log('Found clear-all-cancel-btn');
+            clearAllCancelBtn.addEventListener('click', () => {
+                console.log('Clear All cancel button clicked');
+                closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
+            });
+        } else { console.error('clear-all-cancel-btn not found!'); }
+
+
+        // Modal close listeners (click outside or ESC)
+        const itemModal = document.getElementById('item-modal');
+        const importModal = document.getElementById('import-modal');
+        const exportModal = document.getElementById('export-modal'); // New modal
+        const countryDetailsModal = document.getElementById('country-details-modal');
+        const customConfirmModal = document.getElementById('custom-confirm-modal');
+        const clearConfirmModalElement = document.getElementById('clear-confirm-modal');
+
+        if (itemModal) {
+            itemModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                    reinitItemForm();
+                }
+            });
+        } else { console.error('item-modal not found!'); }
+
+
+        if (importModal) {
+            importModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+        } else { console.error('import-modal not found!'); }
+
+        if (exportModal) { // New modal
+            exportModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+        } else { console.error('export-modal not found!'); }
+
+
+        if (countryDetailsModal) {
+            countryDetailsModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+            document.getElementById('country-details-close-btn').addEventListener('click', () => {
+                closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
+            });
+        } else { console.error('country-details-modal not found!'); }
+
+
+        if (clearConfirmModalElement) {
+            clearConfirmModalElement.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+        } else { console.error('clear-confirm-modal not found!'); }
+
+
+        if (customConfirmModal) {
+            customConfirmModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
+                }
+            });
+        } else { console.error('custom-confirm-modal not found!'); }
+
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                if (itemModal && !itemModal.classList.contains('hidden')) {
+                    closeModal(itemModal, itemModal.querySelector('div'));
+                    reinitItemForm();
+                }
+                if (importModal && !importModal.classList.contains('hidden')) {
+                    closeModal(importModal, importModal.querySelector('div'));
+                }
+                if (exportModal && !exportModal.classList.contains('hidden')) { // Close export modal
+                    closeModal(exportModal, exportModal.querySelector('div'));
+                }
+                if (countryDetailsModal && !countryDetailsModal.classList.contains('hidden')) {
+                    closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
+                }
+                if (customConfirmModal && !customConfirmModal.classList.contains('hidden')) {
+                    closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
+                }
+                 if (clearConfirmModalElement && !clearConfirmModalElement.classList.contains('hidden')) {
+                    closeModal(clearConfirmModalElement, clearConfirmModalElement.querySelector('div'));
+                }
+                // Close sidebar if open on mobile
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            }
+        });
+
+        // Event listener for mobile menu toggle button
+        if (mobileMenuToggle) { // Ensure button exists
+            console.log('Found mobile-menu-toggle');
+            mobileMenuToggle.addEventListener('click', toggleSidebar);
+        } else { console.error('mobile-menu-toggle not found!'); }
+
+        // Event listener for overlay to close sidebar
+        if (mobileSidebarOverlay) { // Ensure overlay exists
+            console.log('Found mobile-sidebar-overlay');
+            mobileSidebarOverlay.addEventListener('click', toggleSidebar);
+        } else { console.error('mobile-sidebar-overlay not found!'); }
+
+
+        // Close sidebar if screen resizes to desktop and is currently open
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 768) { // md breakpoint for Tailwind
+                if (sidebar && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            }
+        });
+
+        // When a nav link is clicked (on mobile), close the sidebar
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        });
+
+
+        attachFormEventListeners(); // Attach event listeners for the item form
+
+
+        // --- AUTHENTICATION EVENT LISTENERS ---
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            console.log('Found login-form');
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('Login form submitted');
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                try {
+                    const response = await fetch(`${API_BASE_URL}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || 'Login failed.');
+                    }
+
+                    const result = await response.json();
+                    sessionStorage.setItem('jwt_token', result.token); // Store JWT
+                    showCustomConfirm('Signed in successfully!', () => {});
+                    updateAuthUI(true);
+                    loadCollectionFromBackend(); // Load data after successful login
+                } catch (error) {
+                    console.error("Login error:", error.message);
+                    showCustomConfirm(`Login failed: ${error.message}`, () => {});
+                }
+            });
+        } else { console.error('login-form not found during attachGlobalEventListeners!'); }
+
+        const signupBtn = document.getElementById('signup-btn');
+        if (signupBtn) {
+            console.log('Found signup-btn');
+            signupBtn.addEventListener('click', async () => {
+                console.log('Sign Up button clicked');
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                if (!email || !password) {
+                    showCustomConfirm('Please enter both email and password to sign up.', () => {});
+                    return;
+                }
+                try {
+                    const response = await fetch(`${API_BASE_URL}/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || 'Signup failed.');
+                    }
+
+                    const result = await response.json();
+                    showCustomConfirm(result.message || 'Signed up successfully! Please log in.', () => {
+                        // Optionally auto-login after signup if desired, but
+                        // for explicit flow, user logs in separately
+                    });
+                } catch (error) {
+                    console.error("Sign-up error:", error.message);
+                    showCustomConfirm(`Sign-up failed: ${error.message}`, () => {});
+                }
+            });
+        } else { console.error('signup-btn not found during attachGlobalEventListeners!'); }
+
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            console.log('Found logout-btn');
+            logoutBtn.addEventListener('click', () => {
+                console.log('Logout button clicked');
+                sessionStorage.removeItem('jwt_token'); // Clear JWT
+                updateAuthUI(false);
+                collectionData = []; // Clear data when logged out
+                renderAllViews();
+                showCustomConfirm('Signed out successfully!', () => {});
+            });
+        } else { console.error('logout-btn not found during attachGlobalEventListeners!'); }
+    }
+
+    // --- INITIAL LOAD ---
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM Content Loaded. Starting app initialization...');
+        applySavedTheme(); // Apply theme immediately on load
+        attachGlobalEventListeners();
+        updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
+        loadCollectionFromBackend(); // Attempt to load data if already authenticated
+        showView('content-home'); // Default view on load is now the home page
+        console.log('App initialization completed successfully.');
+    });
+
+</script>
+
+</body>
+</html>
