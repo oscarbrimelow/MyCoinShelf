@@ -37,8 +37,22 @@ https://mycoinshelf.com
 
 ---
 
+![image](https://github.com/user-attachments/assets/d669fe04-a35a-4e27-a50b-6da10ecaf199)
+![image](https://github.com/user-attachments/assets/43ab234c-d53f-4dc1-81a0-eb4aeb9c2ff7)
+![image](https://github.com/user-attachments/assets/be1d1373-40c9-48a4-ba0d-4d10664eaf8c)
+![image](https://github.com/user-attachments/assets/f14d22f1-7c49-4645-82d4-821ddf2e0a12)
+![image](https://github.com/user-attachments/assets/2df655f9-124f-49ed-8622-e5df48ac09ff)
+![image](https://github.com/user-attachments/assets/046f9880-c3ea-4dc4-84b1-dec8199f6d60)
+
+
+
+
+
+
+
 ## 📝 Notes
 
+- ⚠️ **Demo Account** – user/pass = demo@demo/demo
 - ⚠️ **Local images aren't available yet** – placeholder images are shown for now.
 - ⚠️ **No real login system** – username/password are just for your local session.  
   If you forget your password… tough luck 😅  
