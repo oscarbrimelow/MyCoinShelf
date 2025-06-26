@@ -92,9 +92,12 @@ def token_required(f):
 
     return decorated
 
-# --- UTILITY FOR REGION MAPPING & HISTORICAL FLAG (Moved to Backend) ---
+# --- UTILITY FOR REGION MAPPING & HISTORICAL FLAG ---
 def get_region_for_country(country_name):
-    # If country_name is None or empty, default to "Other"
+    """
+    Determines the geographic region for a given country name.
+    If country_name is None or empty, defaults to "Other".
+    """
     if not country_name:
         return "Other"
 
@@ -174,10 +177,13 @@ def get_region_for_country(country_name):
     return country_to_region_map.get(normalized_country, "Other")
 
 def get_is_historical_flag(country_name, year):
+    """
+    Determines if a coin/banknote is historical based on country or year.
+    """
     historical_countries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"]
-    
+
     country_for_check = country_name.lower() if country_name else ''
-    
+
     is_historical = country_for_check in historical_countries or \
                     (year is not None and year < 1900 and year != 0)
     return is_historical
@@ -228,7 +234,7 @@ def login():
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24) # Token expires in 24 hours
     }, app.config['SECRET_KEY'], algorithm="HS256")
 
-    return jsonify({'token': token}), 200
+    return jsonify({'token': token, 'user_id': user.id}), 200 # Return user_id with token
 
 @app.route('/api/change_password', methods=['POST'])
 @token_required
@@ -239,10 +245,6 @@ def change_password(current_user): # current_user is passed by the token_require
 
     if not current_password or not new_password:
         return jsonify({"message": "Current and new passwords are required."}), 400
-
-    # Frontend should handle new password matching confirmation, but backend can also re-check
-    # You might want to add a 'confirm_new_password' field to data and check it here too
-    # Example: if new_password != data.get('confirm_new_password'): return jsonify(...)
 
     # Verify current password
     if not check_password_hash(current_user.password_hash, current_password):
@@ -264,11 +266,33 @@ def get_coins(current_user):
     coins = Coin.query.filter_by(user_id=current_user.id).all()
     return jsonify([coin.to_dict() for coin in coins]), 200
 
+# NEW: Public read-only endpoint for collections
+@app.route('/api/public/collection/<int:user_id>', methods=['GET'])
+def get_public_collection(user_id):
+    """
+    Retrieves a read-only collection for a given user ID.
+    This endpoint does NOT require authentication.
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': 'User not found.'}), 404
+
+    coins = Coin.query.filter_by(user_id=user_id).all()
+    
+    # You might want to filter out more sensitive data here if Coin.to_dict()
+    # includes anything that shouldn't be publicly visible.
+    # For now, Coin.to_dict() is fine as it doesn't expose User details.
+    return jsonify({
+        'owner_id': user_id, # Can be useful for frontend to display "Collection of User X"
+        'collection': [coin.to_dict() for coin in coins]
+    }), 200
+
+
 @app.route('/api/coins', methods=['POST'])
 @token_required
 def add_coin(current_user):
     data = request.get_json()
-    
+
     country_input = data.get('country')
     year_input = data.get('year') or None
 
@@ -301,7 +325,7 @@ def update_coin(current_user, coin_id):
         return jsonify({'message': 'Coin not found or unauthorized!'}), 404
 
     data = request.get_json()
-    
+
     country_input = data.get('country', coin.country) # Use existing if not provided
     year_input = data.get('year', coin.year) or None # Use existing if not provided
 
@@ -354,14 +378,14 @@ def bulk_upload_coins(current_user):
             # Handle year parsing
             year_input = item_data.get('year')
             parsed_year = year_input if isinstance(year_input, int) else (int(year_input) if str(year_input).isdigit() else None)
-            
+
             # Use provided country for region/historical check, default to empty string if not present
             country_input_for_logic = item_data.get('country', '')
 
             # Calculate region and isHistorical on the backend
             final_region = get_region_for_country(country_input_for_logic)
             final_is_historical = get_is_historical_flag(country_input_for_logic, parsed_year)
-            
+
             new_coin = Coin(
                 user_id=current_user.id,
                 type=item_data.get('type', 'Coin'),
