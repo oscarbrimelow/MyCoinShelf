@@ -119,7 +119,6 @@
         }
 
         /* Overlay for unauthenticated state */
-        /* Changed z-index from 50 to 20 to ensure sidebar and its content are visible above it */
         .unauthenticated-overlay {
             position: absolute;
             top: 0;
@@ -131,8 +130,30 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            z-index: 20; /* Adjusted from 50 */
+            z-index: 20;
             border-radius: 0.5rem; /* Match card styling */
+        }
+
+        /* Ensure main content takes full height to allow its own scrolling */
+        #main-content-area {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow-y: auto; /* This allows the main content to scroll independently */
+        }
+        
+        /* On small screens, hide the fixed sidebar to allow full width for content */
+        @media (max-width: 767px) {
+            #sidebar {
+                transform: translateX(-100%); /* Hidden by default */
+            }
+            #sidebar.open {
+                transform: translateX(0); /* Shown when open */
+            }
+            /* Main content takes full width on mobile */
+            .md\:ml-64 { /* Override Tailwind's md:ml-64 on mobile */
+                margin-left: 0 !important;
+            }
         }
     </style>
 </head>
@@ -143,14 +164,13 @@
     <!-- Main App Content -->
     <div id="app-content" class="flex flex-col md:flex-row min-h-screen bg-gray-900 text-gray-300">
         <!-- Sidebar Navigation -->
-        <!-- Responsive classes: fixed and off-screen by default on mobile, then relative and visible on md screens up -->
         <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 border-r border-gray-700 flex flex-col
-                                  transform -translate-x-full md:relative md:translate-x-0 md:flex-shrink-0 transition-transform duration-300 ease-in-out">
+                                  transform -translate-x-full md:translate-x-0 md:flex-shrink-0 transition-transform duration-300 ease-in-out">
             <div class="h-16 flex items-center justify-center border-b border-gray-700 flex-shrink-0">
                 <i class="ph-bold ph-coins text-3xl text-emerald-400"></i>
                 <h1 class="text-xl font-bold ml-2">CoinShelf by Oscar</h1>
             </div>
-            <!-- Wrapped navigation links in a separate div with overflow-y-auto -->
+            <!-- Wrapped navigation links in a separate div with overflow-y-auto and flex-grow -->
             <div class="flex-grow overflow-y-auto">
                 <nav class="p-4">
                     <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
@@ -196,9 +216,9 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 flex flex-col overflow-hidden md:ml-64">
+        <main id="main-content-area" class="flex-1 flex flex-col md:ml-64">
             <!-- Top bar for mobile (hamburger menu and title) -->
-            <header class="bg-gray-800 p-4 md:hidden flex items-center justify-between border-b border-gray-700">
+            <header class="bg-gray-800 p-4 md:hidden flex items-center justify-between border-b border-gray-700 flex-shrink-0">
                 <button id="mobile-menu-toggle" class="text-white text-2xl focus:outline-none">
                     <i class="ph-bold ph-list"></i>
                 </button>
@@ -208,27 +228,37 @@
 
             <div id="content-dashboard" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative">
                 <!-- Dashboard Content Here -->
+                <div class="max-w-7xl mx-auto">
+                    <!-- Dashboard content will be rendered inside this centered div -->
+                </div>
             </div>
 
             <div id="content-collection" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
                 <!-- Collection Content Here -->
+                <div class="max-w-7xl mx-auto">
+                    <!-- Collection content will be rendered inside this centered div -->
+                </div>
             </div>
 
             <div id="content-map" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
                 <!-- Map Content Here -->
-                <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
-                    <!-- Google GeoChart will be rendered here -->
-                    <div id="geochart-canvas"></div>
+                <div class="max-w-7xl mx-auto h-full">
+                    <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
+                        <!-- Google GeoChart will be rendered here -->
+                        <div id="geochart-canvas"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- Missing Countries Content -->
             <div id="content-missing" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
-                <h2 class="text-3xl font-bold text-white mb-6">Countries to Collect</h2>
-                <div id="missing-countries-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    <!-- Missing countries will be rendered here -->
+                <div class="max-w-7xl mx-auto">
+                    <h2 class="text-3xl font-bold text-white mb-6">Countries to Collect</h2>
+                    <div id="missing-countries-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        <!-- Missing countries will be rendered here -->
+                    </div>
+                    <div id="missing-countries-status" class="text-gray-400 mt-6 text-center"></div>
                 </div>
-                <div id="missing-countries-status" class="text-gray-400 mt-6 text-center"></div>
             </div>
         </main>
     </div>
@@ -775,7 +805,11 @@
             return;
         }
 
-        dashboardDiv.innerHTML = `
+        // Get the inner div where content will be rendered
+        const dashboardContentWrapper = dashboardDiv.querySelector('.max-w-7xl.mx-auto');
+        if (!dashboardContentWrapper) return; // Should not happen with the new structure
+
+        dashboardContentWrapper.innerHTML = `
             <h2 class="text-3xl font-bold text-white mb-6">Dashboard Overview</h2>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -1136,9 +1170,12 @@
 
     function showRegionDetails(regionName) {
         const dashboardDiv = document.getElementById('content-dashboard');
+        const dashboardContentWrapper = dashboardDiv.querySelector('.max-w-7xl.mx-auto');
+        if (!dashboardContentWrapper) return;
+
         // Add overlay if not authenticated
         if (!isAuthenticated()) {
-            dashboardDiv.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view region details.</p></div>`;
+            dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view region details.</p></div>`;
             return;
         }
 
@@ -1182,7 +1219,7 @@
                 </table>
             </div>
         `;
-        dashboardDiv.innerHTML = detailsHtml;
+        dashboardContentWrapper.innerHTML = detailsHtml; // Render inside the wrapper
 
         document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
             renderDashboard();
@@ -1295,7 +1332,11 @@
             return;
         }
 
-        collectionContent.innerHTML = `
+        // Get the inner div where content will be rendered
+        const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
+        if (!collectionContentWrapper) return; // Should not happen with the new structure
+
+        collectionContentWrapper.innerHTML = `
             <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
                 <h1 class="text-3xl font-bold text-white">Collection</h1>
                 <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
@@ -1343,11 +1384,11 @@
                 <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
                 <td class="p-4">
                     <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
-                    ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link"></i> Open Reference</a>` : ''}
+                    ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
                 </td>
                 <td class="p-4">
-                     <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}"><i class="ph ph-pencil-simple"></i></button>
-                     <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}"><i class="ph ph-trash"></i></button>
+                     <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
+                     <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
                 </td>
             </tr>
         `).join('');
@@ -1392,16 +1433,27 @@
 
     // Render Map
     function renderGeoChart() {
-        const mapContainer = document.getElementById('geochart-canvas');
-        if (!mapContainer) {
-            console.error('Error: GeoChart canvas element not found!');
+        const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
+        if (!mapContentWrapper) {
+            console.error('Error: GeoChart content wrapper element not found!');
             return;
         }
 
         if (!isAuthenticated()) {
-            mapContainer.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
+            mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
             return;
         }
+        
+        // Ensure the map container is present within the wrapper before rendering
+        if (!mapContentWrapper.querySelector('#map-container')) {
+             mapContentWrapper.innerHTML = `
+                <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
+                    <div id="geochart-canvas"></div>
+                </div>`;
+        }
+
+        const mapContainer = document.getElementById('geochart-canvas');
+
 
         if (geoChart) {
             geoChart.clearChart();
@@ -1484,16 +1536,19 @@
 
     // --- MISSING COUNTRIES RENDERING ---
     function renderMissingCountries() {
-        const missingCountriesListDiv = document.getElementById('missing-countries-list');
-        const missingCountriesStatusDiv = document.getElementById('missing-countries-status');
+        const missingCountriesContentWrapper = document.getElementById('content-missing').querySelector('.max-w-7xl.mx-auto');
+        const missingCountriesListDiv = missingCountriesContentWrapper.querySelector('#missing-countries-list');
+        const missingCountriesStatusDiv = missingCountriesContentWrapper.querySelector('#missing-countries-status');
+
 
         if (!isAuthenticated()) {
-            missingCountriesListDiv.innerHTML = '';
-            missingCountriesStatusDiv.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
+            missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
             return;
         }
 
+        // Clear existing content to prevent duplicates on re-render
         missingCountriesListDiv.innerHTML = '';
+
 
         const collectedCountriesNormalized = new Set(collectionData.map(item => getGeoChartCountryName(item.country)));
         const missingCountries = ALL_COUNTRIES.filter(country => !collectedCountriesNormalized.has(getGeoChartCountryName(country)));
@@ -1598,13 +1653,9 @@
     // Function to toggle sidebar visibility
     function toggleSidebar() {
         sidebar.classList.toggle('-translate-x-full'); // Toggle sidebar's off-screen state
-        if (sidebar.classList.contains('-translate-x-full')) {
-            mobileSidebarOverlay.classList.add('hidden'); // Hide overlay
-            document.body.classList.remove('overflow-hidden'); // Allow body scroll
-        } else {
-            mobileSidebarOverlay.classList.remove('hidden'); // Show overlay
-            document.body.classList.add('overflow-hidden'); // Prevent body scroll
-        }
+        mobileSidebarOverlay.classList.toggle('hidden'); // Toggle overlay visibility
+        document.body.classList.toggle('overflow-hidden'); // Toggle body scroll
+        sidebar.classList.toggle('open'); // Add/remove 'open' class for media query targeting
     }
 
     // --- EVENT LISTENERS ---
@@ -1624,7 +1675,7 @@
             clearItemForm();
             openModal('item-modal');
             // Close sidebar on mobile after clicking quick add
-            if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+            if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
                 toggleSidebar();
             }
         });
@@ -1638,7 +1689,7 @@
             document.getElementById('import-json-data').value = ''; // Clear previous data
             openModal('import-modal');
             // Close sidebar on mobile after clicking import data
-            if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+            if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
                 toggleSidebar();
             }
         });
@@ -1721,7 +1772,7 @@
             clearConfirmInput.value = ''; // Clear input field
             openModal('clear-confirm-modal');
             // Close sidebar on mobile after clicking clear all
-            if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+            if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
                 toggleSidebar();
             }
         });
@@ -1821,7 +1872,7 @@
                     closeModal(clearConfirmModalElement, clearConfirmModalElement.querySelector('div'));
                 }
                 // Close sidebar if open on mobile
-                if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
                     toggleSidebar();
                 }
             }
@@ -1840,8 +1891,8 @@
         // Close sidebar if screen resizes to desktop and is currently open
         window.addEventListener('resize', () => {
             if (window.innerWidth >= 768) { // md breakpoint for Tailwind
-                if (!sidebar.classList.contains('-translate-x-full')) {
-                    toggleSidebar(); // Close it if it was open on mobile view
+                if (sidebar.classList.contains('open')) { // If open in mobile state
+                    toggleSidebar(); // Close it and remove mobile-specific classes
                 }
             }
         });
@@ -1849,7 +1900,7 @@
         // When a nav link is clicked (on mobile), close the sidebar
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', () => {
-                if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
                     toggleSidebar();
                 }
             });
