@@ -136,16 +136,20 @@
     </style>
 </head>
 <body class="overflow-x-hidden">
+    <!-- Overlay for mobile sidebar when open -->
+    <div id="mobile-sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
 
     <!-- Main App Content -->
-    <div id="app-content" class="flex h-screen bg-gray-900 text-gray-300">
+    <div id="app-content" class="flex flex-col md:flex-row min-h-screen bg-gray-900 text-gray-300">
         <!-- Sidebar Navigation -->
-        <aside class="w-64 flex-shrink-0 bg-gray-800 border-r border-gray-700 flex flex-col">
+        <!-- Responsive classes: fixed and off-screen by default on mobile, then relative and visible on md screens up -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 border-r border-gray-700 flex flex-col
+                                  transform -translate-x-full md:relative md:translate-x-0 md:flex-shrink-0 transition-transform duration-300 ease-in-out">
             <div class="h-16 flex items-center justify-center border-b border-gray-700">
                 <i class="ph-bold ph-coins text-3xl text-emerald-400"></i>
                 <h1 class="text-xl font-bold ml-2">CoinShelf by Oscar</h1>
             </div>
-            <nav class="flex-grow p-4">
+            <nav class="flex-grow p-4 overflow-y-auto">
                 <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
                     <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
                 </a>
@@ -187,16 +191,25 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <div id="content-dashboard" class="content-view p-6 overflow-y-auto relative">
+        <main class="flex-1 flex flex-col overflow-hidden md:ml-64">
+            <!-- Top bar for mobile (hamburger menu and title) -->
+            <header class="bg-gray-800 p-4 md:hidden flex items-center justify-between border-b border-gray-700">
+                <button id="mobile-menu-toggle" class="text-white text-2xl focus:outline-none">
+                    <i class="ph-bold ph-list"></i>
+                </button>
+                <h1 class="text-xl font-bold text-white">CoinShelf</h1>
+                <div class="w-8"></div> <!-- Placeholder for right alignment to balance toggle button -->
+            </header>
+
+            <div id="content-dashboard" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative">
                 <!-- Dashboard Content Here -->
             </div>
 
-            <div id="content-collection" class="content-view p-6 overflow-y-auto hidden flex flex-col h-full relative">
+            <div id="content-collection" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
                 <!-- Collection Content Here -->
             </div>
 
-            <div id="content-map" class="content-view p-6 overflow-y-auto hidden relative">
+            <div id="content-map" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
                 <!-- Map Content Here -->
                 <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
                     <!-- Google GeoChart will be rendered here -->
@@ -205,7 +218,7 @@
             </div>
 
             <!-- Missing Countries Content -->
-            <div id="content-missing" class="content-view p-6 overflow-y-auto hidden relative">
+            <div id="content-missing" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
                 <h2 class="text-3xl font-bold text-white mb-6">Countries to Collect</h2>
                 <div id="missing-countries-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     <!-- Missing countries will be rendered here -->
@@ -216,8 +229,8 @@
     </div>
 
     <!-- Add/Edit Modal -->
-    <div id="item-modal" class="fixed inset-0 z-50 items-center justify-center hidden modal-backdrop">
-        <div class="bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
+    <div id="item-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
             <h2 id="modal-title" class="text-2xl font-bold mb-6">Add New Item</h2>
             <form id="item-form">
                 <input type="hidden" id="item-id">
@@ -268,8 +281,8 @@
     </div>
 
     <!-- Import Data Modal -->
-    <div id="import-modal" class="fixed inset-0 z-50 items-center justify-center hidden modal-backdrop">
-        <div class="bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
+    <div id="import-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
             <h2 class="text-2xl font-bold mb-6">Import Collection Data</h2>
             <p class="text-gray-400 mb-4">Paste your coin collection data as a JSON array below.</p>
             <textarea id="import-json-data" rows="15" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-white p-3 font-mono text-sm"></textarea>
@@ -281,7 +294,7 @@
     </div>
 
     <!-- Custom Confirmation Modal -->
-    <div id="custom-confirm-modal" class="fixed inset-0 z-[100] hidden items-center justify-center modal-backdrop">
+    <div id="custom-confirm-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden modal-backdrop p-4">
         <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-sm text-center transform transition-all scale-95 opacity-0">
             <p id="confirm-message" class="text-lg font-semibold mb-6"></p>
             <div class="flex justify-center space-x-4">
@@ -292,7 +305,7 @@
     </div>
 
     <!-- Clear All Confirmation Modal -->
-    <div id="clear-confirm-modal" class="fixed inset-0 z-[100] hidden items-center justify-center modal-backdrop">
+    <div id="clear-confirm-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden modal-backdrop p-4">
         <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-md text-center transform transition-all scale-95 opacity-0">
             <h2 class="text-2xl font-bold text-red-400 mb-4">CONFIRM CLEAR ALL DATA</h2>
             <p class="text-lg text-gray-300 mb-6">
@@ -311,9 +324,8 @@
 
 <script>
     // --- Backend API Base URL ---
-    
-  // This will be updated later with your actual Render backend URL
-const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
+    // This will be updated later with your actual Render backend URL
+    const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
 
     // --- Data Store ---
     let collectionData = []; // This will be populated from the backend
@@ -1186,8 +1198,8 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
             const filtered = collectionData.filter(item => {
                 const matchesSearch = searchTerm === '' ||
                                       String(item.id).toLowerCase().includes(searchTerm) ||
-                                      item.country.toLowerCase().includes(searchTerm) ||
-                                      item.denomination.toLowerCase().includes(searchTerm) ||
+                                      (item.country && item.country.toLowerCase().includes(searchTerm)) || // Added null check
+                                      (item.denomination && item.denomination.toLowerCase().includes(searchTerm)) || // Added null check
                                       (item.notes && item.notes.toLowerCase().includes(searchTerm)) ||
                                       (item.year && item.year.toString().includes(searchTerm));
                 const matchesRegion = selectedRegion === '' || item.region === selectedRegion;
@@ -1278,18 +1290,18 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
         }
 
         collectionContent.innerHTML = `
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
                 <h1 class="text-3xl font-bold text-white">Collection</h1>
-                <div class="flex items-center space-x-4">
-                    <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500">
-                    <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500"></select>
-                    <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500"></select>
+                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+                    <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2">
+                    <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                    <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
                 </div>
             </div>
             <div class="flex-1 flex overflow-hidden">
                 <div class="w-full flex flex-col">
-                    <div class="flex-1 overflow-y-auto bg-gray-800 rounded-lg border border-gray-700">
-                        <table class="w-full text-left data-table">
+                    <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                        <table class="w-full text-left data-table min-w-max"> <!-- min-w-max to prevent crushing columns -->
                             <thead class="bg-gray-700 sticky top-0">
                                 <tr>
                                     <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
@@ -1570,6 +1582,25 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
     }
 
 
+    // --- GLOBAL UI Elements ---
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const mobileSidebarOverlay = document.getElementById('mobile-sidebar-overlay');
+    // We target document.body for overflow-hidden to prevent background scroll when sidebar is open
+    // const appContent = document.getElementById('app-content'); // No longer directly used for overflow control
+
+    // Function to toggle sidebar visibility
+    function toggleSidebar() {
+        sidebar.classList.toggle('-translate-x-full'); // Toggle sidebar's off-screen state
+        if (sidebar.classList.contains('-translate-x-full')) {
+            mobileSidebarOverlay.classList.add('hidden'); // Hide overlay
+            document.body.classList.remove('overflow-hidden'); // Allow body scroll
+        } else {
+            mobileSidebarOverlay.classList.remove('hidden'); // Show overlay
+            document.body.classList.add('overflow-hidden'); // Prevent body scroll
+        }
+    }
+
     // --- EVENT LISTENERS ---
     function attachGlobalEventListeners() {
         // Navigation links
@@ -1586,6 +1617,10 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
             }
             clearItemForm();
             openModal('item-modal');
+            // Close sidebar on mobile after clicking quick add
+            if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                toggleSidebar();
+            }
         });
 
         // Import Data button
@@ -1596,6 +1631,10 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
             }
             document.getElementById('import-json-data').value = ''; // Clear previous data
             openModal('import-modal');
+            // Close sidebar on mobile after clicking import data
+            if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                toggleSidebar();
+            }
         });
 
         // Handle import submission
@@ -1676,6 +1715,10 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
             }
             clearConfirmInput.value = ''; // Clear input field
             openModal('clear-confirm-modal');
+            // Close sidebar on mobile after clicking clear all
+            if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                toggleSidebar();
+            }
         });
 
         clearAllConfirmBtn.addEventListener('click', async () => {
@@ -1726,6 +1769,7 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
         const itemModal = document.getElementById('item-modal');
         const importModal = document.getElementById('import-modal');
         const customConfirmModal = document.getElementById('custom-confirm-modal');
+        const clearConfirmModalElement = document.getElementById('clear-confirm-modal'); // Renamed to avoid conflict
 
         itemModal.addEventListener('click', function(event) {
             const modalContent = this.querySelector('div');
@@ -1742,7 +1786,7 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
             }
         });
 
-        clearConfirmModal.addEventListener('click', function(event) {
+        clearConfirmModalElement.addEventListener('click', function(event) {
             const modalContent = this.querySelector('div');
             if (!modalContent.contains(event.target)) {
                 closeModal(this, modalContent);
@@ -1768,13 +1812,47 @@ const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
                 if (!customConfirmModal.classList.contains('hidden')) {
                     closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
                 }
-                 if (!clearConfirmModal.classList.contains('hidden')) { // Close clear all modal
-                    closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
+                 if (!clearConfirmModalElement.classList.contains('hidden')) { // Close clear all modal
+                    closeModal(clearConfirmModalElement, clearConfirmModalElement.querySelector('div'));
+                }
+                // Close sidebar if open on mobile
+                if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar();
                 }
             }
         });
 
-        attachFormEventListeners();
+        // Event listener for mobile menu toggle button
+        if (mobileMenuToggle) { // Ensure button exists
+            mobileMenuToggle.addEventListener('click', toggleSidebar);
+        }
+
+        // Event listener for overlay to close sidebar
+        if (mobileSidebarOverlay) { // Ensure overlay exists
+            mobileSidebarOverlay.addEventListener('click', toggleSidebar);
+        }
+
+        // Close sidebar if screen resizes to desktop and is currently open
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 768) { // md breakpoint for Tailwind
+                if (!sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar(); // Close it if it was open on mobile view
+                }
+            }
+        });
+
+        // When a nav link is clicked (on mobile), close the sidebar
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar();
+                }
+            });
+        });
+
+
+        attachFormEventListeners(); // Attach event listeners for the item form
+
 
         // --- AUTHENTICATION EVENT LISTENERS ---
         document.getElementById('login-form').addEventListener('submit', async (e) => {
