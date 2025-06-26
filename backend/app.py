@@ -41,8 +41,10 @@ class Coin(db.Model):
     denomination = db.Column(db.String(100), nullable=True) # CHANGED to nullable=True
     value = db.Column(db.Float, nullable=False, default=0.0) # Default added
     notes = db.Column(db.Text, nullable=True)
-    referenceUrl = db.Column(db.String(255), nullable=True)
-    localImagePath = db.Column(db.String(255), nullable=True)
+    # MODIFIED: Changed from db.String(255) to db.Text to allow longer URLs
+    referenceUrl = db.Column(db.Text, nullable=True)
+    # MODIFIED: Changed from db.String(255) to db.Text to allow longer image paths/URLs
+    localImagePath = db.Column(db.Text, nullable=True)
     region = db.Column(db.String(100), nullable=True)
     isHistorical = db.Column(db.Boolean, nullable=False, default=False)
 
