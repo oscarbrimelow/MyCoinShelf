@@ -146,25 +146,29 @@
         <!-- Responsive classes: fixed and off-screen by default on mobile, then relative and visible on md screens up -->
         <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 border-r border-gray-700 flex flex-col
                                   transform -translate-x-full md:relative md:translate-x-0 md:flex-shrink-0 transition-transform duration-300 ease-in-out">
-            <div class="h-16 flex items-center justify-center border-b border-gray-700">
+            <div class="h-16 flex items-center justify-center border-b border-gray-700 flex-shrink-0">
                 <i class="ph-bold ph-coins text-3xl text-emerald-400"></i>
                 <h1 class="text-xl font-bold ml-2">CoinShelf by Oscar</h1>
             </div>
-            <nav class="flex-grow p-4 overflow-y-auto">
-                <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
-                    <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
-                </a>
-                <a href="#" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                    <i class="ph-bold ph-list-dashes mr-3"></i> Collection
-                </a>
-                <a href="#" id="nav-map" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                    <i class="ph-bold ph-map-trifold mr-3"></i> World Map
-                </a>
-                <a href="#" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                    <i class="ph-bold ph-flag mr-3"></i> Missing Countries
-                </a>
-            </nav>
-            <div class="p-4 border-t border-gray-700 flex flex-col space-y-3">
+            <!-- Wrapped navigation links in a separate div with overflow-y-auto -->
+            <div class="flex-grow overflow-y-auto">
+                <nav class="p-4">
+                    <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
+                        <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
+                    </a>
+                    <a href="#" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-list-dashes mr-3"></i> Collection
+                    </a>
+                    <a href="#" id="nav-map" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-map-trifold mr-3"></i> World Map
+                    </a>
+                    <a href="#" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-flag mr-3"></i> Missing Countries
+                    </a>
+                </nav>
+            </div>
+            <!-- Buttons Section: flex-shrink-0 to keep it from shrinking -->
+            <div class="p-4 border-t border-gray-700 flex flex-col space-y-3 flex-shrink-0">
                 <button id="quick-add-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
                     <i class="ph-bold ph-plus-circle mr-2"></i> Quick Add Item
                 </button>
@@ -176,8 +180,8 @@
                 </button>
             </div>
 
-            <!-- Authentication Section -->
-            <div class="p-4 border-t border-gray-700 mt-auto">
+            <!-- Authentication Section: flex-shrink-0 and mt-auto to ensure it stays at the very bottom -->
+            <div class="p-4 border-t border-gray-700 mt-auto flex-shrink-0">
                 <div id="auth-status" class="text-center text-sm mb-2"></div>
                 <div id="auth-form-container">
                     <form id="login-form" class="space-y-3">
@@ -345,7 +349,7 @@
         "Jamaica", "Japan", "Jordan",
         "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan",
         "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg",
-        "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar (Burma)",
+        "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar (Burma)",
         "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia (Macedonia)", "Norway",
         "Oman",
         "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal",
@@ -598,7 +602,8 @@
                 }
             });
             renderAllViews(); // Re-render UI with fresh data
-        } catch (error) {
+        }
+        catch (error) {
             console.error("Error loading collection from backend:", error);
             showCustomConfirm('Failed to load collection. Please try logging in again or check backend server.', () => {});
             collectionData = []; // Clear local data on load error
