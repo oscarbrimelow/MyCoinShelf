@@ -37,7 +37,7 @@
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
-        
+
         /* Custom scrollbar for specific elements */
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
@@ -157,7 +157,7 @@
             flex-grow: 1;
             overflow-y: auto; /* This allows the main content to scroll independently */
         }
-        
+
         /* On small screens, hide the fixed sidebar to allow full width for content */
         @media (max-width: 767px) {
             #sidebar {
@@ -185,7 +185,7 @@
         .animate-bounce-slow {
             animation: bounce-slow 3s infinite ease-in-out; /* Slower and smoother */
         }
-        
+
         /* For light mode */
         html.light body {
             background-color: #f3f4f6; /* Light gray */
@@ -216,7 +216,7 @@
             border-color: #e5e7eb;
         }
         html.light .bg-gray-700 { /* Inputs, table headers, etc. */
-            background-color: #f3f4f6;
+            background-color: #f3f4fb;
             border-color: #d1d5db;
         }
         html.light input, html.light select, html.light textarea {
@@ -444,7 +444,7 @@
                         </div>
 
                         <!-- Theme Preference -->
-                        <div>
+                        <div class="mb-8">
                             <h3 class="text-xl font-semibold text-gray-300 mb-4">Theme Preference</h3>
                             <div class="flex items-center space-x-4">
                                 <label class="flex items-center cursor-pointer">
@@ -455,6 +455,54 @@
                                     <input type="radio" name="theme-preference" value="light" class="form-radio h-4 w-4 text-emerald-600">
                                     <span class="ml-2 text-gray-300">Light Mode</span>
                                 </label>
+                            </div>
+                        </div>
+
+                        <!-- Share Collection -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Share My Collection</h3>
+                            <p class="text-gray-400 text-sm mb-4">Generate a read-only link to share your collection with others.</p>
+                            <button id="generate-share-link-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                                <i class="ph-bold ph-share-network mr-2"></i> Generate Shareable Link
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Public Collection View -->
+            <div id="content-public-collection" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
+                <div class="max-w-7xl mx-auto">
+                    <h1 id="public-collection-title" class="text-3xl font-bold text-white mb-6">Shared Collection</h1>
+                    <div id="public-collection-summary" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                            <h3 class="text-lg font-semibold text-gray-300">Total Items</h3>
+                            <p class="text-4xl font-bold text-emerald-400" id="public-total-items">0</p>
+                        </div>
+                        <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                            <h3 class="text-lg font-semibold text-gray-300">Total Value</h3>
+                            <p class="text-4xl font-bold text-emerald-400" id="public-total-value">$0.00</p>
+                        </div>
+                    </div>
+                    <div class="flex-1 flex overflow-hidden">
+                        <div class="w-full flex flex-col">
+                            <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                                <table class="w-full text-left data-table min-w-max">
+                                    <thead class="bg-gray-700 sticky top-0">
+                                        <tr>
+                                            <th class="p-4 font-semibold">ID</th>
+                                            <th class="p-4 font-semibold">Type</th>
+                                            <th class="p-4 font-semibold">Country</th>
+                                            <th class="p-4 font-semibold">Year</th>
+                                            <th class="p-4 font-semibold">Denomination</th>
+                                            <th class="p-4 font-semibold">Value</th>
+                                            <th class="p-4 font-semibold">Notes & Ref.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="public-collection-table-body">
+                                        <!-- Public collection items will be rendered here (read-only) -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -550,6 +598,27 @@
         </div>
     </div>
 
+    <!-- Share Link Modal -->
+    <div id="share-link-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-xl border border-gray-700 transform transition-all scale-95 opacity-0">
+            <h2 class="text-2xl font-bold text-white mb-6">Share Your Collection Link</h2>
+            <p class="text-gray-400 mb-4">Copy the link below to share your read-only collection:</p>
+            <div class="flex items-center space-x-2 mb-6">
+                <input type="text" id="share-link-input" readonly
+                       class="flex-grow bg-gray-700 border-gray-600 rounded-md shadow-sm p-3 text-sm text-white focus:ring-blue-500 focus:border-blue-500 cursor-text">
+                <button id="copy-share-link-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors flex-shrink-0">
+                    <i class="ph-bold ph-copy-simple mr-2"></i> Copy
+                </button>
+            </div>
+            <p class="text-yellow-400 text-sm mb-6">
+                <i class="ph-bold ph-info mr-1"></i> This link provides read-only access to your collection data. Do not share if you wish to keep your collection private.
+            </p>
+            <div class="flex justify-end">
+                <button type="button" id="share-link-close-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Country Details Modal -->
     <div id="country-details-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
@@ -568,7 +637,7 @@
                     </div>
                     <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
                         <h3 class="text-lg font-semibold text-gray-300">Total Value</h3>
-                        <p id="country-total-value" class="text-3xl font-bold text-emerald-400">$0.00</p>
+                        <p class="text-3xl font-bold text-emerald-400">$0.00</p>
                     </div>
                 </div>
 
@@ -631,6 +700,8 @@
 
     // --- Data Store ---
     let collectionData = []; // This will be populated from the backend
+    let currentUserId = null; // Store the logged-in user's ID
+    let isPublicView = false; // Flag to indicate if currently in a public read-only view
 
     // List of all countries (you can expand this as needed)
     const ALL_COUNTRIES = [
@@ -649,7 +720,7 @@
         "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar (Burma)",
         "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia (Macedonia)", "Norway",
         "Oman",
-        "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal",
+        "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "South America", "Peru", "Philippines", "Poland", "Portugal",
         "Qatar",
         "Romania", "Russia", "Rwanda",
         "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
@@ -735,7 +806,7 @@
 
             "netherlands": "Europe", "united kingdom": "Europe", "belgium": "Europe",
             "eu": "Europe", "ireland": "Europe", "spain": "Europe", "portugal": "Europe",
-            "isle of man": "Europe", "germany": "Germany", "bulgaria": "Europe",
+            "isle of man": "Europe", "germany": "Europe", "bulgaria": "Europe",
             "france": "Europe", "croatia": "Europe", "moldova": "Europe",
             "ukraine": "Europe", "denmark": "Europe", "finland": "Europe",
             "norway": "Europe", "san marino": "Europe", "switzerland": "Europe",
@@ -840,19 +911,39 @@
         return sessionStorage.getItem('jwt_token');
     }
 
+    // Function to get User ID from JWT
+    function getUserIdFromToken() {
+        const token = getAuthToken();
+        if (!token) return null;
+        try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            const payload = JSON.parse(jsonPayload);
+            return payload.user_id;
+        } catch (e) {
+            console.error("Error decoding JWT:", e);
+            return null;
+        }
+    }
+
+
     function isAuthenticated() {
         return !!getAuthToken();
     }
 
-    // Fetches collection data from the backend
-    async function loadCollectionFromBackend() {
+    // Fetches collection data for the currently authenticated user from the backend
+    async function loadUserCollectionFromBackend() {
         if (!isAuthenticated()) {
-            console.log('Not authenticated, clearing collection data and rendering views.');
-            collectionData = []; // Clear data if not authenticated
-            renderAllViews();
+            console.log('Not authenticated for private collection, clearing data.');
+            collectionData = [];
+            currentUserId = null;
+            renderAllViews(); // Re-render to show appropriate unauthenticated states
             return;
         }
-        console.log('Authenticated, attempting to load collection data from backend...');
+        console.log('Authenticated, attempting to load private collection data from backend...');
         try {
             const response = await fetch(`${API_BASE_URL}/coins`, {
                 method: 'GET',
@@ -863,15 +954,16 @@
             });
             if (!response.ok) {
                 if (response.status === 401) { // Unauthorized, token expired or invalid
-                    console.warn('Authentication failed during collection load (401 Unauthorized).');
+                    console.warn('Authentication failed during private collection load (401 Unauthorized).');
                     handleUnauthorized();
                     return;
                 }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             collectionData = await response.json();
-            console.log("Collection data loaded from backend:", collectionData);
-
+            currentUserId = getUserIdFromToken(); // Update currentUserId when collection is loaded
+            console.log("Private collection data loaded from backend:", collectionData);
+            console.log("Current User ID:", currentUserId);
             // Region and isHistorical are now calculated by the backend upon add/update.
             // We just ensure the data is present in case older data exists or for consistency.
             collectionData.forEach(item => {
@@ -889,12 +981,62 @@
             renderAllViews(); // Re-render UI with fresh data
         }
         catch (error) {
-            console.error("Error loading collection from backend:", error);
-            showCustomConfirm('Failed to load collection. Please try logging in again or check backend server.', () => {});
+            console.error("Error loading private collection from backend:", error);
+            showCustomConfirm('Failed to load your collection. Please try logging in again or check backend server.', () => {});
             collectionData = []; // Clear local data on load error
+            currentUserId = null;
             renderAllViews();
         }
     }
+
+    // NEW: Fetches collection data for a public user ID
+    async function loadPublicCollection(userId) {
+        console.log(`Attempting to load public collection for user ID: ${userId}`);
+        try {
+            const response = await fetch(`${API_BASE_URL}/public/collection/${userId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            collectionData = result.collection; // Assign the public collection data
+            // Note: For public view, currentUserId is irrelevant for modification but useful for display
+            isPublicView = true; // Set the flag
+            console.log(`Public collection loaded for user ID ${userId}:`, collectionData);
+
+            // Region and isHistorical are now calculated by the backend upon add/update.
+            // We just ensure the data is present in case older data exists or for consistency.
+            collectionData.forEach(item => {
+                if (!item.region || item.region === "") { // Ensure region is not null/empty
+                    item.region = getRegionForCountry(item.country);
+                }
+                if (typeof item.isHistorical === 'undefined' || item.isHistorical === null) {
+                    const historicalCountries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"];
+                    const yearInput = item.year;
+                    const parsedYear = yearInput ? parseInt(yearInput) : null;
+                    item.isHistorical = historicalCountries.includes((item.country || '').toLowerCase()) || (parsedYear !== null && parsedYear < 1900 && parsedYear !== 0);
+                }
+            });
+
+            renderAllViews(); // Render the public view (it will call renderCollection with true flag)
+        } catch (error) {
+            console.error("Error loading public collection:", error);
+            // Render an error message in the public collection view
+            document.getElementById('content-public-collection').innerHTML = `
+                <div class="max-w-7xl mx-auto py-12 px-4 text-center">
+                    <h2 class="text-3xl font-bold text-red-400 mb-4">Collection Not Found or Inaccessible</h2>
+                    <p class="text-lg text-gray-300">The shared collection link is invalid, or the user's collection does not exist.</p>
+                </div>
+            `;
+            showView('content-public-collection'); // Force show this specific view
+        }
+    }
+
 
     function clearItemForm() {
         document.getElementById('item-id').value = '';
@@ -1037,7 +1179,7 @@
 
             const result = await response.json();
             showCustomConfirm(result.message || 'Item saved successfully!', () => {});
-            loadCollectionFromBackend(); // Reload data after successful save
+            loadUserCollectionFromBackend(); // Reload user's data after successful save
         } catch (error) {
             console.error("Error saving item:", error);
             showCustomConfirm(`Failed to save item: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
@@ -1063,7 +1205,13 @@
             dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view your dashboard.</p></div>`;
             return;
         }
-        
+
+        // Only render if we're not in a public view
+        if (isPublicView) {
+            dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-yellow-400">This feature is not available in shared collection view.</p></div>`;
+            return;
+        }
+
         dashboardContentWrapper.innerHTML = `
             <h2 class="text-3xl font-bold text-white mb-6">Dashboard Overview</h2>
 
@@ -1530,10 +1678,11 @@
         const countryTotalValue = document.getElementById('country-total-value');
         const countryItemsTableBody = document.getElementById('country-items-table-body');
 
-        if (!isAuthenticated()) {
-            showCustomConfirm('Please sign in to view country details.', () => {});
-            return;
-        }
+        // Allow this modal in public view, but ensure it's read-only
+        // if (!isAuthenticated() && !isPublicView) { // Removed this check as logic now happens via isPublicView
+        //     showCustomConfirm('Please sign in to view country details.', () => {});
+        //     return;
+        // }
 
         const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === countryName);
 
@@ -1567,7 +1716,7 @@
     }
 
 
-    // --- COLLECTION INTERACTIVITY ---
+    // --- COLLECTION INTERACTIVITY (for private collection) ---
     function initializeFilters() {
         const searchInput = document.getElementById('search-input');
         const regionFilter = document.getElementById('region-filter');
@@ -1589,22 +1738,28 @@
                 const matchesType = selectedType === '' || item.type === selectedType;
                 return matchesSearch && matchesRegion && matchesType;
             });
-            renderCollectionTable(filtered);
+            renderCollectionTable(filtered, false); // false means not read-only
         };
 
-        const uniqueRegions = [...new Set(collectionData.map(item => item.region))].sort();
-        regionFilter.innerHTML = '<option value="">All Regions</option>' + uniqueRegions.map(r => `<option value="${r}">${r}</option>`).join('');
+        // Ensure filters are only added if they exist (i.e., not in public view)
+        if (searchInput && regionFilter && typeFilter) {
+            const uniqueRegions = [...new Set(collectionData.map(item => item.region))].sort();
+            regionFilter.innerHTML = '<option value="">All Regions</option>' + uniqueRegions.map(r => `<option value="${r}">${r}</option>`).join('');
 
-        const uniqueTypes = [...new Set(collectionData.map(item => item.type))].sort();
-        typeFilter.innerHTML = '<option value="">All Types</option>' + uniqueTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+            const uniqueTypes = [...new Set(collectionData.map(item => item.type))].sort();
+            typeFilter.innerHTML = '<option value="">All Types</option>' + uniqueTypes.map(t => `<option value="${t}">${t}</option>`).join('');
 
 
-        searchInput.addEventListener('input', debounce(applyFilters, 300));
-        regionFilter.addEventListener('change', applyFilters);
-        typeFilter.addEventListener('change', applyFilters);
+            searchInput.addEventListener('input', debounce(applyFilters, 300));
+            regionFilter.addEventListener('change', applyFilters);
+            typeFilter.addEventListener('change', applyFilters);
+        }
     }
 
     function initializeActionButtons() {
+        // Only attach if not in public view
+        if (isPublicView) return;
+
         document.querySelectorAll('.edit-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1652,7 +1807,7 @@
 
                         const result = await response.json();
                         showCustomConfirm(result.message || 'Item deleted successfully!', () => {});
-                        loadCollectionFromBackend(); // Reload data after deletion
+                        loadUserCollectionFromBackend(); // Reload data after deletion
                     } catch (error) {
                         console.error("Error deleting item:", error);
                         showCustomConfirm(`Failed to delete item: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
@@ -1665,54 +1820,108 @@
     // --- COLLECTION RENDERING ---
     let currentSort = { column: null, direction: 'asc' };
 
-    function renderCollection(filteredData = collectionData) {
-        const collectionContent = document.getElementById('content-collection');
+    // Unified render function that can handle both private and public views
+    function renderCollection(dataToRender, isReadOnlyMode = false) {
+        const collectionContent = document.getElementById(isReadOnlyMode ? 'content-public-collection' : 'content-collection');
         const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
         if (!collectionContentWrapper) return;
 
-        if (!isAuthenticated()) {
+        // For private collection view, if not authenticated, show overlay
+        if (!isReadOnlyMode && !isAuthenticated()) {
             collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
             return;
         }
 
-        collectionContentWrapper.innerHTML = `
-            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
-                <h1 class="text-3xl font-bold text-white">Collection</h1>
-                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-                    <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2">
-                    <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
-                    <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
-                </div>
-            </div>
-            <div class="flex-1 flex overflow-hidden">
-                <div class="w-full flex flex-col">
-                    <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
-                        <table class="w-full text-left data-table min-w-max"> <!-- min-w-max to prevent crushing columns -->
-                            <thead class="bg-gray-700 sticky top-0">
-                                <tr>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
-                                    <th class="p-4 font-semibold">Type</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="country">Country</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="year">Year</th>
-                                    <th class="p-4 font-semibold">Denomination</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="value">Value</th>
-                                    <th class="p-4 font-semibold">Notes & Ref.</th>
-                                    <th class="p-4 font-semibold">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="collection-table-body"></tbody>
-                        </table>
+        // Generate HTML structure based on read-only mode
+        let tableHeaderActions = ``;
+        let tableBodyActions = ``;
+
+        if (!isReadOnlyMode) {
+            tableHeaderActions = `<th class="p-4 font-semibold">Actions</th>`;
+            // The item variable below is used within the map function for tableRows
+            tableBodyActions = (item) => `
+                <td class="p-4">
+                     <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
+                     <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
+                </td>
+            `;
+            // For the main collection view, render filter bar
+            collectionContentWrapper.innerHTML = `
+                <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
+                    <h1 class="text-3xl font-bold text-white">Collection</h1>
+                    <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+                        <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2">
+                        <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                        <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
                     </div>
                 </div>
-            </div>
-        `;
-        initializeFilters();
-        renderCollectionTable(filteredData);
-        attachSortEventListeners();
-    };
+                <div class="flex-1 flex overflow-hidden">
+                    <div class="w-full flex flex-col">
+                        <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                            <table class="w-full text-left data-table min-w-max">
+                                <thead class="bg-gray-700 sticky top-0">
+                                    <tr>
+                                        <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
+                                        <th class="p-4 font-semibold">Type</th>
+                                        <th class="p-4 font-semibold cursor-pointer" data-sort-column="country">Country</th>
+                                        <th class="p-4 font-semibold cursor-pointer" data-sort-column="year">Year</th>
+                                        <th class="p-4 font-semibold">Denomination</th>
+                                        <th class="p-4 font-semibold cursor-pointer" data-sort-column="value">Value</th>
+                                        <th class="p-4 font-semibold">Notes & Ref.</th>
+                                        ${tableHeaderActions}
+                                    </tr>
+                                </thead>
+                                <tbody id="collection-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            initializeFilters();
+        } else {
+            // For public collection view, render simplified structure
+             collectionContentWrapper.innerHTML = `
+                <h1 id="public-collection-title" class="text-3xl font-bold text-white mb-6">Shared Collection</h1>
+                <div id="public-collection-summary" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Items</h3>
+                        <p class="text-4xl font-bold text-emerald-400" id="public-total-items">0</p>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Value</h3>
+                        <p class="text-4xl font-bold text-emerald-400" id="public-total-value">$0.00</p>
+                    </div>
+                </div>
+                <div class="flex-1 flex overflow-hidden">
+                    <div class="w-full flex flex-col">
+                        <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                            <table class="w-full text-left data-table min-w-max">
+                                <thead class="bg-gray-700 sticky top-0">
+                                    <tr>
+                                        <th class="p-4 font-semibold">ID</th>
+                                        <th class="p-4 font-semibold">Type</th>
+                                        <th class="p-4 font-semibold">Country</th>
+                                        <th class="p-4 font-semibold">Year</th>
+                                        <th class="p-4 font-semibold">Denomination</th>
+                                        <th class="p-4 font-semibold">Value</th>
+                                        <th class="p-4 font-semibold">Notes & Ref.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="public-collection-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            // Update summary for public view
+            const totalItems = dataToRender.length;
+            const totalValue = dataToRender.reduce((sum, item) => sum + (item.value || 0), 0);
+            document.getElementById('public-total-items').innerText = totalItems;
+            document.getElementById('public-total-value').innerText = `$${totalValue.toFixed(2)}`;
+        }
 
-    function renderCollectionTable(dataToRender) {
-        const tableBody = document.getElementById('collection-table-body');
+
+        const tableBody = document.getElementById(isReadOnlyMode ? 'public-collection-table-body' : 'collection-table-body');
         const tableRows = dataToRender.map(item => `
             <tr class="border-b border-gray-700 cursor-pointer" data-item-id="${item.id}">
                 <td class="p-4">${item.id}</td>
@@ -1725,18 +1934,22 @@
                     <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
                     ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
                 </td>
-                <td class="p-4">
-                     <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
-                     <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
-                </td>
+                ${isReadOnlyMode ? '' : tableBodyActions(item)}
             </tr>
         `).join('');
         tableBody.innerHTML = tableRows;
 
-        initializeActionButtons();
+        if (!isReadOnlyMode) {
+            initializeActionButtons(); // Only attach if not read-only
+            attachSortEventListeners(); // Attach sort listeners for private view
+        }
     }
 
+
     function attachSortEventListeners() {
+        // Only attach if not in public view
+        if (isPublicView) return;
+
         document.querySelectorAll('.data-table th[data-sort-column]').forEach(header => {
             header.addEventListener('click', () => {
                 const column = header.dataset.sortColumn;
@@ -1766,7 +1979,7 @@
                 return direction === 'asc' ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
             }
         });
-        renderCollectionTable(sortedData);
+        renderCollectionTable(sortedData, isPublicView); // Pass isPublicView to maintain read-only state
     }
 
 
@@ -1782,7 +1995,13 @@
             mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
             return;
         }
-        
+
+        // Only render if we're not in a public view
+        if (isPublicView) {
+            mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-yellow-400">This feature is not available in shared collection view.</p></div>`;
+            return;
+        }
+
         // Ensure the map container is present within the wrapper before rendering
         if (!mapContentWrapper.querySelector('#map-container')) {
              mapContentWrapper.innerHTML = `
@@ -1894,6 +2113,12 @@
             return;
         }
 
+        // Only render if we're not in a public view
+        if (isPublicView) {
+            missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-yellow-400">This feature is not available in shared collection view.</p></div>`;
+            return;
+        }
+
         // Clear existing content to prevent duplicates on re-render
         missingCountriesListDiv.innerHTML = '';
 
@@ -1937,7 +2162,6 @@
         const settingsDiv = document.getElementById('content-settings');
         const settingsContent = document.getElementById('settings-content');
         const settingsOverlay = document.getElementById('settings-unauthenticated-overlay');
-        const htmlElement = document.documentElement; // Get the <html> element
 
         if (!isAuthenticated()) {
             settingsContent.classList.add('hidden');
@@ -1946,6 +2170,12 @@
         } else {
             settingsContent.classList.remove('hidden');
             settingsOverlay.classList.add('hidden');
+        }
+
+        // Only render if we're not in a public view
+        if (isPublicView) {
+            settingsDiv.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-yellow-400">This feature is not available in shared collection view.</p></div>`;
+            return;
         }
 
         // Initialize theme preference radio buttons
@@ -1966,6 +2196,13 @@
         if (changePasswordForm) {
             changePasswordForm.removeEventListener('submit', handleChangePassword);
             changePasswordForm.addEventListener('submit', handleChangePassword);
+        }
+
+        // Add event listener for Generate Share Link button
+        const generateShareLinkBtn = document.getElementById('generate-share-link-btn');
+        if (generateShareLinkBtn) {
+            generateShareLinkBtn.removeEventListener('click', handleGenerateShareLink);
+            generateShareLinkBtn.addEventListener('click', handleGenerateShareLink);
         }
     }
 
@@ -2005,7 +2242,7 @@
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/change_password`, { // Assuming this endpoint exists on your backend
+            const response = await fetch(`${API_BASE_URL}/change_password`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2031,6 +2268,44 @@
             showCustomConfirm(`Failed to change password: ${error.message}`, () => {});
         }
     }
+
+    // NEW: Handle generating the shareable link
+    function handleGenerateShareLink() {
+        if (!isAuthenticated() || !currentUserId) {
+            showCustomConfirm('Please sign in to generate a shareable link.', () => {});
+            return;
+        }
+
+        // Construct the shareable URL. The `window.location.origin` ensures it works correctly
+        // whether deployed or running locally.
+        // We'll use a hash-based route for simplicity with static hosting: #/public-collection/<user_id>
+        const shareableUrl = `${window.location.origin}/#/public-collection/${currentUserId}`;
+
+        document.getElementById('share-link-input').value = shareableUrl;
+        openModal('share-link-modal');
+
+        // Optional: Automatically select the text in the input for easy copying
+        document.getElementById('share-link-input').select();
+    }
+
+    // NEW: Copy to clipboard function
+    function copyToClipboard(text) {
+        // Use the older document.execCommand('copy') for better iframe compatibility
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            const successful = document.execCommand('copy');
+            const msg = successful ? 'Copied to clipboard!' : 'Failed to copy link.';
+            showCustomConfirm(msg, () => {});
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            showCustomConfirm('Failed to copy link automatically. Please manually copy the link.', () => {});
+        }
+        document.body.removeChild(textarea);
+    }
+
 
     // --- Export Functions ---
     async function exportCollectionAsJson() {
@@ -2088,6 +2363,7 @@
                         return `"${stringValue.replace(/"/g, '""')}"`; // Escape double quotes
                     }
                     return stringValue;
+                    // Escape double quotes within the value by doubling them
                 });
                 csvRows.push(values.join(','));
             });
@@ -2214,6 +2490,8 @@
 
 
     // --- NAVIGATION & UI Management ---
+
+    // Function to show a specific content view and update active nav link
     function showView(viewId) {
         document.querySelectorAll('.content-view').forEach(view => {
             view.classList.add('hidden');
@@ -2224,70 +2502,93 @@
             link.classList.remove('bg-gray-700', 'text-white');
             link.classList.add('hover:bg-gray-700');
         });
-        document.getElementById(`nav-${viewId.replace('content-', '')}`).classList.add('bg-gray-700', 'text-white');
-
-        renderAllViews();
+        // Highlight active nav link, but only if it's not the public collection view itself
+        if (!isPublicView) {
+            const activeNavLink = document.getElementById(`nav-${viewId.replace('content-', '')}`);
+            if (activeNavLink) {
+                activeNavLink.classList.add('bg-gray-700', 'text-white');
+            }
+        }
     }
 
     function renderAllViews() {
-        console.log('Rendering all views. Authenticated:', isAuthenticated());
-        // Apply theme on every render to ensure consistency
+        console.log('Rendering all views. Authenticated:', isAuthenticated(), 'Public View:', isPublicView);
         applySavedTheme();
 
-        // No authentication check needed for Home page
-        if (!document.getElementById('content-home').classList.contains('hidden')) {
-            renderHome();
-        }
+        // Clear all view content and hide them initially
+        document.querySelectorAll('.content-view').forEach(view => {
+            view.classList.add('hidden');
+            // Reset inner HTML of main content areas for dynamic rendering
+            const wrapper = view.querySelector('.max-w-7xl.mx-auto');
+            // Only clear if it's NOT the public collection view
+            if (wrapper && view.id !== 'content-public-collection') {
+                 wrapper.innerHTML = '';
+            }
+        });
 
-        // For authenticated views, check if authenticated before rendering
-        if (isAuthenticated()) {
-            if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
-                renderDashboard();
-            }
-            if (!document.getElementById('content-collection').classList.contains('hidden')) {
-                renderCollection();
-            }
-            if (!document.getElementById('content-map').classList.contains('hidden')) {
-                renderGeoChart();
-            }
-            if (!document.getElementById('content-missing').classList.contains('hidden')) {
-                renderMissingCountries();
-            }
-            if (!document.getElementById('content-settings').classList.contains('hidden')) {
-                renderSettings();
-            }
+        // Handle sidebar and authentication UI based on public/private view
+        const sidebarElement = document.getElementById('sidebar');
+        const authFormContainer = document.getElementById('auth-form-container');
+        const authStatusDiv = document.getElementById('auth-status');
+        const quickAddBtn = document.getElementById('quick-add-btn');
+        const importDataBtn = document.getElementById('import-data-btn');
+        const exportDataBtn = document.getElementById('export-data-btn');
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const mainContentArea = document.getElementById('main-content-area');
+
+
+        if (isPublicView) {
+            // Hide sidebar and all interactive elements for public view
+            if (sidebarElement) sidebarElement.classList.add('hidden');
+            // Make main content take full width without sidebar margin
+            if (mainContentArea) mainContentArea.classList.remove('md:ml-64');
+
+            // Force hide auth elements
+            if (authFormContainer) authFormContainer.classList.add('hidden');
+            if (authStatusDiv) authStatusDiv.classList.add('hidden');
+            if (quickAddBtn) quickAddBtn.classList.add('hidden');
+            if (importDataBtn) importDataBtn.classList.add('hidden');
+            if (exportDataBtn) exportDataBtn.classList.add('hidden');
+            if (clearAllBtn) clearAllBtn.classList.add('hidden');
+            navLinks.forEach(link => link.classList.add('hidden')); // Hide all nav links
+            if (mobileMenuToggle) mobileMenuToggle.classList.add('hidden'); // Hide hamburger menu
+
+
+            // Render the public collection view only
+            showView('content-public-collection');
+            // collectionData is already populated by loadPublicCollection
+            renderCollection(collectionData, true); // Render in read-only mode
         } else {
-            // If not authenticated, ensure these views show their respective unauthenticated overlays
-            if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
-                const dashboardContentWrapper = document.getElementById('content-dashboard').querySelector('.max-w-7xl.mx-auto');
-                if (dashboardContentWrapper) {
-                    dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view your dashboard.</p></div>`;
-                }
+            // Standard app view
+            if (sidebarElement) sidebarElement.classList.remove('hidden', '-translate-x-full', 'open'); // Ensure sidebar is visible and not in mobile-open state
+            if (mainContentArea) mainContentArea.classList.add('md:ml-64');
+            updateAuthUI(isAuthenticated()); // Show/hide auth elements based on logged in status
+
+            // Show relevant nav links
+            navLinks.forEach(link => link.classList.remove('hidden'));
+            if (mobileMenuToggle) mobileMenuToggle.classList.remove('hidden'); // Show hamburger menu
+
+            // Based on currently active hash, render the specific view
+            const currentHash = window.location.hash.replace(/^#\/?/, ''); // Remove '#' and leading '/'
+            let activeViewId = 'content-home'; // Default
+
+            if (currentHash.startsWith('dashboard')) {
+                activeViewId = 'content-dashboard';
+            } else if (currentHash.startsWith('collection')) {
+                activeViewId = 'content-collection';
+            } else if (currentHash.startsWith('map')) {
+                activeViewId = 'content-map';
+            } else if (currentHash.startsWith('missing')) {
+                activeViewId = 'content-missing';
+            } else if (currentHash.startsWith('settings')) {
+                activeViewId = 'content-settings';
             }
-            if (!document.getElementById('content-collection').classList.contains('hidden')) {
-                const collectionContentWrapper = document.getElementById('content-collection').querySelector('.max-w-7xl.mx-auto');
-                if (collectionContentWrapper) {
-                    collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
-                }
-            }
-            if (!document.getElementById('content-map').classList.contains('hidden')) {
-                const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
-                if (mapContentWrapper) {
-                    mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
-                }
-            }
-            if (!document.getElementById('content-missing').classList.contains('hidden')) {
-                const missingCountriesContentWrapper = document.getElementById('content-missing').querySelector('.max-w-7xl.mx-auto');
-                if (missingCountriesContentWrapper) {
-                    missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
-                }
-            }
-            // For settings, it has its own internal overlay that renderSettings will handle
-            if (!document.getElementById('content-settings').classList.contains('hidden')) {
-                renderSettings(); // Calls renderSettings, which handles its own overlay
-            }
+            showView(activeViewId);
         }
     }
+
 
     function handleUnauthorized() {
         console.warn('Handling unauthorized state: session expired or invalid.');
@@ -2295,7 +2596,10 @@
         showCustomConfirm('Your session has expired or is invalid. Please log in again.', () => {});
         updateAuthUI(false);
         collectionData = []; // Clear data on logout/unauthorized
-        showView('content-home'); // Redirect to home page
+        currentUserId = null;
+        isPublicView = false; // Ensure public view flag is reset
+        window.location.hash = ''; // Clear hash to go to default home view
+        renderAllViews(); // Re-evaluate view based on hash
     }
 
     function updateAuthUI(loggedIn) {
@@ -2305,38 +2609,35 @@
         const logoutBtn = document.getElementById('logout-btn');
         const quickAddBtn = document.getElementById('quick-add-btn');
         const importDataBtn = document.getElementById('import-data-btn');
-        const exportDataBtn = document.getElementById('export-data-btn'); // New
-        const clearAllBtn = document.getElementById('clear-all-btn'); // Get clear all button
+        const exportDataBtn = document.getElementById('export-data-btn');
+        const clearAllBtn = document.getElementById('clear-all-btn');
+
+        // Ensure these elements exist before trying to modify their classes
+        if (!authStatusDiv || !loginForm || !logoutBtn || !quickAddBtn || !importDataBtn || !exportDataBtn || !clearAllBtn) {
+            console.error('One or more authentication UI elements not found. Skipping auth UI update.');
+            return;
+        }
 
         if (loggedIn) {
             authStatusDiv.innerHTML = `<span class="text-emerald-400 font-semibold">Logged in!</span>`;
-            if (loginForm) loginForm.classList.add('hidden');
-            if (logoutBtn) logoutBtn.classList.remove('hidden');
-            if (quickAddBtn) quickAddBtn.classList.remove('hidden'); // Show Quick Add
-            if (importDataBtn) importDataBtn.classList.remove('hidden'); // Show Import Data
-            if (exportDataBtn) exportDataBtn.classList.remove('hidden'); // Show Export Data
-            if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
+            loginForm.classList.add('hidden');
+            logoutBtn.classList.remove('hidden');
+            quickAddBtn.classList.remove('hidden'); // Show Quick Add
+            importDataBtn.classList.remove('hidden'); // Show Import Data
+            exportDataBtn.classList.remove('hidden'); // Show Export Data
+            clearAllBtn.classList.remove('hidden'); // Show Clear All
+            currentUserId = getUserIdFromToken(); // Set user ID on login
         } else {
             authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
-            if (loginForm) loginForm.classList.remove('hidden');
-            if (logoutBtn) logoutBtn.classList.add('hidden');
-            if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
-            if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
-            if (exportDataBtn) exportDataBtn.classList.add('hidden'); // Hide Export Data
-            if (clearAllBtn) clearAllBtn.classList.add('hidden'); // Hide Clear All
+            loginForm.classList.remove('hidden');
+            logoutBtn.classList.add('hidden');
+            quickAddBtn.classList.add('hidden'); // Hide Quick Add
+            importDataBtn.classList.add('hidden'); // Hide Import Data
+            exportDataBtn.classList.add('hidden'); // Hide Export Data
+            clearAllBtn.classList.add('hidden'); // Hide Clear All
+            currentUserId = null; // Clear user ID on logout
         }
-        // Also update settings view authentication state
-        const settingsContent = document.getElementById('settings-content');
-        const settingsOverlay = document.getElementById('settings-unauthenticated-overlay');
-        if (settingsContent && settingsOverlay) {
-            if (loggedIn) {
-                settingsContent.classList.remove('hidden');
-                settingsOverlay.classList.add('hidden');
-            } else {
-                settingsContent.classList.add('hidden');
-                settingsOverlay.classList.remove('hidden');
-            }
-        }
+        // Also update settings view authentication state (handled by renderSettings)
     }
 
     function applySavedTheme() {
@@ -2361,8 +2662,12 @@
     // Function to toggle sidebar visibility
     function toggleSidebar() {
         console.log('Toggling sidebar...');
+        if (!sidebar) {
+            console.error('Sidebar element not found.');
+            return;
+        }
         sidebar.classList.toggle('-translate-x-full'); // Toggle sidebar's off-screen state
-        mobileSidebarOverlay.classList.toggle('hidden'); // Toggle overlay visibility
+        if (mobileSidebarOverlay) mobileSidebarOverlay.classList.toggle('hidden'); // Toggle overlay visibility
         document.body.classList.toggle('overflow-hidden'); // Toggle body scroll
         sidebar.classList.toggle('open'); // Add/remove 'open' class for media query targeting
     }
@@ -2375,37 +2680,37 @@
         const navHome = document.getElementById('nav-home');
         if (navHome) {
             console.log('Found nav-home');
-            navHome.addEventListener('click', (e) => { e.preventDefault(); showView('content-home'); });
+            navHome.addEventListener('click', (e) => { e.preventDefault(); window.location.hash = ''; }); // Go to home, clear hash
         } else { console.error('nav-home not found!'); }
 
         const navDashboard = document.getElementById('nav-dashboard');
         if (navDashboard) {
             console.log('Found nav-dashboard');
-            navDashboard.addEventListener('click', (e) => { e.preventDefault(); showView('content-dashboard'); });
+            navDashboard.addEventListener('click', (e) => { e.preventDefault(); window.location.hash = 'dashboard'; });
         } else { console.error('nav-dashboard not found!'); }
 
         const navCollection = document.getElementById('nav-collection');
         if (navCollection) {
             console.log('Found nav-collection');
-            navCollection.addEventListener('click', (e) => { e.preventDefault(); showView('content-collection'); });
+            navCollection.addEventListener('click', (e) => { e.preventDefault(); window.location.hash = 'collection'; });
         } else { console.error('nav-collection not found!'); }
 
         const navMap = document.getElementById('nav-map');
         if (navMap) {
             console.log('Found nav-map');
-            navMap.addEventListener('click', (e) => { e.preventDefault(); showView('content-map'); });
+            navMap.addEventListener('click', (e) => { e.preventDefault(); window.location.hash = 'map'; });
         } else { console.error('nav-map not found!'); }
 
         const navMissing = document.getElementById('nav-missing');
         if (navMissing) {
             console.log('Found nav-missing');
-            navMissing.addEventListener('click', (e) => { e.preventDefault(); showView('content-missing'); });
+            navMissing.addEventListener('click', (e) => { e.preventDefault(); window.location.hash = 'missing'; });
         } else { console.error('nav-missing not found!'); }
 
         const navSettings = document.getElementById('nav-settings');
         if (navSettings) {
             console.log('Found nav-settings');
-            navSettings.addEventListener('click', (e) => { e.preventDefault(); showView('content-settings'); });
+            navSettings.addEventListener('click', (e) => { e.preventDefault(); window.location.hash = 'settings'; });
         } else { console.error('nav-settings not found!'); }
 
 
@@ -2415,7 +2720,7 @@
             console.log('Found home-signup-btn');
             homeSignupBtn.addEventListener('click', () => {
                 console.log('home-signup-btn clicked');
-                if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('-translate-x-full')) {
                     toggleSidebar(); // Open sidebar if closed
                 }
                 const loginEmailInput = document.getElementById('login-email');
@@ -2430,8 +2735,8 @@
             console.log('Found home-learn-more-btn');
             homeLearnMoreBtn.addEventListener('click', () => {
                 console.log('home-learn-more-btn clicked');
-                showView('content-dashboard'); // Redirects to dashboard
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                window.location.hash = 'dashboard'; // Redirects to dashboard
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -2452,7 +2757,7 @@
                 }
                 clearItemForm();
                 openModal('item-modal');
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -2472,7 +2777,7 @@
                 }
                 document.getElementById('import-json-data').value = ''; // Clear previous data
                 openModal('import-modal');
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -2491,7 +2796,7 @@
                     return;
                 }
                 openModal('export-modal'); // Open the new export options modal
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -2553,7 +2858,7 @@
                             message += ` Some items had errors: ${result.errors.map(err => err.substring(0, 50) + "...").join('; ')}`; // Truncate errors for message box
                         }
                         showCustomConfirm(message, () => {});
-                        loadCollectionFromBackend(); // Reload data after successful import
+                        loadUserCollectionFromBackend(); // Reload data after successful import
                     } catch (error) {
                         console.error("Error during bulk import:", error);
                         showCustomConfirm(`Failed to import data: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
@@ -2599,6 +2904,23 @@
         } else { console.error('export-cancel-btn not found!'); }
 
 
+        // Share Link Modal Buttons
+        const copyShareLinkBtn = document.getElementById('copy-share-link-btn');
+        if (copyShareLinkBtn) {
+            console.log('Found copy-share-link-btn');
+            copyShareLinkBtn.addEventListener('click', () => {
+                const linkInput = document.getElementById('share-link-input');
+                copyToClipboard(linkInput.value);
+            });
+        } else { console.error('copy-share-link-btn not found!'); }
+
+        const shareLinkCloseBtn = document.getElementById('share-link-close-btn');
+        if (shareLinkCloseBtn) {
+            console.log('Found share-link-close-btn');
+            shareLinkCloseBtn.addEventListener('click', () => closeModal(document.getElementById('share-link-modal'), document.getElementById('share-link-modal').querySelector('div')));
+        } else { console.error('share-link-close-btn not found!'); }
+
+
         // Clear All Items button and modal logic
         const clearAllBtn = document.getElementById('clear-all-btn');
         const clearConfirmModal = document.getElementById('clear-confirm-modal');
@@ -2616,7 +2938,7 @@
                 }
                 clearConfirmInput.value = ''; // Clear input field
                 openModal('clear-confirm-modal');
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -2652,7 +2974,7 @@
                         const result = await response.json();
                         showCustomConfirm(result.message || 'All items deleted successfully!', () => {});
                         collectionData = []; // Clear local data
-                        renderAllViews(); // Re-render UI
+                        loadUserCollectionFromBackend(); // Reload data after deletion (will result in empty)
                     } catch (error) {
                         console.error("Error clearing all items:", error);
                         showCustomConfirm(`Failed to clear all items: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
@@ -2677,7 +2999,8 @@
         // Modal close listeners (click outside or ESC)
         const itemModal = document.getElementById('item-modal');
         const importModal = document.getElementById('import-modal');
-        const exportModal = document.getElementById('export-modal'); // New modal
+        const exportModal = document.getElementById('export-modal');
+        const shareLinkModal = document.getElementById('share-link-modal'); // New modal
         const countryDetailsModal = document.getElementById('country-details-modal');
         const customConfirmModal = document.getElementById('custom-confirm-modal');
         const clearConfirmModalElement = document.getElementById('clear-confirm-modal');
@@ -2702,7 +3025,7 @@
             });
         } else { console.error('import-modal not found!'); }
 
-        if (exportModal) { // New modal
+        if (exportModal) {
             exportModal.addEventListener('click', function(event) {
                 const modalContent = this.querySelector('div');
                 if (!modalContent.contains(event.target)) {
@@ -2710,6 +3033,15 @@
                 }
             });
         } else { console.error('export-modal not found!'); }
+
+        if (shareLinkModal) { // New modal
+            shareLinkModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+        } else { console.error('share-link-modal not found!'); }
 
 
         if (countryDetailsModal) {
@@ -2754,8 +3086,11 @@
                 if (importModal && !importModal.classList.contains('hidden')) {
                     closeModal(importModal, importModal.querySelector('div'));
                 }
-                if (exportModal && !exportModal.classList.contains('hidden')) { // Close export modal
+                if (exportModal && !exportModal.classList.contains('hidden')) {
                     closeModal(exportModal, exportModal.querySelector('div'));
+                }
+                if (shareLinkModal && !shareLinkModal.classList.contains('hidden')) { // Close share link modal
+                    closeModal(shareLinkModal, shareLinkModal.querySelector('div'));
                 }
                 if (countryDetailsModal && !countryDetailsModal.classList.contains('hidden')) {
                     closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
@@ -2831,9 +3166,11 @@
 
                     const result = await response.json();
                     sessionStorage.setItem('jwt_token', result.token); // Store JWT
+                    currentUserId = result.user_id; // Store user ID
                     showCustomConfirm('Signed in successfully!', () => {});
-                    updateAuthUI(true);
-                    loadCollectionFromBackend(); // Load data after successful login
+                    isPublicView = false; // Ensure not in public view after login
+                    window.location.hash = 'dashboard'; // Redirect to dashboard after login
+                    loadUserCollectionFromBackend(); // Load user's data after successful login
                 } catch (error) {
                     console.error("Login error:", error.message);
                     showCustomConfirm(`Login failed: ${error.message}`, () => {});
@@ -2884,10 +3221,38 @@
                 sessionStorage.removeItem('jwt_token'); // Clear JWT
                 updateAuthUI(false);
                 collectionData = []; // Clear data when logged out
+                currentUserId = null;
+                isPublicView = false; // Reset public view flag
+                window.location.hash = ''; // Go back to home page
                 renderAllViews();
                 showCustomConfirm('Signed out successfully!', () => {});
             });
         } else { console.error('logout-btn not found during attachGlobalEventListeners!'); }
+
+        // NEW: Handle hash changes for routing
+        window.addEventListener('hashchange', () => {
+            console.log('Hash changed. Re-evaluating view.');
+            const hash = window.location.hash.replace(/^#\/?/, ''); // Remove '#' and leading '/'
+
+            if (hash.startsWith('public-collection/')) {
+                const userId = parseInt(hash.split('/')[1]);
+                if (!isNaN(userId)) {
+                    isPublicView = true;
+                    loadPublicCollection(userId);
+                } else {
+                    console.error('Invalid user ID in public collection URL.');
+                    // Fallback to home or error page if invalid ID
+                    isPublicView = false;
+                    window.location.hash = '';
+                    renderAllViews();
+                }
+            } else {
+                isPublicView = false;
+                // If not a public view, ensure authenticated collection is loaded/rendered
+                // This will also trigger the proper view change based on the new hash
+                loadUserCollectionFromBackend(); // This calls renderAllViews internally
+            }
+        });
     }
 
     // --- INITIAL LOAD ---
@@ -2895,9 +3260,25 @@
         console.log('DOM Content Loaded. Starting app initialization...');
         applySavedTheme(); // Apply theme immediately on load
         attachGlobalEventListeners();
-        updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
-        loadCollectionFromBackend(); // Attempt to load data if already authenticated
-        showView('content-home'); // Default view on load is now the home page
+
+        // Check URL hash on initial load to determine initial view
+        const initialHash = window.location.hash.replace(/^#\/?/, '');
+        if (initialHash.startsWith('public-collection/')) {
+            const userId = parseInt(initialHash.split('/')[1]);
+            if (!isNaN(userId)) {
+                isPublicView = true;
+                loadPublicCollection(userId); // Loads and then calls renderAllViews
+            } else {
+                console.error('Invalid user ID in initial public collection URL. Redirecting to home.');
+                isPublicView = false;
+                window.location.hash = ''; // Clear hash, load normal home
+                loadUserCollectionFromBackend(); // This calls renderAllViews internally
+            }
+        } else {
+            isPublicView = false; // Not a public view initially
+            // For regular app, update UI based on authentication and load private collection
+            loadUserCollectionFromBackend(); // This calls renderAllViews internally
+        }
         console.log('App initialization completed successfully.');
     });
 
