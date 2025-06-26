@@ -1,6 +1,6 @@
 # 🪙 Coin Collection Showcase Website
 
-A web app to proudly display your coin and banknote collection – made for collectors, by someone who had no clue what they were doing (thanks Gemini, and ChatGPT!) 😄
+A web app to proudly display your coin and banknote collection – made for collectors, by someone who had no clue what they were doing 😄
 
 https://mycoinshelf.com
 
