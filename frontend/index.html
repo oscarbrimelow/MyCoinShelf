@@ -169,6 +169,91 @@
         .animate-bounce-slow {
             animation: bounce-slow 3s infinite ease-in-out; /* Slower and smoother */
         }
+        
+        /* For light mode */
+        html.light body {
+            background-color: #f3f4f6; /* Light gray */
+            color: #1f2937; /* Dark text */
+        }
+        html.light #sidebar {
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+        }
+        html.light #sidebar .border-b, html.light #sidebar .border-t {
+            border-color: #e5e7eb;
+        }
+        html.light #sidebar h1 {
+            color: #1f2937;
+        }
+        html.light #sidebar .nav-link {
+            color: #4b5563;
+        }
+        html.light #sidebar .nav-link:hover {
+            background-color: #f3f4f6;
+        }
+        html.light #sidebar .nav-link.bg-gray-700 { /* Active link */
+            background-color: #e5e7eb;
+            color: #1f2937;
+        }
+        html.light .bg-gray-800 { /* Main content cards */
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+        }
+        html.light .bg-gray-700 { /* Inputs, table headers, etc. */
+            background-color: #f3f4f6;
+            border-color: #d1d5db;
+        }
+        html.light input, html.light select, html.light textarea {
+            background-color: #f9fafb;
+            border-color: #d1d5db;
+            color: #1f2937;
+        }
+        html.light .text-gray-300 { /* General text */
+            color: #374151;
+        }
+        html.light .text-gray-400 { /* Secondary text */
+            color: #6b7280;
+        }
+        html.light .text-gray-500 { /* Placeholder text */
+            color: #9ca3af;
+        }
+        html.light .data-table tbody tr:hover {
+            background-color: #f3f4f6;
+        }
+        html.light #map-container {
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+        }
+        html.light .google-visualization-tooltip {
+            background-color: #ffffff !important;
+            border-color: #e5e7eb !important;
+            color: #1f2937 !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+        }
+        html.light .google-visualization-tooltip .tooltip-scroll-content::-webkit-scrollbar-track {
+            background: #e5e7eb;
+        }
+        html.light .chartjs-tooltip {
+            background: #ffffff !important;
+            border: 1px solid #e5e7eb !important;
+            color: #1f2937 !important;
+        }
+        html.light #auth-status {
+            color: #374151;
+        }
+        html.light #home-signup-btn, html.light #home-learn-more-btn {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        html.light #main-content-area header {
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+        }
+        html.light #main-content-area header h1, html.light #main-content-area header button {
+            color: #1f2937;
+        }
+        html.light .unauthenticated-overlay {
+            background-color: rgba(243, 244, 246, 0.9);
+        }
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -201,6 +286,9 @@
                     </a>
                     <a href="#" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-flag mr-3"></i> Missing Countries
+                    </a>
+                    <a href="#" id="nav-settings" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-gear mr-3"></i> Account Settings
                     </a>
                 </nav>
             </div>
@@ -252,8 +340,13 @@
                         Your personal digital vault for managing and exploring your precious coin and banknote collection.
                         Organize your treasures, track their value, and discover new countries to collect!
                     </p>
-                    <p class="text-md text-gray-400 mb-10">
+                    <p class="text-md text-gray-400 mb-2">
                         Crafted with passion by <span class="font-semibold text-emerald-300">Oscar Brimelow</span>.
+                    </p>
+                    <p class="text-md text-gray-400 mb-10 flex items-center">
+                        <a href="https://www.instagram.com/oscarbrimelow/" target="_blank" class="text-pink-400 hover:text-pink-300 transition-colors flex items-center">
+                            <i class="ph-bold ph-instagram-logo text-xl mr-2"></i> Follow on Instagram
+                        </a>
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4">
                         <button id="home-signup-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md text-lg transition-colors shadow-lg">
@@ -298,6 +391,54 @@
                         <!-- Missing countries will be rendered here -->
                     </div>
                     <div id="missing-countries-status" class="text-gray-400 mt-6 text-center"></div>
+                </div>
+            </div>
+
+            <!-- Account Settings Content -->
+            <div id="content-settings" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
+                <div class="max-w-3xl mx-auto bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h2 class="text-3xl font-bold text-white mb-6">Account Settings</h2>
+
+                    <div id="settings-unauthenticated-overlay" class="unauthenticated-overlay ${isAuthenticated() ? 'hidden' : ''}">
+                         <p class="text-xl text-red-400">Please sign in to manage your account settings.</p>
+                    </div>
+
+                    <div id="settings-content" class="${isAuthenticated() ? '' : 'hidden'}">
+                        <!-- Password Change Form -->
+                        <div class="mb-8">
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Change Password</h3>
+                            <form id="change-password-form" class="space-y-4">
+                                <div>
+                                    <label for="current-password" class="block text-sm font-medium text-gray-400">Current Password</label>
+                                    <input type="password" id="current-password" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                </div>
+                                <div>
+                                    <label for="new-password" class="block text-sm font-medium text-gray-400">New Password</label>
+                                    <input type="password" id="new-password" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                </div>
+                                <div>
+                                    <label for="confirm-new-password" class="block text-sm font-medium text-gray-400">Confirm New Password</label>
+                                    <input type="password" id="confirm-new-password" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                </div>
+                                <button type="submit" id="change-password-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Update Password</button>
+                            </form>
+                        </div>
+
+                        <!-- Theme Preference -->
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Theme Preference</h3>
+                            <div class="flex items-center space-x-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="theme-preference" value="dark" class="form-radio h-4 w-4 text-emerald-600" checked>
+                                    <span class="ml-2 text-gray-300">Dark Mode</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="theme-preference" value="light" class="form-radio h-4 w-4 text-emerald-600">
+                                    <span class="ml-2 text-gray-300">Light Mode</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -368,6 +509,50 @@
         </div>
     </div>
 
+    <!-- Country Details Modal -->
+    <div id="country-details-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-4xl h-full max-h-[90vh] flex flex-col border border-gray-700 transform transition-all scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="country-details-title" class="text-2xl font-bold text-white"></h2>
+                <button id="country-details-close-btn" class="text-gray-400 hover:text-gray-200">
+                    <i class="ph-bold ph-x-circle text-2xl"></i>
+                </button>
+            </div>
+            <div class="flex-grow overflow-y-auto custom-scrollbar">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Items</h3>
+                        <p id="country-total-items" class="text-3xl font-bold text-emerald-400">0</p>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Value</h3>
+                        <p id="country-total-value" class="text-3xl font-bold text-emerald-400">$0.00</p>
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-semibold text-gray-300 mb-4">Items from this Country</h3>
+                <div class="bg-gray-900 rounded-lg border border-gray-700 overflow-hidden">
+                    <table class="w-full text-left data-table">
+                        <thead class="bg-gray-700 sticky top-0">
+                            <tr>
+                                <th class="p-4 font-semibold">ID</th>
+                                <th class="p-4 font-semibold">Type</th>
+                                <th class="p-4 font-semibold">Year</th>
+                                <th class="p-4 font-semibold">Denomination</th>
+                                <th class="p-4 font-semibold">Value</th>
+                                <th class="p-4 font-semibold">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="country-items-table-body">
+                            <!-- Country specific items will be rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Custom Confirmation Modal -->
     <div id="custom-confirm-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden modal-backdrop p-4">
         <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-sm text-center transform transition-all scale-95 opacity-0">
@@ -436,6 +621,7 @@
 
     // --- UTILS ---
     let chartInstance = null; // To store the Chart.js instance for dashboard chart
+    let valueByYearChart = null; // To store the Chart.js instance for value by year chart
     let geoChart = null; // To store the Google GeoChart instance
 
     // Debounce function to limit how often a function is called
@@ -444,7 +630,7 @@
         return function(...args) {
             const context = this;
             clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(context, args), delay);
+            timeout = setTimeout(() => func.apply(context, delay), delay);
         };
     }
 
@@ -507,7 +693,7 @@
 
             "netherlands": "Europe", "united kingdom": "Europe", "belgium": "Europe",
             "eu": "Europe", "ireland": "Europe", "spain": "Europe", "portugal": "Europe",
-            "isle of man": "Europe", "germany": "Europe", "bulgaria": "Europe",
+            "isle of man": "Europe", "germany": "Germany", "bulgaria": "Europe",
             "france": "Europe", "croatia": "Europe", "moldova": "Europe",
             "ukraine": "Europe", "denmark": "Europe", "finland": "Europe",
             "norway": "Europe", "san marino": "Europe", "switzerland": "Europe",
@@ -841,8 +1027,7 @@
 
     // --- HOMEPAGE RENDERING ---
     function renderHome() {
-        const homeDiv = document.getElementById('content-home');
-        // No "sign in to view your collection" text here. Content is static.
+        // Content is static, no dynamic rendering needed here.
     }
 
 
@@ -920,6 +1105,16 @@
                     </div>
                 </div>
             </div>
+
+            <!-- New Chart: Value Distribution by Year/Decade -->
+            <div class="grid grid-cols-1 mt-6">
+                <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                    <h3 class="text-xl font-bold text-gray-300 mb-4">Value Distribution by Year/Decade</h3>
+                    <div style="position: relative; height:320px; width:100%;">
+                        <canvas id="chart-value-by-year" height="320"></canvas>
+                    </div>
+                </div>
+            </div>
         `;
 
         // Update dashboard stats
@@ -939,6 +1134,7 @@
         renderChartByType();
         renderChartByValueRegion();
         renderChartByRegionPie();
+        renderChartValueByYear(); // New chart render call
     }
 
     function renderCollectionHighlights() {
@@ -1019,8 +1215,8 @@
 
     function renderChartByType() {
         const ctx = document.getElementById('chart-by-type').getContext('2d');
-        if (chartInstance) { // Destroy previous instance if it exists
-            chartInstance.destroy();
+        if (Chart.getChart('chart-by-type')) { // Use Chart.getChart to destroy specific chart instances
+            Chart.getChart('chart-by-type').destroy();
         }
 
         const typeCounts = collectionData.reduce((acc, item) => {
@@ -1028,7 +1224,7 @@
             return acc;
         }, {});
 
-        chartInstance = new Chart(ctx, { // Assign to chartInstance
+        new Chart(ctx, { // Assign to chartInstance
             type: 'pie',
             data: {
                 labels: Object.keys(typeCounts),
@@ -1216,17 +1412,120 @@
         });
     }
 
+    // New Chart: Value Distribution by Year/Decade
+    function renderChartValueByYear() {
+        const ctx = document.getElementById('chart-value-by-year').getContext('2d');
+        if (valueByYearChart) { // Destroy previous instance
+            valueByYearChart.destroy();
+        }
+
+        const yearValues = {};
+        collectionData.forEach(item => {
+            if (item.year) {
+                const decade = Math.floor(item.year / 10) * 10;
+                yearValues[decade] = (yearValues[decade] || 0) + (item.value || 0);
+            }
+        });
+
+        // Sort by year/decade
+        const sortedYears = Object.keys(yearValues).sort((a, b) => parseInt(a) - parseInt(b));
+        const sortedValues = sortedYears.map(year => yearValues[year]);
+
+        valueByYearChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedYears.map(year => `${year}s`),
+                datasets: [{
+                    label: 'Total Value (USD)',
+                    data: sortedValues,
+                    backgroundColor: '#FCD34D', // Yellow
+                    borderColor: '#111827',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#d1d5db'
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        position: 'nearest',
+                        backgroundColor: '#1f2937',
+                        borderColor: '#4b5563',
+                        borderWidth: 1,
+                        titleColor: '#d1d5db',
+                        bodyColor: '#d1d5db',
+                        titleFont: { weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#d1d5db' },
+                        grid: { color: '#374151' }
+                    },
+                    y: {
+                        ticks: {
+                            color: '#d1d5db',
+                            callback: function(value) {
+                                return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+                            }
+                        },
+                        grid: { color: '#374151' }
+                    }
+                }
+            }
+        });
+    }
+
+
     function showRegionDetails(regionName) {
         const dashboardDiv = document.getElementById('content-dashboard');
         const dashboardContentWrapper = dashboardDiv.querySelector('.max-w-7xl.mx-auto');
         if (!dashboardContentWrapper) return;
 
         if (!isAuthenticated()) {
-            dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view region details.</p></div>`;
+            showCustomConfirm('Please sign in to view region details.', () => {});
             return;
         }
-
+        
+        // Use the new country details modal instead of rendering directly in dashboard
+        const countryDetailsModal = document.getElementById('country-details-modal');
+        const countryDetailsTitle = document.getElementById('country-details-title');
+        const countryTotalItems = document.getElementById('country-total-items');
+        const countryTotalValue = document.getElementById('country-total-value');
+        const countryItemsTableBody = document.getElementById('country-items-table-body');
+        
         const itemsInRegion = collectionData.filter(item => item.region === regionName);
+
+        // Calculate summary stats for the region
+        const totalItemsInRegion = itemsInRegion.length;
+        const totalValueInRegion = itemsInRegion.reduce((sum, item) => sum + (item.value || 0), 0);
+
+        countryDetailsTitle.innerText = `${regionName} Collection Details`;
+        countryTotalItems.innerText = totalItemsInRegion;
+        countryTotalValue.innerText = `$${totalValueInRegion.toFixed(2)}`;
 
         itemsInRegion.sort((a, b) => {
             const countryCompare = a.country.localeCompare(b.country);
@@ -1234,43 +1533,19 @@
             return a.denomination.localeCompare(b.denomination);
         });
 
-        let detailsHtml = `
-            <h2 class="text-3xl font-bold text-white mb-6">${regionName} Collection</h2>
-            <button id="back-to-dashboard-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md mb-6 flex items-center transition-colors">
-                <i class="ph-bold ph-arrow-left mr-2"></i> Back to Dashboard
-            </button>
-            <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700 overflow-y-auto max-h-[70vh]">
-                <table class="w-full text-left data-table">
-                    <thead class="bg-gray-700 sticky top-0">
-                        <tr>
-                            <th class="p-4 font-semibold">ID</th>
-                            <th class="p-4 font-semibold">Type</th>
-                            <th class="p-4 font-semibold">Country</th>
-                            <th class="p-4 font-semibold">Year</th>
-                            <th class="p-4 font-semibold">Denomination</th>
-                            <th class="p-4 font-semibold">Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${itemsInRegion.length > 0 ? itemsInRegion.map(item => `
-                            <tr class="border-b border-gray-700">
-                                <td class="p-4">${item.id}</td>
-                                <td class="p-4">${item.type}</td>
-                                <td class="p-4">${item.country}</td>
-                                <td class="p-4">${item.year || 'N/A'}</td>
-                                <td class="p-4">${item.denomination}</td>
-                                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
-                            </tr>
-                        `).join('') : `<tr><td colspan="6" class="p-4 text-center text-gray-500">No items in this region.</td></tr>`}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        dashboardContentWrapper.innerHTML = detailsHtml; // Render inside the wrapper
+        const tableRows = itemsInRegion.map(item => `
+            <tr class="border-b border-gray-700">
+                <td class="p-4">${item.id}</td>
+                <td class="p-4">${item.type}</td>
+                <td class="p-4">${item.year || 'N/A'}</td>
+                <td class="p-4">${item.denomination}</td>
+                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
+                <td class="p-4 text-xs">${item.notes || 'N/A'}</td>
+            </tr>
+        `).join('');
+        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="6" class="p-4 text-center text-gray-500">No items found for this region.</td></tr>`;
 
-        document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
-            showView('content-dashboard'); // Go back to the main dashboard
-        });
+        openModal('country-details-modal');
     }
 
 
@@ -1571,12 +1846,60 @@
 
             geoChart.draw(dataTable, options);
 
+            // Add event listener for country click
+            google.visualization.events.addListener(geoChart, 'select', () => {
+                const selection = geoChart.getSelection();
+                if (selection.length > 0) {
+                    const selectedCountryName = dataTable.getValue(selection[0].row, 0);
+                    showCountryDetailsModal(selectedCountryName);
+                }
+            });
+
             window.addEventListener('resize', debounce(() => {
                 if (geoChart) {
                     geoChart.draw(dataTable, options);
                 }
             }, 250));
         }
+    }
+
+    // Function to show country details in a modal
+    function showCountryDetailsModal(countryName) {
+        const countryDetailsModal = document.getElementById('country-details-modal');
+        const countryDetailsTitle = document.getElementById('country-details-title');
+        const countryTotalItems = document.getElementById('country-total-items');
+        const countryTotalValue = document.getElementById('country-total-value');
+        const countryItemsTableBody = document.getElementById('country-items-table-body');
+
+        const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === countryName);
+
+        // Calculate summary stats for the country
+        const totalItemsInCountry = itemsInCountry.length;
+        const totalValueInCountry = itemsInCountry.reduce((sum, item) => sum + (item.value || 0), 0);
+
+        countryDetailsTitle.innerText = `${countryName} Collection Details`;
+        countryTotalItems.innerText = totalItemsInCountry;
+        countryTotalValue.innerText = `$${totalValueInCountry.toFixed(2)}`;
+
+        itemsInCountry.sort((a, b) => {
+            const yearCompare = (a.year || Infinity) - (b.year || Infinity); // Sort by year, N/A last
+            if (yearCompare !== 0) return yearCompare;
+            return a.denomination.localeCompare(b.denomination);
+        });
+
+        const tableRows = itemsInCountry.map(item => `
+            <tr class="border-b border-gray-700">
+                <td class="p-4">${item.id}</td>
+                <td class="p-4">${item.type}</td>
+                <td class="p-4">${item.year || 'N/A'}</td>
+                <td class="p-4">${item.denomination}</td>
+                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
+                <td class="p-4 text-xs">${item.notes || 'N/A'}</td>
+            </tr>
+        `).join('');
+        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="6" class="p-4 text-center text-gray-500">No items found for ${countryName}.</td></tr>`;
+
+        openModal('country-details-modal');
     }
 
 
@@ -1630,6 +1953,105 @@
         }
     }
 
+    // --- SETTINGS RENDERING ---
+    function renderSettings() {
+        const settingsDiv = document.getElementById('content-settings');
+        const settingsContent = document.getElementById('settings-content');
+        const settingsOverlay = document.getElementById('settings-unauthenticated-overlay');
+        const htmlElement = document.documentElement; // Get the <html> element
+
+        if (!isAuthenticated()) {
+            settingsContent.classList.add('hidden');
+            settingsOverlay.classList.remove('hidden');
+            return;
+        } else {
+            settingsContent.classList.remove('hidden');
+            settingsOverlay.classList.add('hidden');
+        }
+
+        // Initialize theme preference radio buttons
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        document.querySelector(`input[name="theme-preference"][value="${currentTheme}"]`).checked = true;
+
+        // Add event listener for theme change (if not already attached)
+        const themeRadios = document.querySelectorAll('input[name="theme-preference"]');
+        themeRadios.forEach(radio => {
+            // Remove existing listener to prevent duplicates
+            radio.removeEventListener('change', handleThemeChange);
+            radio.addEventListener('change', handleThemeChange);
+        });
+
+        // Add event listener for password change form (if not already attached)
+        const changePasswordForm = document.getElementById('change-password-form');
+        if (changePasswordForm) {
+            changePasswordForm.removeEventListener('submit', handleChangePassword);
+            changePasswordForm.addEventListener('submit', handleChangePassword);
+        }
+    }
+
+    function handleThemeChange(event) {
+        const newTheme = event.target.value;
+        document.documentElement.classList.remove('light', 'dark');
+        document.documentElement.classList.add(newTheme);
+        localStorage.setItem('theme', newTheme);
+        showCustomConfirm(`Theme set to ${newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}.`, () => {});
+    }
+
+    async function handleChangePassword(e) {
+        e.preventDefault();
+
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmNewPassword = document.getElementById('confirm-new-password').value;
+
+        if (!currentPassword || !newPassword || !confirmNewPassword) {
+            showCustomConfirm('All password fields are required.', () => {});
+            return;
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            showCustomConfirm('New password and confirmation do not match.', () => {});
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            showCustomConfirm('New password must be at least 6 characters long.', () => {});
+            return;
+        }
+
+        if (!isAuthenticated()) {
+            showCustomConfirm('You must be logged in to change your password.', () => {});
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/change_password`, { // Assuming this endpoint exists on your backend
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                },
+                body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to change password.');
+            }
+
+            const result = await response.json();
+            showCustomConfirm(result.message || 'Password changed successfully!', () => {
+                // Clear password fields after success
+                document.getElementById('current-password').value = '';
+                document.getElementById('new-password').value = '';
+                document.getElementById('confirm-new-password').value = '';
+            });
+        } catch (error) {
+            console.error("Change password error:", error.message);
+            showCustomConfirm(`Failed to change password: ${error.message}`, () => {});
+        }
+    }
+
 
     // --- NAVIGATION & UI Management ---
     function showView(viewId) {
@@ -1649,7 +2071,9 @@
 
     function renderAllViews() {
         console.log('Rendering all views. Authenticated:', isAuthenticated());
-        // Only render views that are currently visible to prevent unnecessary work
+        // Apply theme on every render to ensure consistency
+        applySavedTheme();
+
         // No authentication check needed for Home page
         if (!document.getElementById('content-home').classList.contains('hidden')) {
             renderHome();
@@ -1668,6 +2092,9 @@
             }
             if (!document.getElementById('content-missing').classList.contains('hidden')) {
                 renderMissingCountries();
+            }
+            if (!document.getElementById('content-settings').classList.contains('hidden')) {
+                renderSettings();
             }
         } else {
             // If not authenticated, ensure these views show their respective unauthenticated overlays
@@ -1694,6 +2121,10 @@
                 if (missingCountriesContentWrapper) {
                     missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
                 }
+            }
+            // For settings, it has its own internal overlay that renderSettings will handle
+            if (!document.getElementById('content-settings').classList.contains('hidden')) {
+                renderSettings(); // Calls renderSettings, which handles its own overlay
             }
         }
     }
@@ -1730,6 +2161,29 @@
             if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
             if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
             if (clearAllBtn) clearAllBtn.classList.add('hidden'); // Hide Clear All
+        }
+        // Also update settings view authentication state
+        const settingsContent = document.getElementById('settings-content');
+        const settingsOverlay = document.getElementById('settings-unauthenticated-overlay');
+        if (settingsContent && settingsOverlay) {
+            if (loggedIn) {
+                settingsContent.classList.remove('hidden');
+                settingsOverlay.classList.add('hidden');
+            } else {
+                settingsContent.classList.add('hidden');
+                settingsOverlay.classList.remove('hidden');
+            }
+        }
+    }
+
+    function applySavedTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.classList.remove('light', 'dark');
+            document.documentElement.classList.add(savedTheme);
+        } else {
+            // Default to dark if no theme is saved
+            document.documentElement.classList.add('dark');
         }
     }
 
@@ -1785,6 +2239,12 @@
             navMissing.addEventListener('click', (e) => { e.preventDefault(); showView('content-missing'); });
         } else { console.error('nav-missing not found!'); }
 
+        const navSettings = document.getElementById('nav-settings');
+        if (navSettings) {
+            console.log('Found nav-settings');
+            navSettings.addEventListener('click', (e) => { e.preventDefault(); showView('content-settings'); });
+        } else { console.error('nav-settings not found!'); }
+
 
         // Homepage buttons
         const homeSignupBtn = document.getElementById('home-signup-btn');
@@ -1792,12 +2252,9 @@
             console.log('Found home-signup-btn');
             homeSignupBtn.addEventListener('click', () => {
                 console.log('home-signup-btn clicked');
-                // Assuming the sign-up form is visible on the sidebar or can be revealed
-                // For now, let's just highlight the login/signup form by making the sidebar visible on mobile
                 if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
                     toggleSidebar(); // Open sidebar if closed
                 }
-                // Optionally, you could scroll the login form into view if it's not visible
                 const loginEmailInput = document.getElementById('login-email');
                 if (loginEmailInput) loginEmailInput.focus();
             });
@@ -1811,7 +2268,6 @@
             homeLearnMoreBtn.addEventListener('click', () => {
                 console.log('home-learn-more-btn clicked');
                 showView('content-dashboard'); // Redirects to dashboard
-                // Close sidebar on mobile after clicking learn more
                 if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
@@ -1833,8 +2289,7 @@
                 }
                 clearItemForm();
                 openModal('item-modal');
-                // Close sidebar on mobile after clicking quick add
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -1854,8 +2309,7 @@
                 }
                 document.getElementById('import-json-data').value = ''; // Clear previous data
                 openModal('import-modal');
-                // Close sidebar on mobile after clicking import data
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -1955,8 +2409,7 @@
                 }
                 clearConfirmInput.value = ''; // Clear input field
                 openModal('clear-confirm-modal');
-                // Close sidebar on mobile after clicking clear all
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) { // Check for 'open' class
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -2017,8 +2470,9 @@
         // Modal close listeners (click outside or ESC)
         const itemModal = document.getElementById('item-modal');
         const importModal = document.getElementById('import-modal');
+        const countryDetailsModal = document.getElementById('country-details-modal'); // New modal
         const customConfirmModal = document.getElementById('custom-confirm-modal');
-        const clearConfirmModalElement = document.getElementById('clear-confirm-modal'); // Renamed to avoid conflict
+        const clearConfirmModalElement = document.getElementById('clear-confirm-modal');
 
         if (itemModal) {
             itemModal.addEventListener('click', function(event) {
@@ -2040,6 +2494,19 @@
             });
         } else { console.error('import-modal not found!'); }
 
+        if (countryDetailsModal) { // New modal
+            countryDetailsModal.addEventListener('click', function(event) {
+                const modalContent = this.querySelector('div');
+                if (!modalContent.contains(event.target)) {
+                    closeModal(this, modalContent);
+                }
+            });
+            document.getElementById('country-details-close-btn').addEventListener('click', () => { // Close button
+                closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
+            });
+        } else { console.error('country-details-modal not found!'); }
+
+
         if (clearConfirmModalElement) {
             clearConfirmModalElement.addEventListener('click', function(event) {
                 const modalContent = this.querySelector('div');
@@ -2054,7 +2521,7 @@
             customConfirmModal.addEventListener('click', function(event) {
                 const modalContent = this.querySelector('div');
                 if (!modalContent.contains(event.target)) {
-                    closeModal(this, modalContent);
+                    closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
                 }
             });
         } else { console.error('custom-confirm-modal not found!'); }
@@ -2069,6 +2536,9 @@
                 if (importModal && !importModal.classList.contains('hidden')) { // Close import modal
                     closeModal(importModal, importModal.querySelector('div'));
                 }
+                if (countryDetailsModal && !countryDetailsModal.classList.contains('hidden')) { // Close country details modal
+                    closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
+                }
                 if (customConfirmModal && !customConfirmModal.classList.contains('hidden')) {
                     closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
                 }
@@ -2076,7 +2546,7 @@
                     closeModal(clearConfirmModalElement, clearConfirmModalElement.querySelector('div'));
                 }
                 // Close sidebar if open on mobile
-                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) { // Check for 'open' class
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             }
@@ -2107,7 +2577,7 @@
         // When a nav link is clicked (on mobile), close the sidebar
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', () => {
-                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) { // Check for 'open' class
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
             });
@@ -2202,6 +2672,7 @@
     // --- INITIAL LOAD ---
     document.addEventListener('DOMContentLoaded', () => {
         console.log('DOM Content Loaded. Starting app initialization...');
+        applySavedTheme(); // Apply theme immediately on load
         attachGlobalEventListeners();
         updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
         loadCollectionFromBackend(); // Attempt to load data if already authenticated
