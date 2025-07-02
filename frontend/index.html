@@ -296,6 +296,11 @@
                     </a>
                     <a href="#" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-list-dashes mr-3"></i> Collection
+                        
+<a href="#" id="nav-bullion" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                    <i class="ph-bold ph-banknote mr-3"></i> Bullion
+                </a>
+                        
                     </a>
                     <a href="#" id="nav-map" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-map-trifold mr-3"></i> World Map
@@ -395,6 +400,57 @@
                     <!-- Collection content will be rendered inside this centered div -->
                 </div>
             </div>
+
+<div id="content-bullion" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
+            <div class="max-w-7xl mx-auto">
+                <h2 class="text-3xl font-bold text-white mb-6">Bullion Collection</h2>
+
+                <div id="bullion-summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Bullion Items</h3>
+                        <p class="text-4xl font-bold text-emerald-400" id="bullion-total-items">0</p>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Purchase Value</h3>
+                        <p class="text-4xl font-bold text-emerald-400" id="bullion-total-purchase-value">$0.00</p>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-300">Total Current Market Value</h3>
+                        <p class="text-4xl font-bold text-emerald-400" id="bullion-total-current-value">$0.00</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end mb-6">
+                    <button id="add-bullion-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md flex items-center transition-colors">
+                        <i class="ph-bold ph-plus-circle mr-2"></i> Add Bullion Item
+                    </button>
+                </div>
+
+                <div class="flex-1 flex overflow-hidden">
+                    <div class="w-full flex flex-col">
+                        <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                            <table class="w-full text-left data-table min-w-max">
+                                <thead class="bg-gray-700 sticky top-0">
+                                    <tr>
+                                        <th class="p-4 font-semibold">Material</th>
+                                        <th class="p-4 font-semibold">Weight (oz)</th>
+                                        <th class="p-4 font-semibold">Purity (%)</th>
+                                        <th class="p-4 font-semibold">Year</th>
+                                        <th class="p-4 font-semibold">Name/Notes</th>
+                                        <th class="p-4 font-semibold">Purchase Price</th>
+                                        <th class="p-4 font-semibold">Current Value</th>
+                                        <th class="p-4 font-semibold">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bullion-table-body">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="bullion-collection-status" class="text-gray-400 mt-6 text-center text-lg"></div>
+            </div>
+        </div>
 
             <div id="content-map" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
                 <!-- Map Content Here -->
@@ -582,6 +638,52 @@
             </form>
         </div>
     </div>
+
+<div id="bullion-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+    <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
+        <h2 id="bullion-modal-title" class="text-2xl font-bold mb-6">Add New Bullion Item</h2>
+        <form id="bullion-form">
+            <input type="hidden" id="bullion-id">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="bullion-material" class="block text-sm font-medium text-gray-400">Material</label>
+                    <select id="bullion-material" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <option value="gold">Gold</option>
+                        <option value="silver">Silver</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="bullion-weight" class="block text-sm font-medium text-gray-400">Weight (Troy Ounces)</label>
+                    <input type="number" step="0.01" id="bullion-weight" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <div>
+                    <label for="bullion-purity" class="block text-sm font-medium text-gray-400">Purity (%)</label>
+                    <input type="number" step="0.1" id="bullion-purity" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500" min="0" max="100">
+                </div>
+                <div>
+                    <label for="bullion-year" class="block text-sm font-medium text-gray-400">Year</label>
+                    <input type="number" id="bullion-year" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <div>
+                    <label for="bullion-purchase-price" class="block text-sm font-medium text-gray-400">Purchase Price (USD)</label>
+                    <input type="number" step="0.01" id="bullion-purchase-price" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="bullion-notes" class="block text-sm font-medium text-gray-400">Notes</label>
+                    <textarea id="bullion-notes" rows="3" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"></textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <p class="text-sm font-medium text-gray-400">Calculated Current Value:</p>
+                    <p id="bullion-current-value-display" class="text-xl font-bold text-emerald-400">$0.00</p>
+                </div>
+            </div>
+            <div class="flex justify-end mt-8">
+                <button type="button" id="bullion-cancel-btn" class="mr-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
+                <button type="submit" id="bullion-save-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-md transition-colors">Save Bullion</button>
+            </div>
+        </form>
+    </div>
+</div>
 
     <!-- Import Data Modal -->
     <div id="import-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
@@ -3174,6 +3276,418 @@
             updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
             loadCollectionFromBackend(); // Attempt to load data if already authenticated
             showView('content-home'); // Default view on load is now the home page
+        }
+        console.log('App initialization completed successfully.');
+    });
+
+// --- Bullion Specific Functionality ---
+    let bullionCollection = [];
+    let spotPrices = { gold_usd_oz: 0, silver_usd_oz: 0 };
+
+    const bullionTableBody = document.getElementById('bullion-table-body');
+    const bullionModal = document.getElementById('bullion-modal');
+    const bullionModalTitle = document.getElementById('bullion-modal-title');
+    const bullionForm = document.getElementById('bullion-form');
+    const bullionIdInput = document.getElementById('bullion-id');
+    const bullionMaterialInput = document.getElementById('bullion-material');
+    const bullionWeightInput = document.getElementById('bullion-weight');
+    const bullionPurityInput = document.getElementById('bullion-purity');
+    const bullionYearInput = document.getElementById('bullion-year');
+    const bullionPurchasePriceInput = document.getElementById('bullion-purchase-price');
+    const bullionNotesInput = document.getElementById('bullion-notes');
+    const bullionCurrentValueDisplay = document.getElementById('bullion-current-value-display');
+    const bullionSaveBtn = document.getElementById('bullion-save-btn');
+    const bullionCollectionStatus = document.getElementById('bullion-collection-status');
+
+    async function fetchSpotPrices() {
+        try {
+            const token = localStorage.getItem('access_token');
+            if (!token) return; // Only fetch if authenticated
+
+            const response = await fetch('/api/spot_prices', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            spotPrices = data;
+            console.log('Fetched spot prices:', spotPrices);
+        } catch (error) {
+            console.error('Error fetching spot prices:', error);
+            showCustomConfirm(`Failed to fetch spot prices: ${error.message}`, () => {});
+        }
+    }
+
+    function calculateBullionCurrentValue(material, weight, purity, goldPrice, silverPrice) {
+        const pureWeight = weight * (purity / 100);
+        if (material === 'gold') {
+            return pureWeight * goldPrice;
+        } else if (material === 'silver') {
+            return pureWeight * silverPrice;
+        }
+        return 0;
+    }
+
+    async function loadBullionFromBackend() {
+        bullionCollectionStatus.textContent = 'Loading bullion collection...';
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            bullionCollection = [];
+            renderBullionCollection();
+            bullionCollectionStatus.textContent = 'Please sign in to view your bullion collection.';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/bullion', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // Token expired or invalid, handle re-authentication
+                    localStorage.removeItem('access_token');
+                    updateAuthUI(false);
+                    showCustomConfirm('Session expired. Please sign in again.', () => {});
+                    bullionCollectionStatus.textContent = 'Session expired. Please sign in.';
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            bullionCollection = data;
+            renderBullionCollection();
+        } catch (error) {
+            console.error('Error loading bullion collection:', error);
+            bullionCollectionStatus.textContent = `Failed to load bullion: ${error.message}`;
+        }
+    }
+
+    function renderBullionCollection() {
+        bullionTableBody.innerHTML = '';
+        let totalBullionItems = 0;
+        let totalBullionPurchaseValue = 0;
+        let totalBullionCurrentValue = 0;
+
+        if (bullionCollection.length === 0) {
+            bullionCollectionStatus.textContent = 'No bullion items added yet. Click "Add Bullion Item" to get started!';
+        } else {
+            bullionCollectionStatus.textContent = '';
+            bullionCollection.forEach(item => {
+                totalBullionItems++;
+                totalBullionPurchaseValue += parseFloat(item.purchase_price || 0);
+
+                const currentItemValue = calculateBullionCurrentValue(
+                    item.material,
+                    parseFloat(item.weight),
+                    parseFloat(item.purity),
+                    spotPrices.gold_usd_oz,
+                    spotPrices.silver_usd_oz
+                );
+                totalBullionCurrentValue += currentItemValue;
+
+                const row = bullionTableBody.insertRow();
+                row.classList.add('border-b', 'border-gray-700', 'hover:bg-gray-700', 'transition-colors', 'duration-200');
+                row.innerHTML = `
+                    <td class="p-4">${item.material.charAt(0).toUpperCase() + item.material.slice(1)}</td>
+                    <td class="p-4">${parseFloat(item.weight).toFixed(2)}</td>
+                    <td class="p-4">${parseFloat(item.purity).toFixed(1)}%</td>
+                    <td class="p-4">${item.year || 'N/A'}</td>
+                    <td class="p-4 max-w-xs truncate" title="${item.notes || ''}">${item.notes || 'N/A'}</td>
+                    <td class="p-4">$${parseFloat(item.purchase_price || 0).toFixed(2)}</td>
+                    <td class="p-4">$${currentItemValue.toFixed(2)}</td>
+                    <td class="p-4">
+                        <button class="edit-bullion-btn bg-blue-600 hover:bg-blue-700 text-white text-sm py-1 px-3 rounded-md mr-2" data-id="${item.id}">Edit</button>
+                        <button class="delete-bullion-btn bg-red-600 hover:bg-red-700 text-white text-sm py-1 px-3 rounded-md" data-id="${item.id}">Delete</button>
+                    </td>
+                `;
+            });
+        }
+
+        document.getElementById('bullion-total-items').textContent = totalBullionItems;
+        document.getElementById('bullion-total-purchase-value').textContent = `$${totalBullionPurchaseValue.toFixed(2)}`;
+        document.getElementById('bullion-total-current-value').textContent = `$${totalBullionCurrentValue.toFixed(2)}`;
+
+        // Update dashboard total value to include bullion
+        renderDashboard();
+    }
+
+    function showBullionModal(item = {}) {
+        bullionForm.reset(); // Clear form
+        bullionIdInput.value = item.id || '';
+        bullionModalTitle.textContent = item.id ? 'Edit Bullion Item' : 'Add New Bullion Item';
+        bullionMaterialInput.value = item.material || 'gold';
+        bullionWeightInput.value = item.weight || '';
+        bullionPurityInput.value = item.purity || '';
+        bullionYearInput.value = item.year || '';
+        bullionNotesInput.value = item.notes || '';
+        bullionPurchasePriceInput.value = item.purchase_price || '';
+
+        // Initial calculation display for current value
+        updateBullionCurrentValueDisplay();
+
+        bullionModal.classList.remove('hidden');
+        setTimeout(() => {
+            bullionModal.querySelector('div').classList.remove('scale-95', 'opacity-0');
+            bullionModal.querySelector('div').classList.add('scale-100', 'opacity-100');
+        }, 50);
+    }
+
+    function hideBullionModal() {
+        bullionModal.querySelector('div').classList.remove('scale-100', 'opacity-100');
+        bullionModal.querySelector('div').classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            bullionModal.classList.add('hidden');
+        }, 300); // Allow time for transition
+    }
+
+    async function saveBullionItem(itemData) {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showCustomConfirm('You must be signed in to save bullion items.', () => {});
+            return;
+        }
+
+        const method = itemData.id ? 'PUT' : 'POST';
+        const url = itemData.id ? `/api/bullion/${itemData.id}` : '/api/bullion';
+
+        try {
+            bullionSaveBtn.disabled = true;
+            bullionSaveBtn.textContent = itemData.id ? 'Saving...' : 'Adding...';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(itemData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            hideBullionModal();
+            loadBullionFromBackend(); // Reload to get updated data
+            showCustomConfirm(`Bullion item ${itemData.id ? 'updated' : 'added'} successfully!`, () => {});
+
+        } catch (error) {
+            console.error('Error saving bullion item:', error);
+            showCustomConfirm(`Failed to save bullion item: ${error.message}`, () => {});
+        } finally {
+            bullionSaveBtn.disabled = false;
+            bullionSaveBtn.textContent = itemData.id ? 'Save Bullion' : 'Add Bullion';
+        }
+    }
+
+    async function deleteBullionItem(id) {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            showCustomConfirm('You must be signed in to delete bullion items.', () => {});
+            return;
+        }
+
+        showCustomConfirm('Are you sure you want to delete this bullion item?', async () => {
+            try {
+                const response = await fetch(`/api/bullion/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+
+                loadBullionFromBackend(); // Reload to get updated data
+                showCustomConfirm('Bullion item deleted successfully!', () => {});
+
+            } catch (error) {
+                console.error('Error deleting bullion item:', error);
+                showCustomConfirm(`Failed to delete bullion item: ${error.message}`, () => {});
+            }
+        }, true); // true for confirm dialog
+    }
+
+    function updateBullionCurrentValueDisplay() {
+        const material = bullionMaterialInput.value;
+        const weight = parseFloat(bullionWeightInput.value || 0);
+        const purity = parseFloat(bullionPurityInput.value || 0);
+
+        const currentValue = calculateBullionCurrentValue(
+            material,
+            weight,
+            purity,
+            spotPrices.gold_usd_oz,
+            spotPrices.silver_usd_oz
+        );
+        bullionCurrentValueDisplay.textContent = `$${currentValue.toFixed(2)}`;
+    }
+
+    // Event Listeners for Bullion
+    document.getElementById('nav-bullion').addEventListener('click', (e) => {
+        e.preventDefault();
+        showView('content-bullion');
+        if (isAuthenticated()) {
+            fetchSpotPrices(); // Fetch latest prices when going to bullion view
+            loadBullionFromBackend();
+        } else {
+            bullionCollectionStatus.textContent = 'Please sign in to view your bullion collection.';
+        }
+    });
+
+    document.getElementById('add-bullion-btn').addEventListener('click', () => {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to add bullion items.', () => {});
+            return;
+        }
+        showBullionModal();
+    });
+
+    document.getElementById('bullion-cancel-btn').addEventListener('click', hideBullionModal);
+
+    bullionForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const itemData = {
+            id: bullionIdInput.value || undefined,
+            material: bullionMaterialInput.value,
+            weight: parseFloat(bullionWeightInput.value),
+            purity: parseFloat(bullionPurityInput.value),
+            year: parseInt(bullionYearInput.value) || null,
+            purchase_price: parseFloat(bullionPurchasePriceInput.value),
+            notes: bullionNotesInput.value
+        };
+        saveBullionItem(itemData);
+    });
+
+    // Live update of current value in modal
+    bullionMaterialInput.addEventListener('input', updateBullionCurrentValueDisplay);
+    bullionWeightInput.addEventListener('input', updateBullionCurrentValueDisplay);
+    bullionPurityInput.addEventListener('input', updateBullionCurrentValueDisplay);
+
+    // Delegation for edit/delete buttons on bullion table
+    bullionTableBody.addEventListener('click', (e) => {
+        if (e.target.classList.contains('edit-bullion-btn')) {
+            const id = e.target.dataset.id;
+            const item = bullionCollection.find(b => b.id == id);
+            if (item) {
+                showBullionModal(item);
+            }
+        } else if (e.target.classList.contains('delete-bullion-btn')) {
+            const id = e.target.dataset.id;
+            deleteBullionItem(id);
+        }
+    });
+
+    // Override renderDashboard to include bullion value
+    const originalRenderDashboard = renderDashboard;
+    renderDashboard = async function() {
+        await originalRenderDashboard(); // Call the original dashboard rendering first
+
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+           document.getElementById('dashboard-total-bullion-value').textContent = '$0.00';
+           return;
+        }
+
+        // Fetch latest bullion data to ensure dashboard is up-to-date
+        try {
+           const response = await fetch('/api/bullion', {
+               headers: { 'Authorization': `Bearer ${token}` }
+           });
+           if (response.ok) {
+               const data = await response.json();
+               bullionCollection = data; // Update local bullionCollection
+           }
+        } catch (error) {
+           console.error("Error fetching bullion for dashboard update:", error);
+        }
+
+        await fetchSpotPrices(); // Ensure spot prices are fresh
+
+        let totalBullionCurrentValue = 0;
+        bullionCollection.forEach(item => {
+            const currentItemValue = calculateBullionCurrentValue(
+                item.material,
+                parseFloat(item.weight),
+                parseFloat(item.purity),
+                spotPrices.gold_usd_oz,
+                spotPrices.silver_usd_oz
+            );
+            totalBullionCurrentValue += currentItemValue;
+        });
+
+        const currentTotalValueElement = document.getElementById('dashboard-total-value');
+        let currentTotalValue = parseFloat(currentTotalValueElement.textContent.replace(/[$,]/g, '')) || 0;
+        currentTotalValue += totalBullionCurrentValue;
+        currentTotalValueElement.textContent = `$${currentTotalValue.toFixed(2)}`;
+
+        // Add a new dashboard card specifically for bullion value if it doesn't exist
+        let bullionValueCard = document.getElementById('dashboard-bullion-value-card');
+        if (!bullionValueCard) {
+            const summaryGrid = document.querySelector('#content-dashboard .max-w-7xl .grid');
+            if (summaryGrid) {
+                bullionValueCard = document.createElement('div');
+                bullionValueCard.id = 'dashboard-bullion-value-card';
+                bullionValueCard.className = 'bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700';
+                bullionValueCard.innerHTML = `
+                    <h3 class="text-lg font-semibold text-gray-300">Total Bullion Market Value</h3>
+                    <p class="text-4xl font-bold text-emerald-400" id="dashboard-total-bullion-value">$0.00</p>
+                `;
+                summaryGrid.appendChild(bullionValueCard);
+            }
+        }
+        document.getElementById('dashboard-total-bullion-value').textContent = `$${totalBullionCurrentValue.toFixed(2)}`;
+    };
+
+
+    // --- Initial Load Modifications ---
+    // Ensure bullion data is loaded and spot prices are fetched if authenticated on app start
+    const originalAttachGlobalEventListeners = attachGlobalEventListeners;
+    attachGlobalEventListeners = function() {
+        originalAttachGlobalEventListeners(); // Call the original function first
+        // Add event listener for public collection link copy button after original listeners
+        const copyPublicUrlBtn = document.getElementById('copy-public-url-btn');
+        if (copyPublicUrlBtn) {
+            copyPublicUrlBtn.addEventListener('click', async () => {
+                const publicUrlInput = document.getElementById('public-collection-url');
+                const publicUrlStatus = document.getElementById('public-url-status');
+                if (publicUrlInput.value) {
+                    try {
+                        await navigator.clipboard.writeText(publicUrlInput.value);
+                        publicUrlStatus.textContent = 'Link copied!';
+                        setTimeout(() => publicUrlStatus.textContent = '', 3000);
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        publicUrlStatus.textContent = 'Failed to copy link.';
+                    }
+                }
+            });
+        }
+    };
+
+    // Original DOMContentLoaded listener should now call the extended functions
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM Content Loaded. Starting app initialization...');
+        applySavedTheme(); // Apply theme immediately on load
+        attachGlobalEventListeners(); // This will now include the new public URL copy button listener
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const publicId = urlParams.get('public');
+
+        if (publicId) {
+            updateAuthUI(false);
+            showView('content-public-collection');
+        } else {
+            updateAuthUI(isAuthenticated());
+            loadCollectionFromBackend();
+            if (isAuthenticated()) {
+                fetchSpotPrices(); // Fetch spot prices on initial load if authenticated
+                loadBullionFromBackend(); // Load bullion data on initial load if authenticated
+            }
+            showView('content-home');
         }
         console.log('App initialization completed successfully.');
     });
