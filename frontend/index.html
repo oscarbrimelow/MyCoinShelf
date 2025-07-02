@@ -2155,33 +2155,198 @@
 
     // --- INITIAL LOAD ---
     document.addEventListener('DOMContentLoaded', async () => {
-        console.log('DOM Content Loaded. Starting app initialization...');
-        applySavedTheme(); // Apply theme immediately on load
-        attachGlobalEventListeners(); // Attach all event listeners
+    console.log('DOM Content Loaded. Starting app initialization...');
+    applySavedTheme(); // Apply theme immediately on load
+    attachGlobalEventListeners(); // Attach all event listeners
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const publicId = urlParams.get('public');
+    // --- PASTE THESE NEW FUNCTION DEFINITIONS HERE ---
 
-        if (publicId) {
-            // If public ID is present, render public collection view directly
-            updateAuthUI(false); // Ensure logged out state for public view
-            showView('content-public-collection'); // This will trigger loading public data
-            fetchPublicCollection(publicId); // Fetch and render public data
-        } else {
-            // Otherwise, proceed with normal authenticated app flow
-            updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
-            if (isAuthenticated()) {
-                await fetchCoins(); // Fetch coins if authenticated
-                await fetchSpotPrices(); // Fetch spot prices if authenticated
-                await fetchBullion(); // Fetch bullion if authenticated
-                checkPublicCollectionStatus(); // Check if public collection exists for this user
-                showView('content-dashboard'); // Default view on load is now the dashboard if authenticated
-            } else {
-                showView('content-home'); // Default view on load is home page if not authenticated
-            }
+    /**
+     * Fetches the user's coin collection from the backend API.
+     * Updates the UI with the fetched data.
+     */
+    async function fetchCoins() {
+        if (!isAuthenticated()) {
+            console.warn('Not authenticated. Cannot fetch coins.');
+            return;
         }
-        console.log('App initialization completed successfully.');
-    });
+        try {
+            const token = localStorage.getItem('access_token');
+            // This API endpoint /api/coins (GET) matches your app (5).py
+            const response = await fetch(`${API_BASE_URL}/coins`, { 
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const coins = await response.json();
+                console.log('Fetched coins:', coins);
+                // TODO: Add code here to render these coins in your UI
+                // For example: displayCoins(coins);
+            } else {
+                const errorData = await response.json();
+                console.error('Failed to fetch coins:', errorData.message);
+                // TODO: Handle error, e.g., show an alert to the user
+            }
+        } catch (error) {
+            console.error('Error fetching coins:', error);
+            // TODO: Handle network error
+        }
+    }
+
+    /**
+     * Fetches current spot prices for gold and silver from the backend API.
+     * Updates relevant UI elements with these prices.
+     */
+    async function fetchSpotPrices() {
+        // This function does not require authentication if your backend /api/spot_prices is public
+        try {
+            // This API endpoint /api/spot_prices (GET) matches your app (5).py
+            const response = await fetch(`${API_BASE_URL}/spot_prices`); 
+            if (response.ok) {
+                const prices = await response.json();
+                console.log('Fetched spot prices:', prices);
+                // TODO: Update your UI elements with these prices (e.g., a dashboard widget)
+                // For example: document.getElementById('gold-price').textContent = prices.gold_usd_oz;
+            } else {
+                console.error('Failed to fetch spot prices:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error fetching spot prices:', error);
+        }
+    }
+
+    /**
+     * Fetches the user's bullion collection from the backend API.
+     * Updates the UI with the fetched data.
+     */
+    async function fetchBullion() {
+        if (!isAuthenticated()) {
+            console.warn('Not authenticated. Cannot fetch bullion.');
+            return;
+        }
+        try {
+            const token = localStorage.getItem('access_token');
+            // This API endpoint /api/bullion (GET) matches your app (5).py
+            const response = await fetch(`${API_BASE_URL}/bullion`, { 
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const bullion = await response.json();
+                console.log('Fetched bullion:', bullion);
+                // TODO: Add code here to render this bullion data in your UI
+                // For example: displayBullion(bullion);
+            } else {
+                const errorData = await response.json();
+                console.error('Failed to fetch bullion:', errorData.message);
+                // TODO: Handle error
+            }
+        } catch (error) {
+            console.error('Error fetching bullion:', error);
+            // TODO: Handle network error
+        }
+    }
+
+    /**
+     * Checks the user's public collection status (e.g., if it's enabled/disabled).
+     * Updates UI elements related to public sharing.
+     */
+    async function checkPublicCollectionStatus() {
+        if (!isAuthenticated()) {
+            console.warn('Not authenticated. Cannot check public collection status.');
+            return;
+        }
+        try {
+            const token = localStorage.getItem('access_token');
+            // IMPORTANT: Your app (5).py DOES NOT currently have a GET endpoint for /api/public_collection/status.
+            // You need to add this route to your app (5).py for this function to work.
+            const response = await fetch(`${API_BASE_URL}/public_collection/status`, { 
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Public collection status:', data);
+                // TODO: Update UI based on data.is_public or data.public_url
+                // For example: togglePublicShareButton(data.is_public);
+            } else {
+                console.error('Failed to fetch public collection status:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error checking public collection status:', error);
+        }
+    }
+
+    /**
+     * Fetches a public collection by its unique ID.
+     * Displays the public collection data on the page.
+     * @param {string} publicId - The unique ID of the public collection.
+     */
+    async function fetchPublicCollection(publicId) {
+        if (!publicId) {
+            console.error('Public ID is missing.');
+            return;
+        }
+        try {
+            // This API endpoint /api/public_collection/<public_id> (GET) matches your app (5).py
+            const response = await fetch(`${API_BASE_URL}/public_collection/${publicId}`); 
+            if (response.ok) {
+                const publicData = await response.json();
+                console.log('Fetched public collection:', publicData);
+                // TODO: Render this publicData in the 'content-public-collection' view
+                // For example: displayPublicCollection(publicData);
+            } else {
+                const errorData = await response.json();
+                console.error('Failed to fetch public collection:', errorData.message || response.statusText);
+                // TODO: Handle cases where the public collection doesn't exist or is invalid
+                showCustomConfirm('Public collection not found or inaccessible.', () => {
+                    history.replaceState(null, '', window.location.pathname); // Clear URL param
+                    showView('content-home'); // Redirect to home if public collection not found
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching public collection:', error);
+            // TODO: Handle network error
+        }
+    }
+
+    // --- END OF NEW FUNCTION DEFINITIONS ---
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const publicId = urlParams.get('public');
+
+    if (publicId) {
+        // If public ID is present, render public collection view directly
+        updateAuthUI(false); // Ensure logged out state for public view
+        showView('content-public-collection'); // This will trigger loading public data
+        await fetchPublicCollection(publicId); // Fetch and render public data
+    } else {
+        // Otherwise, proceed with normal authenticated app flow
+        updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
+        if (isAuthenticated()) {
+            await fetchCoins(); // Fetch coins if authenticated
+            await fetchSpotPrices(); // Fetch spot prices if authenticated
+            await fetchBullion(); // Fetch bullion if authenticated
+            checkPublicCollectionStatus(); // Check if public collection exists for this user
+            showView('content-dashboard'); // Default view on load is now the dashboard if authenticated
+        } else {
+            showView('content-home'); // Default view on load is home page if not authenticated
+        }
+    }
+    console.log('App initialization completed successfully.');
+
+    // ... (The rest of your DOMContentLoaded code, like loginForm.addEventListener, registerForm.addEventListener, etc., goes here)
+});
 
 </script>
 
