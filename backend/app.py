@@ -20,7 +20,6 @@ app.config.from_object(Config)
 db = SQLAlchemy(app)
 
 # Initialize CORS for cross-origin requests from your frontend
-# For production, replace "*" with your actual frontend domain (e.g., 'https://your-netlify-app.netlify.app')
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # --- Database Models ---
@@ -28,8 +27,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    coins = db.relationship('Coin', backref='owner', lazy=True) # One user has many coins
-    # New: One user can have one public collection link
+    coins = db.relationship('Coin', backref='owner', lazy=True)
+    bullion = db.relationship('Bullion', backref='owner', lazy=True) # New relationship for Bullion
     public_collection = db.relationship('PublicCollection', backref='user', uselist=False, lazy=True)
 
     def __repr__(self):
@@ -38,24 +37,35 @@ class User(db.Model):
 class Coin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    type = db.Column(db.String(50), nullable=False) # e.g., Coin, Banknote
+    type = db.Column(db.String(50), nullable=False)
     country = db.Column(db.String(100), nullable=False)
     year = db.Column(db.Integer)
     denomination = db.Column(db.String(100), nullable=False)
-    value = db.Column(db.Float) # Estimated value
+    value = db.Column(db.Float)
     notes = db.Column(db.Text)
     referenceUrl = db.Column(db.String(500))
-    localImagePath = db.Column(db.String(500)) # Path to local image
-    # New fields for better data management and charting
-    region = db.Column(db.String(100)) # e.g., Europe, Asia, North America
-    isHistorical = db.Column(db.Boolean, default=False) # True if from a historical entity or pre-1900
+    localImagePath = db.Column(db.String(500))
+    region = db.Column(db.String(100))
+    isHistorical = db.Column(db.Boolean, default=False)
 
     def __repr__(self):
         return f'<Coin {self.denomination} from {self.country} ({self.year})>'
 
-# New: Model for Public Collection Links
+# New Bullion Model
+class Bullion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    material = db.Column(db.String(50), nullable=False)  # 'Gold' or 'Silver'
+    weight_oz = db.Column(db.Float, nullable=False)      # Weight in Troy Ounces
+    purity = db.Column(db.Float, nullable=False)         # e.g., 0.999 for 99.9%
+    purchase_price = db.Column(db.Float)                 # The price you paid for it
+    notes = db.Column(db.Text)
+
+    def __repr__(self):
+        return f'<Bullion {self.weight_oz}oz of {self.purity} {self.material}>'
+
 class PublicCollection(db.Model):
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()), unique=True, nullable=False) # UUID for public link
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()), unique=True, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
@@ -70,40 +80,22 @@ def jwt_required(f):
         if 'Authorization' in request.headers:
             token = request.headers['Authorization'].split(" ")[1]
         if not token:
-            print("DEBUG: Token is missing from Authorization header.")
             return jsonify({'message': 'Token is missing!'}), 401
         try:
             data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
             current_user = User.query.get(data['user_id'])
             if not current_user:
-                print(f"DEBUG: User with ID {data['user_id']} not found for token.")
                 return jsonify({'message': 'User not found!'}), 401
         except jwt.ExpiredSignatureError:
-            print("DEBUG: JWT ExpiredSignatureError caught.")
             return jsonify({'message': 'Token has expired!'}), 401
         except jwt.InvalidTokenError:
-            print("DEBUG: JWT InvalidTokenError caught.")
             return jsonify({'message': 'Token is invalid!'}), 401
         except Exception as e:
-            print(f"DEBUG: Unexpected error in jwt_required: {e}")
             return jsonify({'message': 'An error occurred during authentication.'}), 500
         return f(current_user, *args, **kwargs)
     return decorated
 
-# --- Helper function for region and historical flag ---
-# Map for standardizing country names for Google Charts GeoChart
-country_alias_map = {
-    "united states of america": "United States", "usa": "United States", "uk": "United Kingdom",
-    "britain": "United Kingdom", "russia": "Russia", "china": "China", "india": "India",
-    "japan": "Japan", "germany": "Germany", "deutschland": "Germany", "france": "France",
-    "italy": "Italy", "brazil": "Brazil", "brasil": "Brazil", "south africa": "South Africa",
-    "eswatini": "Eswatini", "rome": "Italy", "constantinople": "Turkey", "nicomedia": "Turkey",
-    "antioch": "Syria", "ancient greece": "Greece", "seleucid": "Syria", "ussr": "Russia",
-    "yugoslavia": "Serbia", "east germany": "Germany", "german democratic republic": "Germany",
-    "phillipines": "Philippines",
-}
-
-# Map for determining geographic region
+# --- Helper functions ---
 country_to_region_map = {
     "south africa": "Africa", "eswatini": "Africa", "kenya": "Africa", "central african states": "Africa",
     "mauritius": "Africa", "ghana": "Africa", "rwanda": "Africa", "zimbabwe": "Africa",
@@ -118,7 +110,6 @@ country_to_region_map = {
     "mali": "Africa", "mauritania": "Africa", "morocco": "Africa", "niger": "Africa",
     "sao tome and principe": "Africa", "senegal": "Africa", "sierra leone": "Africa",
     "south sudan": "Africa", "togo": "Africa", "uganda": "Africa",
-
     "taiwan": "Asia", "india": "Asia", "china": "Asia", "japan": "Asia", "philippines": "Asia",
     "united arab emirates": "Asia", "israel": "Asia", "vietnam": "Asia", "bangladesh": "Asia",
     "mongolia": "Asia", "myanmar (burma)": "Asia", "cambodia": "Asia", "lebanon": "Asia",
@@ -131,7 +122,6 @@ country_to_region_map = {
     "yemen": "Asia", "afghanistan": "Asia", "azerbaijan": "Asia", "bahrain": "Asia",
     "brunei": "Asia", "east timor (timor-leste)": "Asia", "georgia": "Asia",
     "iraq": "Asia",
-
     "netherlands": "Europe", "united kingdom": "Europe", "belgium": "Europe",
     "eu": "Europe", "ireland": "Europe", "spain": "Europe", "portugal": "Europe",
     "isle of man": "Europe", "germany": "Germany", "bulgaria": "Europe",
@@ -148,7 +138,6 @@ country_to_region_map = {
     "poland": "Europe", "romania": "Europe", "serbia": "Europe",
     "slovakia": "Europe", "slovenia": "Europe", "sweden": "Europe",
     "vatican city": "Europe", "russia": "Europe",
-
     "canada": "North America", "united states": "North America", "mexico": "North America",
     "antigua and barbuda": "North America", "bahamas": "North America", "barbados": "North America",
     "belize": "North America", "costa rica": "North America", "cuba": "North America",
@@ -157,35 +146,30 @@ country_to_region_map = {
     "honduras": "North America", "jamaica": "North America", "nicaragua": "North America",
     "panama": "North America", "saint kitts and nevis": "North America", "saint lucia": "North America",
     "saint vincent and the grenadines": "North America", "trinidad and tobago": "North America",
-
     "brazil": "South America", "argentina": "South America", "peru": "South America",
     "colombia": "South America", "chile": "South America", "bolivia": "South America",
     "ecuador": "South America", "guyana": "South America", "paraguay": "South America",
     "suriname": "South America", "uruguay": "South America", "venezuela": "South America",
-
     "australia": "Oceania", "new zealand": "Oceania", "fiji": "Oceania",
     "kiribati": "Oceania", "marshall islands": "Oceania", "micronesia": "Oceania",
     "nauru": "Oceania", "palau": "Oceania", "papua new guinea": "Oceania",
     "samoa": "Oceania", "solomon islands": "Oceania", "tonga": "Oceania",
     "tuvalu": "Oceania", "vanuatu": "Oceania",
-
     "siscia": "Ancient", "consz": "Ancient", "rome": "Ancient", "nicomedia": "Ancient",
     "constantinople": "Ancient", "mediolanum (milan)": "Ancient", "antioch": "Ancient",
-    "ancient greece": "Ancient", "?": "Ancient", # Add "?" if it's used for unknown countries
+    "ancient greece": "Ancient", "?": "Ancient",
     "thessalonica": "Ancient", "ussr": "Ancient", "yugoslavia": "Ancient",
     "rhodesia": "Ancient", "czechoslovakia": "Ancient", "east germany": "Ancient",
     "german democratic republic": "Ancient",
 }
 
 def get_region_for_country(country_name):
-    """Retrieves the geographic region for a given country."""
     if not country_name:
         return "Unknown"
     normalized_country = country_name.lower().strip()
     return country_to_region_map.get(normalized_country, "Other")
 
 def is_historical_item(country_name, year):
-    """Determines if an item is historical based on country or year."""
     historical_countries = [
         "ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic",
         "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople",
@@ -197,7 +181,6 @@ def is_historical_item(country_name, year):
         return True
     return False
 
-
 # --- Routes ---
 
 @app.route('/api/register', methods=['POST'])
@@ -205,20 +188,14 @@ def register():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-
     if not email or not password:
-        print("DEBUG: Registration failed - missing email or password.")
         return jsonify({'message': 'Email and password are required'}), 400
-
     if User.query.filter_by(email=email).first():
-        print(f"DEBUG: Registration failed - user with email {email} already exists.")
         return jsonify({'message': 'User with that email already exists'}), 409
-
     hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
     new_user = User(email=email, password_hash=hashed_password)
     db.session.add(new_user)
     db.session.commit()
-    print(f"DEBUG: User {email} registered successfully.")
     return jsonify({'message': 'User registered successfully!'}), 201
 
 @app.route('/api/login', methods=['POST'])
@@ -226,33 +203,15 @@ def login():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
-
-    print(f"DEBUG: Attempting login for email: {email}")
-
     if not email or not password:
-        print("DEBUG: Login failed - Missing email or password in request.")
         return jsonify({'message': 'Email and password are required'}), 400
-
     user = User.query.filter_by(email=email).first()
-
-    if not user:
-        print(f"DEBUG: Login failed - User with email {email} not found.")
+    if not user or not check_password_hash(user.password_hash, password):
         return jsonify({'message': 'Invalid credentials'}), 401
-
-    print(f"DEBUG: User found: {user.email}")
-    print(f"DEBUG: Provided password: {password}")
-    print(f"DEBUG: Stored password hash: {user.password_hash}")
-
-    if not check_password_hash(user.password_hash, password):
-        print("DEBUG: Login failed - Password hash mismatch.")
-        return jsonify({'message': 'Invalid credentials'}), 401
-
     token = jwt.encode({
         'user_id': user.id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24) # Token expires in 24 hours
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
     }, app.config['JWT_SECRET_KEY'], algorithm="HS256")
-
-    print(f"DEBUG: User {email} logged in successfully. Token generated.")
     return jsonify({'token': token}), 200
 
 @app.route('/api/change_password', methods=['POST'])
@@ -261,40 +220,27 @@ def change_password(current_user):
     data = request.get_json()
     current_password = data.get('current_password')
     new_password = data.get('new_password')
-
     if not current_password or not new_password:
         return jsonify({'message': 'Current and new passwords are required'}), 400
-
     if not check_password_hash(current_user.password_hash, current_password):
         return jsonify({'message': 'Incorrect current password'}), 401
-
     if len(new_password) < 6:
         return jsonify({'message': 'New password must be at least 6 characters long'}), 400
-
     current_user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
     db.session.commit()
     return jsonify({'message': 'Password changed successfully!'}), 200
-
 
 @app.route('/api/coins', methods=['GET'])
 @jwt_required
 def get_coins(current_user):
     coins = Coin.query.filter_by(user_id=current_user.id).all()
-    # Serialize coins, including calculated region and isHistorical
     output = []
     for coin in coins:
         coin_data = {
-            'id': coin.id,
-            'type': coin.type,
-            'country': coin.country,
-            'year': coin.year,
-            'denomination': coin.denomination,
-            'value': coin.value,
-            'notes': coin.notes,
-            'referenceUrl': coin.referenceUrl,
-            'localImagePath': coin.localImagePath,
-            'region': coin.region, # Include region from DB
-            'isHistorical': coin.isHistorical # Include isHistorical from DB
+            'id': coin.id, 'type': coin.type, 'country': coin.country, 'year': coin.year,
+            'denomination': coin.denomination, 'value': coin.value, 'notes': coin.notes,
+            'referenceUrl': coin.referenceUrl, 'localImagePath': coin.localImagePath,
+            'region': coin.region, 'isHistorical': coin.isHistorical
         }
         output.append(coin_data)
     return jsonify(output), 200
@@ -303,29 +249,18 @@ def get_coins(current_user):
 @jwt_required
 def add_coin(current_user):
     data = request.get_json()
-    
-    # Required fields validation
     if not data.get('country') or not data.get('denomination'):
         return jsonify({'message': 'Country and Denomination are required fields.'}), 400
-
-    # Calculate region and isHistorical on the backend
     country_name = data.get('country').strip()
     year_value = data.get('year')
     region = get_region_for_country(country_name)
     is_historical = is_historical_item(country_name, year_value)
-
     new_coin = Coin(
-        user_id=current_user.id,
-        type=data.get('type'),
-        country=country_name,
-        year=year_value,
-        denomination=data.get('denomination').strip(),
-        value=data.get('value'),
-        notes=data.get('notes'),
-        referenceUrl=data.get('referenceUrl'),
-        localImagePath=data.get('localImagePath'),
-        region=region, # Set calculated region
-        isHistorical=is_historical # Set calculated historical flag
+        user_id=current_user.id, type=data.get('type'), country=country_name,
+        year=year_value, denomination=data.get('denomination').strip(),
+        value=data.get('value'), notes=data.get('notes'),
+        referenceUrl=data.get('referenceUrl'), localImagePath=data.get('localImagePath'),
+        region=region, isHistorical=is_historical
     )
     db.session.add(new_coin)
     db.session.commit()
@@ -334,22 +269,14 @@ def add_coin(current_user):
 @app.route('/api/coins/<int:coin_id>', methods=['PUT'])
 @jwt_required
 def update_coin(current_user, coin_id):
-    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
-    if not coin:
-        return jsonify({'message': 'Coin not found or unauthorized'}), 404
-
+    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first_or_404()
     data = request.get_json()
-
-    # Required fields validation
     if not data.get('country') or not data.get('denomination'):
         return jsonify({'message': 'Country and Denomination are required fields.'}), 400
-
-    # Calculate region and isHistorical on the backend
     country_name = data.get('country').strip()
     year_value = data.get('year')
     coin.region = get_region_for_country(country_name)
     coin.isHistorical = is_historical_item(country_name, year_value)
-
     coin.type = data.get('type', coin.type)
     coin.country = country_name
     coin.year = year_value
@@ -358,17 +285,13 @@ def update_coin(current_user, coin_id):
     coin.notes = data.get('notes', coin.notes)
     coin.referenceUrl = data.get('referenceUrl', coin.referenceUrl)
     coin.localImagePath = data.get('localImagePath', coin.localImagePath)
-
     db.session.commit()
     return jsonify({'message': 'Coin updated successfully!'}), 200
 
 @app.route('/api/coins/<int:coin_id>', methods=['DELETE'])
 @jwt_required
 def delete_coin(current_user, coin_id):
-    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
-    if not coin:
-        return jsonify({'message': 'Coin not found or unauthorized'}), 404
-
+    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first_or_404()
     db.session.delete(coin)
     db.session.commit()
     return jsonify({'message': 'Coin deleted successfully!'}), 200
@@ -379,43 +302,32 @@ def bulk_upload_coins(current_user):
     data = request.get_json()
     if not isinstance(data, list):
         return jsonify({'message': 'Payload must be a JSON array of coin objects'}), 400
-
     added_count = 0
     errors = []
     for item_data in data:
         try:
-            # Validate essential fields
             if not item_data.get('country') or not item_data.get('denomination'):
                 errors.append(f"Skipping item due to missing country or denomination: {item_data.get('denomination')} from {item_data.get('country')}")
                 continue
-
-            # Calculate region and isHistorical on the backend
             country_name = item_data.get('country').strip()
-            year_value = item_data.get('year') # Corrected: Was year_data.get('year')
+            year_value = item_data.get('year')
             region = get_region_for_country(country_name)
             is_historical = is_historical_item(country_name, year_value)
-
             new_coin = Coin(
-                user_id=current_user.id,
-                type=item_data.get('type', 'Coin'), # Default to Coin if not provided
-                country=country_name,
-                year=year_value, # Corrected: Was year_data.get('year')
+                user_id=current_user.id, type=item_data.get('type', 'Coin'),
+                country=country_name, year=year_value,
                 denomination=item_data.get('denomination').strip(),
-                value=item_data.get('value', 0.0),
-                notes=item_data.get('notes'),
+                value=item_data.get('value', 0.0), notes=item_data.get('notes'),
                 referenceUrl=item_data.get('referenceUrl'),
                 localImagePath=item_data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
-                region=region, # Set calculated region
-                isHistorical=is_historical # Set calculated historical flag
+                region=region, isHistorical=is_historical
             )
             db.session.add(new_coin)
             added_count += 1
         except Exception as e:
             errors.append(f"Error adding item '{item_data.get('denomination', 'unknown')}': {str(e)}")
-            db.session.rollback() # Rollback the current transaction on error
-
-    db.session.commit() # Commit all successfully added coins
-
+            db.session.rollback()
+    db.session.commit()
     if added_count > 0 and len(errors) == 0:
         return jsonify({'message': f'Successfully added {added_count} items.', 'added_count': added_count}), 200
     elif added_count > 0 and len(errors) > 0:
@@ -426,32 +338,24 @@ def bulk_upload_coins(current_user):
 @app.route('/api/coins/clear_all', methods=['DELETE'])
 @jwt_required
 def clear_all_coins(current_user):
-    # Delete all coins associated with the current user
     num_deleted = Coin.query.filter_by(user_id=current_user.id).delete()
     db.session.commit()
     return jsonify({'message': f'{num_deleted} coins deleted successfully.'}), 200
 
-
-# --- New Public Collection Endpoints ---
-
+# --- Public Collection Endpoints ---
 @app.route('/api/generate_public_collection_link', methods=['POST'])
 @jwt_required
 def generate_public_collection_link(current_user):
-    # Check if a public link already exists for this user
     public_collection_link = PublicCollection.query.filter_by(user_id=current_user.id).first()
-
     if public_collection_link:
-        # If exists, update it with a new UUID to make the old link invalid
         public_collection_link.id = str(uuid.uuid4())
         public_collection_link.created_at = datetime.datetime.utcnow()
         message = "Public link updated successfully!"
     else:
-        # If not, create a new one
         new_public_link = PublicCollection(user_id=current_user.id)
         db.session.add(new_public_link)
-        public_collection_link = new_public_link # Reference the new object
+        public_collection_link = new_public_link
         message = "Public link generated successfully!"
-
     db.session.commit()
     return jsonify({'message': message, 'public_id': public_collection_link.id}), 200
 
@@ -475,54 +379,90 @@ def revoke_public_collection_link(current_user):
 
 @app.route('/api/public_coins/<string:public_id>', methods=['GET'])
 def get_public_coins(public_id):
-    # Find the user associated with the public_id
-    public_link_entry = PublicCollection.query.filter_by(id=public_id).first()
-
-    if not public_link_entry:
-        return jsonify({'message': 'Public collection not found or invalid ID.'}), 404
-
+    public_link_entry = PublicCollection.query.filter_by(id=public_id).first_or_404()
     user = User.query.get(public_link_entry.user_id)
     if not user:
-        return jsonify({'message': 'Associated user not found.'}), 404 # Should ideally not happen if DB integrity is maintained
-
-    # Fetch coins belonging to this user
+        return jsonify({'message': 'Associated user not found.'}), 404
     coins = Coin.query.filter_by(user_id=user.id).all()
-
-    # Serialize coins for public view
     output = []
     for coin in coins:
         coin_data = {
-            'id': coin.id, # Include ID for sorting/reference if needed in public view
-            'type': coin.type,
-            'country': coin.country,
-            'year': coin.year,
-            'denomination': coin.denomination,
-            'value': coin.value,
-            'notes': coin.notes,
-            'referenceUrl': coin.referenceUrl,
-            'localImagePath': coin.localImagePath,
-            'region': coin.region,
-            'isHistorical': coin.isHistorical,
-            'owner_email': user.email # Include owner's email for display in public view
+            'id': coin.id, 'type': coin.type, 'country': coin.country, 'year': coin.year,
+            'denomination': coin.denomination, 'value': coin.value, 'notes': coin.notes,
+            'referenceUrl': coin.referenceUrl, 'localImagePath': coin.localImagePath,
+            'region': coin.region, 'isHistorical': coin.isHistorical,
+            'owner_email': user.email
         }
         output.append(coin_data)
-    
     return jsonify(output), 200
 
+# --- Bullion API Endpoints ---
+@app.route('/api/bullion', methods=['GET'])
+@jwt_required
+def get_bullion(current_user):
+    bullion_items = Bullion.query.filter_by(user_id=current_user.id).all()
+    output = []
+    for item in bullion_items:
+        item_data = {
+            'id': item.id, 'material': item.material, 'weight_oz': item.weight_oz,
+            'purity': item.purity, 'purchase_price': item.purchase_price, 'notes': item.notes
+        }
+        output.append(item_data)
+    return jsonify(output), 200
 
-# --- Database Initialization (Run once to create tables) ---
-# NOTE: @app.before_request is used instead of @app.before_first_request due to Flask version compatibility.
-# This function will run before each request, but db.create_all() only creates tables if they don't exist.
+@app.route('/api/bullion', methods=['POST'])
+@jwt_required
+def add_bullion(current_user):
+    data = request.get_json()
+    if not all(k in data for k in ['material', 'weight_oz', 'purity', 'purchase_price']):
+        return jsonify({'message': 'Missing required fields for bullion item'}), 400
+    new_bullion = Bullion(
+        user_id=current_user.id, material=data['material'], weight_oz=data['weight_oz'],
+        purity=data['purity'], purchase_price=data['purchase_price'], notes=data.get('notes', '')
+    )
+    db.session.add(new_bullion)
+    db.session.commit()
+    return jsonify({'message': 'Bullion item added successfully!', 'id': new_bullion.id}), 201
+
+@app.route('/api/bullion/<int:bullion_id>', methods=['PUT'])
+@jwt_required
+def update_bullion(current_user, bullion_id):
+    item = Bullion.query.filter_by(id=bullion_id, user_id=current_user.id).first_or_404()
+    data = request.get_json()
+    item.material = data.get('material', item.material)
+    item.weight_oz = data.get('weight_oz', item.weight_oz)
+    item.purity = data.get('purity', item.purity)
+    item.purchase_price = data.get('purchase_price', item.purchase_price)
+    item.notes = data.get('notes', item.notes)
+    db.session.commit()
+    return jsonify({'message': 'Bullion item updated successfully!'}), 200
+
+@app.route('/api/bullion/<int:bullion_id>', methods=['DELETE'])
+@jwt_required
+def delete_bullion(current_user, bullion_id):
+    item = Bullion.query.filter_by(id=bullion_id, user_id=current_user.id).first_or_404()
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': 'Bullion item deleted successfully!'}), 200
+
+# --- Spot Price API Endpoint ---
+@app.route('/api/spot_prices', methods=['GET'])
+def get_spot_prices():
+    # In a real-world app, you would fetch this from a live API.
+    # For this example, we are using static placeholder values.
+    spot_prices = {
+        "gold_usd_oz": 2350.50, # Placeholder price per troy ounce
+        "silver_usd_oz": 29.75   # Placeholder price per troy ounce
+    }
+    return jsonify(spot_prices), 200
+
+# --- Database Initialization ---
 @app.before_request
 def create_tables():
-    # Only create tables if they don't exist. This is safe to call on every request.
-    # We use app.app_context() to ensure we're in the right Flask application context.
     with app.app_context():
         db.create_all()
-        # Optional: Create a default user if none exists for easy setup
         if not User.query.first():
             print("No users found. Creating a default admin user.")
-            # CHANGE THIS DEFAULT EMAIL/PASSWORD for your own initial setup!
             default_email = os.environ.get('DEFAULT_ADMIN_EMAIL') or 'admin@example.com'
             default_password = os.environ.get('DEFAULT_ADMIN_PASSWORD') or 'password123'
             hashed_password = generate_password_hash(default_password, method='pbkdf2:sha256')
@@ -532,5 +472,4 @@ def create_tables():
             print(f"Default user '{default_email}' created. Please change this in production!")
 
 if __name__ == '__main__':
-    # When running locally, you can access the backend at http://127.0.0.1:5000/
     app.run(debug=True)
