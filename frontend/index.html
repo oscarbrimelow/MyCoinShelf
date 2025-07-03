@@ -1150,7 +1150,12 @@
         }
         catch (error) {
             console.error("Error loading collection from backend:", error);
-            showCustomConfirm('Failed to load collection. Please try logging in again or check backend server.', () => {});
+            console.error("Error details:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+            showCustomConfirm(`Failed to load collection: ${error.message}. Please try logging in again or check backend server.`, () => {});
             collectionData = []; // Clear local data on load error
             renderAllViews();
         }
@@ -3422,6 +3427,11 @@
                     history.replaceState(null, '', window.location.pathname); // Clear public URL param
                 } catch (error) {
                     console.error("Login error:", error.message);
+                    console.error("Login error details:", {
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name
+                    });
                     showCustomConfirm(`Login failed: ${error.message}`, () => {});
                 }
             });
