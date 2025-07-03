@@ -3363,8 +3363,10 @@
     toggleBullionFields(); // On load
 
     // --- Patch Collection Rendering ---
-    const origRenderCollection = renderCollection;
     function renderCollection(filteredData = collectionData) {
+        console.log('Rendering collection with data:', filteredData);
+        console.log('Number of items to render:', filteredData.length);
+        
         // Render bullion section above collection
         let wrapper = document.getElementById('bullion-section');
         if (!wrapper) {
@@ -3373,9 +3375,69 @@
             wrapper.id = 'bullion-section';
             parent.insertBefore(wrapper, parent.firstChild);
         }
+        
         // Only fetch prices if we don't have them cached or if cache is expired
         fetchMetalPrices(false); // Use cached prices if available
-        origRenderCollection(filteredData);
+        
+        // Now call the original renderCollection logic
+        const collectionContent = document.getElementById('content-collection');
+        const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
+        if (!collectionContentWrapper) return;
+
+        if (!isAuthenticated()) {
+            collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
+            return;
+        }
+
+        collectionContentWrapper.innerHTML = `
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
+                <h1 class="text-3xl font-bold text-white">Collection</h1>
+                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+                    <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2">
+                    <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                    <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                </div>
+            </div>
+            <div class="flex-1 flex overflow-hidden">
+                <div class="w-full flex flex-col">
+                    <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                        <table class="w-full text-left data-table min-w-max"> <!-- min-w-max to prevent crushing columns -->
+                            <thead class="bg-gray-700 sticky top-0">
+                                <tr>
+                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
+                                    <th class="p-4 font-semibold">Type</th>
+                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="country">Country</th>
+                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="year">Year</th>
+                                    <th class="p-4 font-semibold">Denomination</th>
+                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="value">Value</th>
+                                    <th class="p-4 font-semibold">Notes & Ref.</th>
+                                    <th class="p-4 font-semibold">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="collection-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        initializeFilters();
+        if (filteredData.length === 0) {
+            const tableBody = document.getElementById('collection-table-body');
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="p-8 text-center text-gray-500">
+                        <div class="flex flex-col items-center space-y-4">
+                            <i class="ph ph-coin text-4xl"></i>
+                            <p class="text-lg">Your collection is empty</p>
+                            <p class="text-sm">Click the "Quick Add" button to add your first item!</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        } else {
+            renderCollectionTable(filteredData);
+        }
+        attachSortEventListeners();
     }
 
     // --- Patch Dashboard/Highlights ---
