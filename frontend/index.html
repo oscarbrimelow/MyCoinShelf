@@ -3226,6 +3226,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         console.log('DOM Content Loaded. Starting app initialization...');
         applySavedTheme(); // Apply theme immediately on load
+        loadSavedPrices(); // Load saved metal prices
         attachGlobalEventListeners();
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -3317,13 +3318,16 @@
         let html = `<div class="mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
             <div class="flex justify-between items-center mb-3">
                 <h2 class="text-xl font-bold text-yellow-400">Bullion / Gold / Silver</h2>
-                <button onclick="fetchMetalPrices(true)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
-                    <i class="ph-bold ph-arrows-clockwise mr-1"></i>Refresh Prices
+                <button onclick="fetchMetalPrices(true)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm mr-2">
+                    <i class="ph-bold ph-arrows-clockwise mr-1"></i>Auto Update
                 </button>
             </div>
             <div class="flex flex-wrap gap-6 mb-3 text-sm">
                 <span class="text-gray-300">Gold Price: <span class="font-bold text-yellow-400">$${metalPrices.gold_usd_per_oz.toFixed(2)}</span> USD/oz</span>
                 <span class="text-gray-300">Silver Price: <span class="font-bold text-gray-400">$${metalPrices.silver_usd_per_oz.toFixed(2)}</span> USD/oz</span>
+                <button onclick="showManualPriceModal()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                    <i class="ph-bold ph-pencil-simple mr-1"></i>Update Prices
+                </button>
             </div>`;
         
         if (bullionItems.length > 0) {
@@ -3467,6 +3471,80 @@
             renderCollectionTable(filteredData);
         }
         attachSortEventListeners();
+    }
+
+    // --- Manual Price Update Modal ---
+    function showManualPriceModal() {
+        const modalHtml = `
+            <div id="price-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                    <h3 class="text-xl font-bold text-white mb-4">Update Metal Prices</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Gold Price (USD per ounce)</label>
+                            <input type="number" id="manual-gold-price" step="0.01" value="${metalPrices.gold_usd_per_oz}" 
+                                   class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Silver Price (USD per ounce)</label>
+                            <input type="number" id="manual-silver-price" step="0.01" value="${metalPrices.silver_usd_per_oz}" 
+                                   class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button onclick="closePriceModal()" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md">Cancel</button>
+                        <button onclick="updateManualPrices()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-md">Update Prices</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function closePriceModal() {
+        const modal = document.getElementById('price-modal');
+        if (modal) modal.remove();
+    }
+
+    function updateManualPrices() {
+        const goldPrice = parseFloat(document.getElementById('manual-gold-price').value);
+        const silverPrice = parseFloat(document.getElementById('manual-silver-price').value);
+        
+        if (isNaN(goldPrice) || isNaN(silverPrice) || goldPrice <= 0 || silverPrice <= 0) {
+            showCustomConfirm('Please enter valid prices greater than 0.', () => {});
+            return;
+        }
+        
+        metalPrices.gold_usd_per_oz = goldPrice;
+        metalPrices.silver_usd_per_oz = silverPrice;
+        lastPriceUpdate = Date.now(); // Update timestamp
+        
+        // Save to localStorage for persistence
+        localStorage.setItem('metalPrices', JSON.stringify({
+            gold_usd_per_oz: goldPrice,
+            silver_usd_per_oz: silverPrice,
+            lastUpdate: lastPriceUpdate
+        }));
+        
+        closePriceModal();
+        renderBullionSection();
+        showCustomConfirm('Metal prices updated successfully!', () => {});
+    }
+
+    // --- Load saved prices on startup ---
+    function loadSavedPrices() {
+        const saved = localStorage.getItem('metalPrices');
+        if (saved) {
+            try {
+                const savedPrices = JSON.parse(saved);
+                metalPrices.gold_usd_per_oz = savedPrices.gold_usd_per_oz || 2300;
+                metalPrices.silver_usd_per_oz = savedPrices.silver_usd_per_oz || 29.5;
+                lastPriceUpdate = savedPrices.lastUpdate || 0;
+                console.log('Loaded saved metal prices:', metalPrices);
+            } catch (e) {
+                console.error('Error loading saved prices:', e);
+            }
+        }
     }
 
     // --- Patch Dashboard/Highlights ---
