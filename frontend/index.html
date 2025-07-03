@@ -544,6 +544,8 @@
                         <select id="type" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                             <option>Coin</option>
                             <option>Banknote</option>
+                            <option>Gold Bullion</option>
+                            <option>Silver Bullion</option>
                         </select>
                     </div>
                     <div>
@@ -573,6 +575,19 @@
                     <div class="md:col-span-2">
                         <label for="localImagePath" class="block text-sm font-medium text-gray-400">Local Image Path</label>
                         <input type="text" id="localImagePath" placeholder="e.g., C:\Users\YourName\Pictures\Coins\my_coin.jpg" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <!-- --- Bullion Fields (hidden by default, shown for Gold/Silver Bullion) --- -->
+                    <div id="bullion-fields" class="md:col-span-2" style="display:none;">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="weight_grams" class="block text-sm font-medium text-gray-400">Weight (grams)</label>
+                                <input type="number" id="weight_grams" step="0.01" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label for="purity_percent" class="block text-sm font-medium text-gray-400">Purity (%)</label>
+                                <input type="number" id="purity_percent" step="0.01" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="flex justify-end mt-8">
@@ -1015,6 +1030,8 @@
                         <select id="type" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                             <option>Coin</option>
                             <option>Banknote</option>
+                            <option>Gold Bullion</option>
+                            <option>Silver Bullion</option>
                         </select>
                     </div>
                     <div>
@@ -1044,6 +1061,19 @@
                     <div class="md:col-span-2">
                         <label for="localImagePath" class="block text-sm font-medium text-gray-400">Local Image Path</label>
                         <input type="text" id="localImagePath" placeholder="e.g., C:\Users\YourName\Pictures\Coins\my_coin.jpg" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <!-- --- Bullion Fields (hidden by default, shown for Gold/Silver Bullion) --- -->
+                    <div id="bullion-fields" class="md:col-span-2" style="display:none;">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="weight_grams" class="block text-sm font-medium text-gray-400">Weight (grams)</label>
+                                <input type="number" id="weight_grams" step="0.01" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label for="purity_percent" class="block text-sm font-medium text-gray-400">Purity (%)</label>
+                                <input type="number" id="purity_percent" step="0.01" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="flex justify-end mt-8">
@@ -1102,9 +1132,8 @@
             notes: document.getElementById('notes').value.trim(),
             referenceUrl: document.getElementById('referenceUrl').value.trim(),
             localImagePath: document.getElementById('localImagePath').value.trim() || "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image",
-            // Region and isHistorical are now calculated by the backend, no need to send from frontend
-            // region: getRegionForCountry(countryValue),
-            // isHistorical: isHistoricalFlag
+            weight_grams: parseFloat(document.getElementById('weight_grams').value) || null,
+            purity_percent: parseFloat(document.getElementById('purity_percent').value) || null
         };
 
         const method = itemId ? 'PUT' : 'POST';
@@ -3178,6 +3207,108 @@
         console.log('App initialization completed successfully.');
     });
 
+    // --- Metal Prices State ---
+    let metalPrices = { gold_usd_per_oz: 0, silver_usd_per_oz: 0 };
+
+    // --- Fetch Metal Prices ---
+    async function fetchMetalPrices() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/prices/metals`);
+            if (res.ok) {
+                metalPrices = await res.json();
+            } else {
+                metalPrices = { gold_usd_per_oz: 2300, silver_usd_per_oz: 29.5 };
+            }
+        } catch {
+            metalPrices = { gold_usd_per_oz: 2300, silver_usd_per_oz: 29.5 };
+        }
+        renderBullionSection();
+    }
+
+    // --- Calculate Bullion Value ---
+    function calculateBullionValue(item) {
+        if (!item.weight_grams || !item.purity_percent) return 0;
+        const price = item.type === 'Gold Bullion' ? metalPrices.gold_usd_per_oz : metalPrices.silver_usd_per_oz;
+        return ((item.weight_grams / 31.1035) * (item.purity_percent / 100) * price) || 0;
+    }
+
+    // --- Render Bullion Section ---
+    function renderBullionSection() {
+        const wrapper = document.getElementById('bullion-section');
+        if (!wrapper) return;
+        const bullionItems = collectionData.filter(item => item.type === 'Gold Bullion' || item.type === 'Silver Bullion');
+        let html = `<div class="mb-4">
+            <h2 class="text-xl font-bold text-yellow-400">Bullion / Gold / Silver</h2>
+            <div class="flex space-x-6 mb-2">
+                <span>Gold Price: <span class="font-bold">$${metalPrices.gold_usd_per_oz}</span> USD/oz</span>
+                <span>Silver Price: <span class="font-bold">$${metalPrices.silver_usd_per_oz}</span> USD/oz</span>
+            </div>
+            <table class="w-full text-left data-table mb-2">
+                <thead class="bg-gray-700">
+                    <tr>
+                        <th>Type</th><th>Weight (g)</th><th>Purity (%)</th><th>Year</th><th>Value (USD)</th><th>Notes</th><th>Reference</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${bullionItems.map(item => `
+                        <tr>
+                            <td>${item.type}</td>
+                            <td>${item.weight_grams || ''}</td>
+                            <td>${item.purity_percent || ''}</td>
+                            <td>${item.year || ''}</td>
+                            <td>$${calculateBullionValue(item).toFixed(2)}</td>
+                            <td>${item.notes || ''}</td>
+                            <td>${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank">Link</a>` : ''}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>`;
+        wrapper.innerHTML = html;
+    }
+
+    // --- Update Form for Bullion ---
+    function toggleBullionFields() {
+        const type = document.getElementById('type').value;
+        const show = (type === 'Gold Bullion' || type === 'Silver Bullion');
+        document.getElementById('bullion-fields').style.display = show ? '' : 'none';
+        document.getElementById('denomination').parentElement.style.display = show ? 'none' : '';
+        document.getElementById('value').parentElement.style.display = show ? 'none' : '';
+    }
+
+    document.getElementById('type').addEventListener('change', toggleBullionFields);
+
+    toggleBullionFields(); // On load
+
+    // --- Patch Collection Rendering ---
+    const origRenderCollection = renderCollection;
+    function renderCollection(filteredData = collectionData) {
+        // Render bullion section above collection
+        let wrapper = document.getElementById('bullion-section');
+        if (!wrapper) {
+            const parent = document.getElementById('content-collection');
+            wrapper = document.createElement('div');
+            wrapper.id = 'bullion-section';
+            parent.insertBefore(wrapper, parent.firstChild);
+        }
+        fetchMetalPrices();
+        origRenderCollection(filteredData);
+    }
+
+    // --- Patch Dashboard/Highlights ---
+    const origRenderCollectionHighlights = renderCollectionHighlights;
+    function renderCollectionHighlights() {
+        let highlightsHtml = `<li><strong>Total Items:</strong> ${collectionData.length}</li>`;
+        highlightsHtml += `<li><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => {
+            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+                return sum + calculateBullionValue(item);
+            } else {
+                return sum + (item.value || 0);
+            }
+        }, 0).toFixed(2)}</li>`;
+        highlightsHtml += `<li><strong>Unique Countries Represented:</strong> ${new Set(collectionData.map(item => item.country)).size}</li>`;
+        document.getElementById('collection-highlights').innerHTML = highlightsHtml;
+    }
 </script>
 
 </body>
