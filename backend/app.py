@@ -446,31 +446,35 @@ def clear_all_coins(current_user):
 # --- New Metal Prices API Endpoint ---
 @app.route('/api/prices/metals', methods=['GET'])
 def get_metal_prices():
-    """Fetch live gold and silver prices from a free API"""
+    """Fetch live gold and silver prices from a reliable free API"""
     try:
-        # Using a free API from RapidAPI (you can also use other free APIs)
-        # This is a simple approach - you might want to use a more reliable paid service for production
-        url = "https://api.metals.live/v1/spot"
-        response = requests.get(url, timeout=10)
+        # Using CoinGecko API which is more reliable than metals.live
+        # Gold and Silver are tracked as commodities on CoinGecko
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        params = {
+            'ids': 'gold,silver',
+            'vs_currencies': 'usd'
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
             
-            # Find gold and silver prices
-            gold_price = None
-            silver_price = None
+            # Extract gold and silver prices (prices are per gram, convert to per ounce)
+            gold_price_per_gram = data.get('gold', {}).get('usd', 0)
+            silver_price_per_gram = data.get('silver', {}).get('usd', 0)
             
-            for metal in data:
-                if metal.get('commodity') == 'XAU' and metal.get('currency') == 'USD':
-                    gold_price = metal.get('price', 0)
-                elif metal.get('commodity') == 'XAG' and metal.get('currency') == 'USD':
-                    silver_price = metal.get('price', 0)
+            # Convert from per gram to per ounce (1 ounce = 31.1035 grams)
+            gold_price_per_oz = gold_price_per_gram * 31.1035
+            silver_price_per_oz = silver_price_per_gram * 31.1035
             
-            if gold_price is not None and silver_price is not None:
+            if gold_price_per_oz > 0 and silver_price_per_oz > 0:
                 return jsonify({
-                    'gold_usd_per_oz': round(gold_price, 2),
-                    'silver_usd_per_oz': round(silver_price, 2),
-                    'timestamp': datetime.datetime.utcnow().isoformat()
+                    'gold_usd_per_oz': round(gold_price_per_oz, 2),
+                    'silver_usd_per_oz': round(silver_price_per_oz, 2),
+                    'timestamp': datetime.datetime.utcnow().isoformat(),
+                    'source': 'CoinGecko'
                 }), 200
             else:
                 # Fallback to static prices if API doesn't return expected data
@@ -478,7 +482,8 @@ def get_metal_prices():
                     'gold_usd_per_oz': 2300.00,
                     'silver_usd_per_oz': 29.50,
                     'timestamp': datetime.datetime.utcnow().isoformat(),
-                    'note': 'Using fallback prices - API data unavailable'
+                    'note': 'Using fallback prices - API data unavailable',
+                    'source': 'fallback'
                 }), 200
         else:
             # Fallback to static prices if API fails
@@ -486,17 +491,29 @@ def get_metal_prices():
                 'gold_usd_per_oz': 2300.00,
                 'silver_usd_per_oz': 29.50,
                 'timestamp': datetime.datetime.utcnow().isoformat(),
-                'note': 'Using fallback prices - API unavailable'
+                'note': 'Using fallback prices - API unavailable',
+                'source': 'fallback'
             }), 200
             
-    except Exception as e:
-        print(f"Error fetching metal prices: {e}")
-        # Return fallback prices on any error
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching metal prices from CoinGecko: {e}")
+        # Return fallback prices on any network error
         return jsonify({
             'gold_usd_per_oz': 2300.00,
             'silver_usd_per_oz': 29.50,
             'timestamp': datetime.datetime.utcnow().isoformat(),
-            'note': 'Using fallback prices - API error'
+            'note': 'Using fallback prices - network error',
+            'source': 'fallback'
+        }), 200
+    except Exception as e:
+        print(f"Unexpected error fetching metal prices: {e}")
+        # Return fallback prices on any other error
+        return jsonify({
+            'gold_usd_per_oz': 2300.00,
+            'silver_usd_per_oz': 29.50,
+            'timestamp': datetime.datetime.utcnow().isoformat(),
+            'note': 'Using fallback prices - unexpected error',
+            'source': 'fallback'
         }), 200
 
 # --- New Public Collection Endpoints ---
