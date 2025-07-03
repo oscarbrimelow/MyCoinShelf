@@ -1,4 +1,3 @@
-
 # backend/app.py
 
 import os
@@ -10,6 +9,7 @@ import jwt
 import datetime
 from functools import wraps
 import uuid # Import uuid for generating unique public IDs
+import requests # Import requests for metal price API calls
 
 # Import configuration
 from config import Config
@@ -39,7 +39,7 @@ class User(db.Model):
 class Coin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    type = db.Column(db.String(50), nullable=False) # e.g., Coin, Banknote
+    type = db.Column(db.String(50), nullable=False) # e.g., Coin, Banknote, Gold Bullion, Silver Bullion
     country = db.Column(db.String(100), nullable=False)
     year = db.Column(db.Integer)
     denomination = db.Column(db.String(100), nullable=False)
@@ -50,6 +50,9 @@ class Coin(db.Model):
     # New fields for better data management and charting
     region = db.Column(db.String(100)) # e.g., Europe, Asia, North America
     isHistorical = db.Column(db.Boolean, default=False) # True if from a historical entity or pre-1900
+    # New fields for bullion tracking
+    weight_grams = db.Column(db.Float, nullable=True) # Weight in grams for bullion
+    purity_percent = db.Column(db.Float, nullable=True) # Purity percentage for bullion (e.g., 99.9)
 
     def __repr__(self):
         return f'<Coin {self.denomination} from {self.country} ({self.year})>'
@@ -295,7 +298,9 @@ def get_coins(current_user):
             'referenceUrl': coin.referenceUrl,
             'localImagePath': coin.localImagePath,
             'region': coin.region, # Include region from DB
-            'isHistorical': coin.isHistorical # Include isHistorical from DB
+            'isHistorical': coin.isHistorical, # Include isHistorical from DB
+            'weight_grams': coin.weight_grams, # Include weight for bullion
+            'purity_percent': coin.purity_percent # Include purity for bullion
         }
         output.append(coin_data)
     return jsonify(output), 200
@@ -326,7 +331,9 @@ def add_coin(current_user):
         referenceUrl=data.get('referenceUrl'),
         localImagePath=data.get('localImagePath'),
         region=region, # Set calculated region
-        isHistorical=is_historical # Set calculated historical flag
+        isHistorical=is_historical, # Set calculated historical flag
+        weight_grams=data.get('weight_grams'), # Set weight for bullion
+        purity_percent=data.get('purity_percent') # Set purity for bullion
     )
     db.session.add(new_coin)
     db.session.commit()
@@ -359,6 +366,8 @@ def update_coin(current_user, coin_id):
     coin.notes = data.get('notes', coin.notes)
     coin.referenceUrl = data.get('referenceUrl', coin.referenceUrl)
     coin.localImagePath = data.get('localImagePath', coin.localImagePath)
+    coin.weight_grams = data.get('weight_grams', coin.weight_grams) # Update weight for bullion
+    coin.purity_percent = data.get('purity_percent', coin.purity_percent) # Update purity for bullion
 
     db.session.commit()
     return jsonify({'message': 'Coin updated successfully!'}), 200
@@ -407,7 +416,9 @@ def bulk_upload_coins(current_user):
                 referenceUrl=item_data.get('referenceUrl'),
                 localImagePath=item_data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
                 region=region, # Set calculated region
-                isHistorical=is_historical # Set calculated historical flag
+                isHistorical=is_historical, # Set calculated historical flag
+                weight_grams=item_data.get('weight_grams'), # Set weight for bullion
+                purity_percent=item_data.get('purity_percent') # Set purity for bullion
             )
             db.session.add(new_coin)
             added_count += 1
@@ -432,6 +443,61 @@ def clear_all_coins(current_user):
     db.session.commit()
     return jsonify({'message': f'{num_deleted} coins deleted successfully.'}), 200
 
+# --- New Metal Prices API Endpoint ---
+@app.route('/api/prices/metals', methods=['GET'])
+def get_metal_prices():
+    """Fetch live gold and silver prices from a free API"""
+    try:
+        # Using a free API from RapidAPI (you can also use other free APIs)
+        # This is a simple approach - you might want to use a more reliable paid service for production
+        url = "https://api.metals.live/v1/spot"
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Find gold and silver prices
+            gold_price = None
+            silver_price = None
+            
+            for metal in data:
+                if metal.get('commodity') == 'XAU' and metal.get('currency') == 'USD':
+                    gold_price = metal.get('price', 0)
+                elif metal.get('commodity') == 'XAG' and metal.get('currency') == 'USD':
+                    silver_price = metal.get('price', 0)
+            
+            if gold_price is not None and silver_price is not None:
+                return jsonify({
+                    'gold_usd_per_oz': round(gold_price, 2),
+                    'silver_usd_per_oz': round(silver_price, 2),
+                    'timestamp': datetime.datetime.utcnow().isoformat()
+                }), 200
+            else:
+                # Fallback to static prices if API doesn't return expected data
+                return jsonify({
+                    'gold_usd_per_oz': 2300.00,
+                    'silver_usd_per_oz': 29.50,
+                    'timestamp': datetime.datetime.utcnow().isoformat(),
+                    'note': 'Using fallback prices - API data unavailable'
+                }), 200
+        else:
+            # Fallback to static prices if API fails
+            return jsonify({
+                'gold_usd_per_oz': 2300.00,
+                'silver_usd_per_oz': 29.50,
+                'timestamp': datetime.datetime.utcnow().isoformat(),
+                'note': 'Using fallback prices - API unavailable'
+            }), 200
+            
+    except Exception as e:
+        print(f"Error fetching metal prices: {e}")
+        # Return fallback prices on any error
+        return jsonify({
+            'gold_usd_per_oz': 2300.00,
+            'silver_usd_per_oz': 29.50,
+            'timestamp': datetime.datetime.utcnow().isoformat(),
+            'note': 'Using fallback prices - API error'
+        }), 200
 
 # --- New Public Collection Endpoints ---
 
@@ -504,6 +570,8 @@ def get_public_coins(public_id):
             'localImagePath': coin.localImagePath,
             'region': coin.region,
             'isHistorical': coin.isHistorical,
+            'weight_grams': coin.weight_grams, # Include weight for bullion
+            'purity_percent': coin.purity_percent, # Include purity for bullion
             'owner_email': user.email # Include owner's email for display in public view
         }
         output.append(coin_data)
