@@ -6,10 +6,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-import datetime
+from datetime import datetime, timezone, timedelta # Corrected: Added datetime, timezone, timedelta to import
 from functools import wraps
 import uuid # Import uuid for generating unique public IDs
-from datetime import datetime, timezone
 
 # Import configuration
 from config import Config
@@ -46,7 +45,8 @@ class Coin(db.Model):
     purchase_price = db.Column(db.Float)
     current_value = db.Column(db.Float)
     quantity = db.Column(db.Integer, default=1, nullable=False)
-    date_added = db.Column(db.DateTime, default=lambda: datetime.datetime.now(timezone.utc))
+    # Corrected: Use datetime.now(timezone.utc)
+    date_added = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     image_url = db.Column(db.String(255))
     notes = db.Column(db.Text)
 
@@ -58,7 +58,8 @@ class PublicCollection(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
     public_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.datetime.now(timezone.utc))
+    # Corrected: Use datetime.now(timezone.utc)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return f'<PublicCollection {self.public_id}>'
@@ -73,7 +74,8 @@ class Bullion(db.Model):
     purchase_price_usd = db.Column(db.Float, nullable=False)
     current_value_usd = db.Column(db.Float) # Optional: Can be updated via external API
     quantity = db.Column(db.Integer, default=1, nullable=False)
-    date_added = db.Column(db.DateTime, default=lambda: datetime.datetime.now(timezone.utc))
+    # Corrected: Use datetime.now(timezone.utc)
+    date_added = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     image_url = db.Column(db.String(255)) # Optional
     notes = db.Column(db.Text) # Optional
 
@@ -94,10 +96,15 @@ def token_required(f):
         if not token:
             return jsonify({'message': 'Token is missing!'}), 401
         try:
+            # Corrected: Use datetime.now(timezone.utc) for expiration
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
             current_user = User.query.filter_by(id=data['user_id']).first()
-        except:
-            return jsonify({'message': 'Token is invalid or expired!'}), 401
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Token is invalid!'}), 401
+        except Exception as e:
+            return jsonify({'message': f'Token error: {str(e)}'}), 401
         return f(current_user, *args, **kwargs)
     return decorated
 
@@ -125,10 +132,15 @@ def login():
     if not user or not check_password_hash(user.password_hash, auth['password']):
         return jsonify({'message': 'Could not verify', 'WWW-Authenticate': 'Basic realm="Login required!"'}), 401
 
-    token = jwt.encode({
-        'user_id': user.id,
-        'exp': datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=30
-    }, app.config['SECRET_KEY'], algorithm='HS256')
+    # Corrected: Ensure the dictionary for jwt.encode is properly structured
+    token = jwt.encode(
+        {
+            'user_id': user.id,
+            'exp': datetime.now(timezone.utc) + timedelta(minutes=30) # Corrected: Use datetime.now(timezone.utc) and timedelta
+        },
+        app.config['SECRET_KEY'],
+        algorithm='HS256'
+    )
 
     return jsonify({'token': token}), 200
 
