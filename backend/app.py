@@ -9,6 +9,7 @@ import jwt
 import datetime
 from functools import wraps
 import uuid # Import uuid for generating unique public IDs
+import requests # NEW: Import requests for making HTTP requests to external APIs
 
 # Import configuration
 from config import Config
@@ -28,487 +29,473 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    coins = db.relationship('Coin', backref='owner', lazy=True) # One user has many coins
+    # Changed 'coins' to 'items' to better reflect different collection types
+    items = db.relationship('Item', backref='owner', lazy=True) # One user has many items (coins, banknotes, bullion)
     # New: One user can have one public collection link
     public_collection = db.relationship('PublicCollection', backref='user', uselist=False, lazy=True)
 
     def __repr__(self):
         return f'<User {self.email}>'
 
-class Coin(db.Model):
+# RENAMED: 'Coin' model is now 'Item' to be more generic for coins, banknotes, and bullion
+class Item(db.Model):
+    __tablename__ = 'item' # Ensure the table name is 'item'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    type = db.Column(db.String(50), nullable=False) # e.g., Coin, Banknote
+    type = db.Column(db.String(50), nullable=False, default='coin') # NEW: 'coin', 'banknote', 'bullion'
     country = db.Column(db.String(100), nullable=False)
     year = db.Column(db.Integer)
-    denomination = db.Column(db.String(100), nullable=False)
-    value = db.Column(db.Float) # Estimated value
+    denomination = db.Column(db.String(100), nullable=True) # Changed to nullable=True for bullion
+    value = db.Column(db.Float) # This will be the user-inputted value for coins/banknotes, or the calculated value for bullion.
     notes = db.Column(db.Text)
-    referenceUrl = db.Column(db.String(500))
-    localImagePath = db.Column(db.String(500)) # Path to local image
-    # New fields for better data management and charting
-    region = db.Column(db.String(100)) # e.g., Europe, Asia, North America
-    isHistorical = db.Column(db.Boolean, default=False) # True if from a historical entity or pre-1900
+    reference_url = db.Column(db.String(500))
+    image_path = db.Column(db.String(255))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    # NEW: Fields for Bullion
+    bullion_type = db.Column(db.String(50), nullable=True) # 'gold', 'silver'
+    weight_grams = db.Column(db.Float, nullable=True)
+    purity_percent = db.Column(db.Float, nullable=True) # e.g., 99.9, 92.5
 
     def __repr__(self):
-        return f'<Coin {self.denomination} from {self.country} ({self.year})>'
+        if self.type == 'bullion':
+            return f'<Bullion {self.bullion_type} {self.weight_grams}g ({self.purity_percent}%)>'
+        else:
+            return f'<Item {self.denomination} from {self.country} ({self.year})>'
 
-# New: Model for Public Collection Links
+# NEW: PublicCollection model for public sharing feature
 class PublicCollection(db.Model):
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()), unique=True, nullable=False) # UUID for public link
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
     def __repr__(self):
-        return f'<PublicCollection ID: {self.id} for User: {self.user_id}>'
+        return f'<PublicCollection for User {self.user_id} with ID {self.public_id}>'
 
-# --- JWT Authentication Decorator ---
-def jwt_required(f):
+# --- JWT Authentication Helper ---
+def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
         if 'Authorization' in request.headers:
             token = request.headers['Authorization'].split(" ")[1]
+
         if not token:
-            print("DEBUG: Token is missing from Authorization header.")
             return jsonify({'message': 'Token is missing!'}), 401
+
         try:
-            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
-            current_user = User.query.get(data['user_id'])
-            if not current_user:
-                print(f"DEBUG: User with ID {data['user_id']} not found for token.")
-                return jsonify({'message': 'User not found!'}), 401
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user = User.query.filter_by(id=data['user_id']).first()
         except jwt.ExpiredSignatureError:
-            print("DEBUG: JWT ExpiredSignatureError caught.")
             return jsonify({'message': 'Token has expired!'}), 401
         except jwt.InvalidTokenError:
-            print("DEBUG: JWT InvalidTokenError caught.")
             return jsonify({'message': 'Token is invalid!'}), 401
-        except Exception as e:
-            print(f"DEBUG: Unexpected error in jwt_required: {e}")
-            return jsonify({'message': 'An error occurred during authentication.'}), 500
         return f(current_user, *args, **kwargs)
     return decorated
 
-# --- Helper function for region and historical flag ---
-# Map for standardizing country names for Google Charts GeoChart
-country_alias_map = {
-    "united states of america": "United States", "usa": "United States", "uk": "United Kingdom",
-    "britain": "United Kingdom", "russia": "Russia", "china": "China", "india": "India",
-    "japan": "Japan", "germany": "Germany", "deutschland": "Germany", "france": "France",
-    "italy": "Italy", "brazil": "Brazil", "brasil": "Brazil", "south africa": "South Africa",
-    "eswatini": "Eswatini", "rome": "Italy", "constantinople": "Turkey", "nicomedia": "Turkey",
-    "antioch": "Syria", "ancient greece": "Greece", "seleucid": "Syria", "ussr": "Russia",
-    "yugoslavia": "Serbia", "east germany": "Germany", "german democratic republic": "Germany",
-    "phillipines": "Philippines",
-}
+# --- API Endpoints ---
 
-# Map for determining geographic region
-country_to_region_map = {
-    "south africa": "Africa", "eswatini": "Africa", "kenya": "Africa", "central african states": "Africa",
-    "mauritius": "Africa", "ghana": "Africa", "rwanda": "Africa", "zimbabwe": "Africa",
-    "tanzania": "Africa", "mozambique": "Africa", "botswana": "Africa", "zambia": "Africa",
-    "eritrea": "Africa", "somalia": "Africa", "sudan": "Africa", "malawi": "Africa",
-    "ethiopia": "Africa", "nigeria": "Africa", "egypt": "Africa", "algeria": "Africa", "angola": "Africa",
-    "benin": "Africa", "burkina faso": "Africa", "burundi": "Africa", "cabo verde": "Africa",
-    "cameroon": "Africa", "chad": "Africa", "comoros": "Africa", "congo (brazzaville)": "Africa",
-    "congo (kinshasa)": "Africa", "djibouti": "Africa", "equatorial guinea": "Africa",
-    "gabon": "Africa", "gambia": "Africa", "guinea": "Africa", "guinea-bissau": "Africa",
-    "lesotho": "Africa", "liberia": "Africa", "libya": "Africa", "liechtenstein": "Europe", "madagascar": "Africa",
-    "mali": "Africa", "mauritania": "Africa", "morocco": "Africa", "niger": "Africa",
-    "sao tome and principe": "Africa", "senegal": "Africa", "sierra leone": "Africa",
-    "south sudan": "Africa", "togo": "Africa", "uganda": "Africa",
-
-    "taiwan": "Asia", "india": "Asia", "china": "Asia", "japan": "Asia", "philippines": "Asia",
-    "united arab emirates": "Asia", "israel": "Asia", "vietnam": "Asia", "bangladesh": "Asia",
-    "mongolia": "Asia", "myanmar (burma)": "Asia", "cambodia": "Asia", "lebanon": "Asia",
-    "uzbekistan": "Asia", "indonesia": "Asia", "laos": "Asia", "nepal": "Asia",
-    "sri lanka": "Asia", "iran": "Asia", "pakistan": "Asia", "jordan": "Asia",
-    "kazakhstan": "Asia", "kuwait": "Asia", "kyrgyzstan": "Asia", "malaysia": "Asia",
-    "maldives": "Asia", "north korea": "Asia", "oman": "Asia", "palestine": "Asia",
-    "qatar": "Asia", "saudi arabia": "Asia", "singapore": "Asia", "south korea": "Asia",
-    "syria": "Asia", "tajikistan": "Asia", "turkey": "Asia", "turkmenistan": "Asia",
-    "yemen": "Asia", "afghanistan": "Asia", "azerbaijan": "Asia", "bahrain": "Asia",
-    "brunei": "Asia", "east timor (timor-leste)": "Asia", "georgia": "Asia",
-    "iraq": "Asia",
-
-    "netherlands": "Europe", "united kingdom": "Europe", "belgium": "Europe",
-    "eu": "Europe", "ireland": "Europe", "spain": "Europe", "portugal": "Europe",
-    "isle of man": "Europe", "germany": "Germany", "bulgaria": "Europe",
-    "france": "Europe", "croatia": "Europe", "moldova": "Europe",
-    "ukraine": "Europe", "denmark": "Europe", "finland": "Europe",
-    "norway": "Europe", "san marino": "Europe", "switzerland": "Europe",
-    "belarus": "Europe", "albania": "Europe",
-    "andorra": "Europe", "austria": "Europe", "bosnia and herzegovina": "Europe",
-    "czechia (czech republic)": "Europe", "estonia": "Europe",
-    "greece": "Europe", "hungary": "Europe", "iceland": "Europe",
-    "italy": "Europe", "latvia": "Europe", "lithuania": "Europe",
-    "luxembourg": "Europe", "malta": "Europe",
-    "monaco": "Europe", "montenegro": "Europe", "north macedonia (macedonia)": "Europe",
-    "poland": "Europe", "romania": "Europe", "serbia": "Europe",
-    "slovakia": "Europe", "slovenia": "Europe", "sweden": "Europe",
-    "vatican city": "Europe", "russia": "Europe",
-
-    "canada": "North America", "united states": "North America", "mexico": "North America",
-    "antigua and barbuda": "North America", "bahamas": "North America", "barbados": "North America",
-    "belize": "North America", "costa rica": "North America", "cuba": "North America",
-    "dominica": "North America", "dominican republic": "North America", "el salvador": "North America",
-    "grenada": "North America", "guatemala": "North America", "haiti": "North America",
-    "honduras": "North America", "jamaica": "North America", "nicaragua": "North America",
-    "panama": "North America", "saint kitts and nevis": "North America", "saint lucia": "North America",
-    "saint vincent and the grenadines": "North America", "trinidad and tobago": "North America",
-
-    "brazil": "South America", "argentina": "South America", "peru": "South America",
-    "colombia": "South America", "chile": "South America", "bolivia": "South America",
-    "ecuador": "South America", "guyana": "South America", "paraguay": "South America",
-    "suriname": "South America", "uruguay": "South America", "venezuela": "South America",
-
-    "australia": "Oceania", "new zealand": "Oceania", "fiji": "Oceania",
-    "kiribati": "Oceania", "marshall islands": "Oceania", "micronesia": "Oceania",
-    "nauru": "Oceania", "palau": "Oceania", "papua new guinea": "Oceania",
-    "samoa": "Oceania", "solomon islands": "Oceania", "tonga": "Oceania",
-    "tuvalu": "Oceania", "vanuatu": "Oceania",
-
-    "siscia": "Ancient", "consz": "Ancient", "rome": "Ancient", "nicomedia": "Ancient",
-    "constantinople": "Ancient", "mediolanum (milan)": "Ancient", "antioch": "Ancient",
-    "ancient greece": "Ancient", "?": "Ancient", # Add "?" if it's used for unknown countries
-    "thessalonica": "Ancient", "ussr": "Ancient", "yugoslavia": "Ancient",
-    "rhodesia": "Ancient", "czechoslovakia": "Ancient", "east germany": "Ancient",
-    "german democratic republic": "Ancient",
-}
-
-def get_region_for_country(country_name):
-    """Retrieves the geographic region for a given country."""
-    if not country_name:
-        return "Unknown"
-    normalized_country = country_name.lower().strip()
-    return country_to_region_map.get(normalized_country, "Other")
-
-def is_historical_item(country_name, year):
-    """Determines if an item is historical based on country or year."""
-    historical_countries = [
-        "ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic",
-        "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople",
-        "rome", "thessalonica"
-    ]
-    if country_name and country_name.lower() in historical_countries:
-        return True
-    if year is not None and year < 1900 and year != 0:
-        return True
-    return False
-
-
-# --- Routes ---
-
-@app.route('/api/register', methods=['POST'])
-def register():
+@app.route('/api/signup', methods=['POST'])
+def signup():
     data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-
-    if not email or not password:
-        print("DEBUG: Registration failed - missing email or password.")
-        return jsonify({'message': 'Email and password are required'}), 400
-
-    if User.query.filter_by(email=email).first():
-        print(f"DEBUG: Registration failed - user with email {email} already exists.")
-        return jsonify({'message': 'User with that email already exists'}), 409
-
-    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-    new_user = User(email=email, password_hash=hashed_password)
+    hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
+    new_user = User(email=data['email'], password_hash=hashed_password)
     db.session.add(new_user)
     db.session.commit()
-    print(f"DEBUG: User {email} registered successfully.")
-    return jsonify({'message': 'User registered successfully!'}), 201
+    return jsonify({'message': 'User created successfully!'}), 201
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+    user = User.query.filter_by(email=data['email']).first()
 
-    print(f"DEBUG: Attempting login for email: {email}")
-
-    if not email or not password:
-        print("DEBUG: Login failed - Missing email or password in request.")
-        return jsonify({'message': 'Email and password are required'}), 400
-
-    user = User.query.filter_by(email=email).first()
-
-    if not user:
-        print(f"DEBUG: Login failed - User with email {email} not found.")
-        return jsonify({'message': 'Invalid credentials'}), 401
-
-    print(f"DEBUG: User found: {user.email}")
-    print(f"DEBUG: Provided password: {password}")
-    print(f"DEBUG: Stored password hash: {user.password_hash}")
-
-    if not check_password_hash(user.password_hash, password):
-        print("DEBUG: Login failed - Password hash mismatch.")
+    if not user or not check_password_hash(user.password_hash, data['password']):
         return jsonify({'message': 'Invalid credentials'}), 401
 
     token = jwt.encode({
         'user_id': user.id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24) # Token expires in 24 hours
-    }, app.config['JWT_SECRET_KEY'], algorithm="HS256")
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=60) # Token expires in 60 minutes
+    }, app.config['SECRET_KEY'], algorithm="HS256")
 
-    print(f"DEBUG: User {email} logged in successfully. Token generated.")
-    return jsonify({'token': token}), 200
+    return jsonify({'token': token})
 
 @app.route('/api/change_password', methods=['POST'])
-@jwt_required
+@token_required
 def change_password(current_user):
     data = request.get_json()
     current_password = data.get('current_password')
     new_password = data.get('new_password')
 
     if not current_password or not new_password:
-        return jsonify({'message': 'Current and new passwords are required'}), 400
+        return jsonify({'message': 'Current and new password are required.'}), 400
 
     if not check_password_hash(current_user.password_hash, current_password):
-        return jsonify({'message': 'Incorrect current password'}), 401
-
-    if len(new_password) < 6:
-        return jsonify({'message': 'New password must be at least 6 characters long'}), 400
+        return jsonify({'message': 'Incorrect current password.'}), 401
 
     current_user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
     db.session.commit()
     return jsonify({'message': 'Password changed successfully!'}), 200
 
+# NEW: Utility function to fetch live metal prices
+# IMPORTANT: This is a placeholder. You will need to sign up for a free API (e.g., GoldAPI.io, Metals-API, or via RapidAPI for Yahoo Finance)
+# and replace the placeholder API_KEY and API_URL with actual values.
+# Store your API_KEY securely in environment variables (e.g., in your Render dashboard).
+def fetch_live_metal_prices():
+    """
+    Fetches current prices of gold and silver per gram in USD.
+    Replace with actual API integration.
+    """
+    # --- Configuration for Metals-API (Example) ---
+    # Sign up at https://metals-api.com/ to get your API key.
+    # Make sure your free plan allows for XAU and XAG (Gold and Silver)
+    # You might need to make two separate calls for gold and silver on some free tiers.
+    # Base URL for Metals-API: https://api.metals-api.com/api/
+    # Endpoint to get latest rates: /latest
+    # Parameters: base=USD, symbols=XAU,XAG, access_key=YOUR_API_KEY
 
-@app.route('/api/coins', methods=['GET'])
-@jwt_required
-def get_coins(current_user):
-    coins = Coin.query.filter_by(user_id=current_user.id).all()
-    # Serialize coins, including calculated region and isHistorical
-    output = []
-    for coin in coins:
-        coin_data = {
-            'id': coin.id,
-            'type': coin.type,
-            'country': coin.country,
-            'year': coin.year,
-            'denomination': coin.denomination,
-            'value': coin.value,
-            'notes': coin.notes,
-            'referenceUrl': coin.referenceUrl,
-            'localImagePath': coin.localImagePath,
-            'region': coin.region, # Include region from DB
-            'isHistorical': coin.isHistorical # Include isHistorical from DB
+    METALS_API_KEY = os.environ.get('METALS_API_KEY')
+    if not METALS_API_KEY:
+        print("METALS_API_KEY not set in environment variables. Using mock data.")
+        # MOCK DATA (REMOVE IN PRODUCTION AFTER SETTING UP API KEY)
+        return {
+            'gold_price_per_gram_usd': 75.00,  # Example: $75 per gram of gold
+            'silver_price_per_gram_usd': 0.90   # Example: $0.90 per gram of silver
         }
-        output.append(coin_data)
-    return jsonify(output), 200
 
-@app.route('/api/coins', methods=['POST'])
-@jwt_required
-def add_coin(current_user):
+    try:
+        # Example for Metals-API (might require 'base' currency as USD and 'symbols' for gold/silver)
+        # Note: Free tier of some APIs might only allow EUR as base, or limit requests.
+        # Check Metals-API documentation for exact endpoint and parameters.
+        api_url = f"https://api.metals-api.com/api/latest?access_key={METALS_API_KEY}&base=USD&symbols=XAU,XAG"
+        response = requests.get(api_url)
+        response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        data = response.json()
+
+        if data and data.get('success'):
+            rates = data.get('rates', {})
+            # Metals-API typically returns rates for 1 unit of base currency.
+            # So, if base is USD, rates['XAU'] is how many XAU per 1 USD.
+            # We need USD per 1 XAU. So, 1 / rates['XAU'] for 1 unit of Gold (TROY OUNCE).
+            # Then convert from Troy Ounce to Grams (1 Troy Ounce = 31.1035 grams)
+
+            gold_price_per_troy_ounce_usd = 1 / rates.get('XAU', 0) if rates.get('XAU') else 0
+            silver_price_per_troy_ounce_usd = 1 / rates.get('XAG', 0) if rates.get('XAG') else 0
+
+            # Convert per troy ounce to per gram
+            gold_price_per_gram_usd = gold_price_per_troy_ounce_usd / 31.1035
+            silver_price_per_gram_usd = silver_price_per_troy_ounce_usd / 31.1035
+
+            return {
+                'gold_price_per_gram_usd': gold_price_per_gram_usd,
+                'silver_price_per_gram_usd': silver_price_per_gram_usd
+            }
+        else:
+            print(f"Metals-API response error: {data.get('error', 'Unknown error')}")
+            return None # Fallback to mock or error if API call is unsuccessful
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching metal prices from Metals-API: {e}")
+        return None # Return None if API call fails
+
+# NEW: Endpoint to get live metal prices
+@app.route('/api/metal_prices', methods=['GET'])
+def get_metal_prices():
+    prices = fetch_live_metal_prices()
+    if prices:
+        return jsonify(prices), 200
+    return jsonify({'message': 'Could not fetch metal prices.'}), 500
+
+
+@app.route('/api/collection', methods=['POST'])
+@token_required
+def add_item(current_user): # RENAMED: from add_coin to add_item
     data = request.get_json()
-    
-    # Required fields validation
-    if not data.get('country') or not data.get('denomination'):
-        return jsonify({'message': 'Country and Denomination are required fields.'}), 400
 
-    # Calculate region and isHistorical on the backend
-    country_name = data.get('country').strip()
-    year_value = data.get('year')
-    region = get_region_for_country(country_name)
-    is_historical = is_historical_item(country_name, year_value)
+    # Determine item type, defaulting to 'coin' if not provided
+    item_type = data.get('type', 'coin').lower() # 'coin', 'banknote', 'bullion'
 
-    new_coin = Coin(
+    new_item = Item( # Use the new 'Item' model
         user_id=current_user.id,
-        type=data.get('type'),
-        country=country_name,
-        year=year_value,
-        denomination=data.get('denomination').strip(),
-        value=data.get('value'),
+        country=data['country'],
+        year=data.get('year'),
         notes=data.get('notes'),
-        referenceUrl=data.get('referenceUrl'),
-        localImagePath=data.get('localImagePath'),
-        region=region, # Set calculated region
-        isHistorical=is_historical # Set calculated historical flag
+        reference_url=data.get('reference_url'),
+        image_path=data.get('image_path'),
+        type=item_type # Set the item type
     )
-    db.session.add(new_coin)
-    db.session.commit()
-    return jsonify({'message': 'Coin added successfully!', 'id': new_coin.id}), 201
 
-@app.route('/api/coins/<int:coin_id>', methods=['PUT'])
-@jwt_required
-def update_coin(current_user, coin_id):
-    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
-    if not coin:
-        return jsonify({'message': 'Coin not found or unauthorized'}), 404
-
-    data = request.get_json()
-
-    # Required fields validation
-    if not data.get('country') or not data.get('denomination'):
-        return jsonify({'message': 'Country and Denomination are required fields.'}), 400
-
-    # Calculate region and isHistorical on the backend
-    country_name = data.get('country').strip()
-    year_value = data.get('year')
-    coin.region = get_region_for_country(country_name)
-    coin.isHistorical = is_historical_item(country_name, year_value)
-
-    coin.type = data.get('type', coin.type)
-    coin.country = country_name
-    coin.year = year_value
-    coin.denomination = data.get('denomination').strip()
-    coin.value = data.get('value', coin.value)
-    coin.notes = data.get('notes', coin.notes)
-    coin.referenceUrl = data.get('referenceUrl', coin.referenceUrl)
-    coin.localImagePath = data.get('localImagePath', coin.localImagePath)
-
-    db.session.commit()
-    return jsonify({'message': 'Coin updated successfully!'}), 200
-
-@app.route('/api/coins/<int:coin_id>', methods=['DELETE'])
-@jwt_required
-def delete_coin(current_user, coin_id):
-    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
-    if not coin:
-        return jsonify({'message': 'Coin not found or unauthorized'}), 404
-
-    db.session.delete(coin)
-    db.session.commit()
-    return jsonify({'message': 'Coin deleted successfully!'}), 200
-
-@app.route('/api/coins/bulk_upload', methods=['POST'])
-@jwt_required
-def bulk_upload_coins(current_user):
-    data = request.get_json()
-    if not isinstance(data, list):
-        return jsonify({'message': 'Payload must be a JSON array of coin objects'}), 400
-
-    added_count = 0
-    errors = []
-    for item_data in data:
-        try:
-            # Validate essential fields
-            if not item_data.get('country') or not item_data.get('denomination'):
-                errors.append(f"Skipping item due to missing country or denomination: {item_data.get('denomination')} from {item_data.get('country')}")
-                continue
-
-            # Calculate region and isHistorical on the backend
-            country_name = item_data.get('country').strip()
-            year_value = item_data.get('year') # Corrected: Was year_data.get('year')
-            region = get_region_for_country(country_name)
-            is_historical = is_historical_item(country_name, year_value)
-
-            new_coin = Coin(
-                user_id=current_user.id,
-                type=item_data.get('type', 'Coin'), # Default to Coin if not provided
-                country=country_name,
-                year=year_value, # Corrected: Was year_data.get('year')
-                denomination=item_data.get('denomination').strip(),
-                value=item_data.get('value', 0.0),
-                notes=item_data.get('notes'),
-                referenceUrl=item_data.get('referenceUrl'),
-                localImagePath=item_data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
-                region=region, # Set calculated region
-                isHistorical=is_historical # Set calculated historical flag
-            )
-            db.session.add(new_coin)
-            added_count += 1
-        except Exception as e:
-            errors.append(f"Error adding item '{item_data.get('denomination', 'unknown')}': {str(e)}")
-            db.session.rollback() # Rollback the current transaction on error
-
-    db.session.commit() # Commit all successfully added coins
-
-    if added_count > 0 and len(errors) == 0:
-        return jsonify({'message': f'Successfully added {added_count} items.', 'added_count': added_count}), 200
-    elif added_count > 0 and len(errors) > 0:
-        return jsonify({'message': f'Added {added_count} items with {len(errors)} errors.', 'added_count': added_count, 'errors': errors}), 200
+    # Handle denomination for non-bullion types
+    if item_type != 'bullion':
+        new_item.denomination = data.get('denomination')
+        new_item.value = data.get('value') # For 'coin' or 'banknote', use the value provided by the user
     else:
-        return jsonify({'message': f'Failed to add any items. Total errors: {len(errors)}', 'errors': errors}), 400
+        # NEW: Handle bullion-specific fields and calculate value
+        new_item.bullion_type = data.get('bullion_type').lower() # 'gold' or 'silver'
+        new_item.weight_grams = data.get('weight_grams')
+        new_item.purity_percent = data.get('purity_percent')
 
-@app.route('/api/coins/clear_all', methods=['DELETE'])
-@jwt_required
-def clear_all_coins(current_user):
-    # Delete all coins associated with the current user
-    num_deleted = Coin.query.filter_by(user_id=current_user.id).delete()
+        # Validate bullion fields
+        if not all([new_item.bullion_type, new_item.weight_grams, new_item.purity_percent is not None]):
+            return jsonify({'message': 'Bullion type, weight, and purity are required for bullion items.'}), 400
+        if new_item.weight_grams <= 0 or not (0 <= new_item.purity_percent <= 100):
+             return jsonify({'message': 'Invalid weight or purity for bullion.'}), 400
+
+        # Fetch current metal prices to calculate value
+        metal_prices = fetch_live_metal_prices()
+        if not metal_prices or (metal_prices.get('gold_price_per_gram_usd', 0) == 0 and metal_prices.get('silver_price_per_gram_usd', 0) == 0):
+            # If prices can't be fetched, store 0 or a placeholder, and log.
+            # Frontend should display a warning.
+            print("Warning: Could not fetch live metal prices to calculate initial bullion value. Setting to 0.")
+            new_item.value = 0.0
+        else:
+            current_price_per_gram = 0
+            if new_item.bullion_type == 'gold':
+                current_price_per_gram = metal_prices.get('gold_price_per_gram_usd', 0)
+            elif new_item.bullion_type == 'silver':
+                current_price_per_gram = metal_prices.get('silver_price_per_gram_usd', 0)
+            else:
+                return jsonify({'message': 'Unsupported bullion type.'}), 400
+
+            # Calculate bullion value: (weight * purity_factor * price_per_gram)
+            # Purity percent needs to be converted to a factor (e.g., 99.9% -> 0.999)
+            purity_factor = new_item.purity_percent / 100
+            new_item.value = new_item.weight_grams * purity_factor * current_price_per_gram
+
+
+    db.session.add(new_item)
     db.session.commit()
-    return jsonify({'message': f'{num_deleted} coins deleted successfully.'}), 200
+    return jsonify({'message': 'Item added successfully!', 'item': {
+        'id': new_item.id,
+        'type': new_item.type,
+        'country': new_item.country,
+        'year': new_item.year,
+        'denomination': new_item.denomination,
+        'value': new_item.value,
+        'notes': new_item.notes,
+        'reference_url': new_item.reference_url,
+        'image_path': new_item.image_path,
+        'bullion_type': new_item.bullion_type, # NEW
+        'weight_grams': new_item.weight_grams, # NEW
+        'purity_percent': new_item.purity_percent # NEW
+    }}), 201
 
-
-# --- New Public Collection Endpoints ---
-
-@app.route('/api/generate_public_collection_link', methods=['POST'])
-@jwt_required
-def generate_public_collection_link(current_user):
-    # Check if a public link already exists for this user
-    public_collection_link = PublicCollection.query.filter_by(user_id=current_user.id).first()
-
-    if public_collection_link:
-        # If exists, update it with a new UUID to make the old link invalid
-        public_collection_link.id = str(uuid.uuid4())
-        public_collection_link.created_at = datetime.datetime.utcnow()
-        message = "Public link updated successfully!"
-    else:
-        # If not, create a new one
-        new_public_link = PublicCollection(user_id=current_user.id)
-        db.session.add(new_public_link)
-        public_collection_link = new_public_link # Reference the new object
-        message = "Public link generated successfully!"
-
-    db.session.commit()
-    return jsonify({'message': message, 'public_id': public_collection_link.id}), 200
-
-@app.route('/api/public_collection_link', methods=['GET'])
-@jwt_required
-def get_public_collection_link(current_user):
-    public_collection_link = PublicCollection.query.filter_by(user_id=current_user.id).first()
-    if public_collection_link:
-        return jsonify({'public_id': public_collection_link.id}), 200
-    return jsonify({'message': 'No public link found for this user.'}), 404
-
-@app.route('/api/revoke_public_collection_link', methods=['POST'])
-@jwt_required
-def revoke_public_collection_link(current_user):
-    public_collection_link = PublicCollection.query.filter_by(user_id=current_user.id).first()
-    if public_collection_link:
-        db.session.delete(public_collection_link)
-        db.session.commit()
-        return jsonify({'message': 'Public link revoked successfully!'}), 200
-    return jsonify({'message': 'No public link found to revoke.'}), 404
-
-@app.route('/api/public_coins/<string:public_id>', methods=['GET'])
-def get_public_coins(public_id):
-    # Find the user associated with the public_id
-    public_link_entry = PublicCollection.query.filter_by(id=public_id).first()
-
-    if not public_link_entry:
-        return jsonify({'message': 'Public collection not found or invalid ID.'}), 404
-
-    user = User.query.get(public_link_entry.user_id)
-    if not user:
-        return jsonify({'message': 'Associated user not found.'}), 404 # Should ideally not happen if DB integrity is maintained
-
-    # Fetch coins belonging to this user
-    coins = Coin.query.filter_by(user_id=user.id).all()
-
-    # Serialize coins for public view
+@app.route('/api/collection', methods=['GET'])
+@token_required
+def get_collection(current_user):
+    # Fetch all items (coins, banknotes, bullion) for the current user
+    user_items = Item.query.filter_by(user_id=current_user.id).all() # Use 'Item' model
     output = []
-    for coin in coins:
-        coin_data = {
-            'id': coin.id, # Include ID for sorting/reference if needed in public view
-            'type': coin.type,
-            'country': coin.country,
-            'year': coin.year,
-            'denomination': coin.denomination,
-            'value': coin.value,
-            'notes': coin.notes,
-            'referenceUrl': coin.referenceUrl,
-            'localImagePath': coin.localImagePath,
-            'region': coin.region,
-            'isHistorical': coin.isHistorical,
-            'owner_email': user.email # Include owner's email for display in public view
-        }
-        output.append(coin_data)
-    
-    return jsonify(output), 200
+    total_value = 0.0
 
+    # NEW: Fetch live metal prices once for calculation
+    metal_prices = fetch_live_metal_prices()
+    if not metal_prices or (metal_prices.get('gold_price_per_gram_usd', 0) == 0 and metal_prices.get('silver_price_per_gram_usd', 0) == 0):
+        # Log error but don't fail the entire collection retrieval.
+        # Bullion values might be incorrect if prices aren't fetched, or display 0.
+        print("Warning: Could not fetch live metal prices for collection value recalculation. Bullion values might be outdated.")
+        # We will proceed, using stored value for bullion or 0 if recalculation fails.
+        metal_prices = {'gold_price_per_gram_usd': 0, 'silver_price_per_gram_usd': 0} # Ensure it's a dict to avoid errors below
+
+    for item in user_items:
+        item_value_for_total = item.value # Start with stored value from DB
+
+        # NEW: Recalculate bullion value if live prices are available
+        if item.type == 'bullion' and item.weight_grams and item.purity_percent is not None:
+            current_price_per_gram = 0
+            if item.bullion_type == 'gold':
+                current_price_per_gram = metal_prices.get('gold_price_per_gram_usd', 0)
+            elif item.bullion_type == 'silver':
+                current_price_per_gram = metal_prices.get('silver_price_per_gram_usd', 0)
+
+            if current_price_per_gram > 0: # Only recalculate if we have a valid price
+                purity_factor = item.purity_percent / 100
+                recalculated_bullion_value = item.weight_grams * purity_factor * current_price_per_gram
+                item_value_for_total = recalculated_bullion_value # Use live calculated value for total
+
+        total_value += item_value_for_total # Add (re)calculated value to total
+
+        output.append({
+            'id': item.id,
+            'type': item.type, # NEW
+            'country': item.country,
+            'year': item.year,
+            'denomination': item.denomination,
+            'value': item_value_for_total, # Always send the (re)calculated value to frontend
+            'notes': item.notes,
+            'reference_url': item.reference_url,
+            'image_path': item.image_path,
+            'bullion_type': item.bullion_type, # NEW
+            'weight_grams': item.weight_grams, # NEW
+            'purity_percent': item.purity_percent # NEW
+        })
+    return jsonify({'collection': output, 'total_value': total_value}), 200
+
+
+@app.route('/api/collection/<int:item_id>', methods=['PUT'])
+@token_required
+def update_item(current_user, item_id): # RENAMED: from update_coin to update_item
+    item = Item.query.filter_by(id=item_id, user_id=current_user.id).first() # Use 'Item' model
+    if not item:
+        return jsonify({'message': 'Item not found'}), 404
+
+    data = request.get_json()
+
+    # Update common fields
+    item.country = data.get('country', item.country)
+    item.year = data.get('year', item.year)
+    item.notes = data.get('notes', item.notes)
+    item.reference_url = data.get('reference_url', item.reference_url)
+    item.image_path = data.get('image_path', item.image_path)
+    item.type = data.get('type', item.type).lower() # Allow changing type during update
+
+    # NEW: Update bullion-specific fields or non-bullion fields based on type
+    if item.type == 'bullion':
+        item.bullion_type = data.get('bullion_type', item.bullion_type).lower()
+        item.weight_grams = data.get('weight_grams', item.weight_grams)
+        item.purity_percent = data.get('purity_percent', item.purity_percent)
+
+        # Clear non-bullion specific fields
+        item.denomination = None
+        # Recalculate value for bullion on update
+        if not all([item.bullion_type, item.weight_grams, item.purity_percent is not None]):
+            return jsonify({'message': 'Bullion type, weight, and purity are required for bullion items.'}), 400
+        if item.weight_grams <= 0 or not (0 <= item.purity_percent <= 100):
+             return jsonify({'message': 'Invalid weight or purity for bullion.'}), 400
+
+        metal_prices = fetch_live_metal_prices()
+        if not metal_prices or (metal_prices.get('gold_price_per_gram_usd', 0) == 0 and metal_prices.get('silver_price_per_gram_usd', 0) == 0):
+             print("Warning: Could not fetch live metal prices for update. Bullion value might be outdated.")
+             # Keep old value or set to 0, frontend should indicate issue
+             item.value = item.value if item.value is not None else 0.0
+        else:
+            current_price_per_gram = 0
+            if item.bullion_type == 'gold':
+                current_price_per_gram = metal_prices.get('gold_price_per_gram_usd', 0)
+            elif item.bullion_type == 'silver':
+                current_price_per_gram = metal_prices.get('silver_price_per_gram_usd', 0)
+
+            if current_price_per_gram > 0:
+                purity_factor = item.purity_percent / 100
+                item.value = item.weight_grams * purity_factor * current_price_per_gram
+            else:
+                item.value = item.value if item.value is not None else 0.0 # Maintain existing value or set to 0
+    else:
+        # For 'coin' or 'banknote', update value and denomination from user input
+        item.denomination = data.get('denomination', item.denomination)
+        item.value = data.get('value', item.value)
+        # Clear bullion specific fields
+        item.bullion_type = None
+        item.weight_grams = None
+        item.purity_percent = None
+
+
+    db.session.commit()
+    return jsonify({'message': 'Item updated successfully!'}), 200
+
+@app.route('/api/collection/<int:item_id>', methods=['DELETE'])
+@token_required
+def delete_item(current_user, item_id): # RENAMED: from delete_coin to delete_item
+    item = Item.query.filter_by(id=item_id, user_id=current_user.id).first() # Use 'Item' model
+    if not item:
+        return jsonify({'message': 'Item not found'}), 404
+
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': 'Item deleted successfully!'}), 200
+
+@app.route('/api/clear_collection', methods=['POST'])
+@token_required
+def clear_collection(current_user):
+    try:
+        num_deleted = Item.query.filter_by(user_id=current_user.id).delete() # Use 'Item' model
+        db.session.commit()
+        return jsonify({'message': f'Successfully deleted {num_deleted} items from your collection.'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'Error clearing collection: {str(e)}'}), 500
+
+# NEW: Public Collection Link Endpoints
+@app.route('/api/public_collection_link', methods=['GET'])
+@token_required
+def get_public_collection_link(current_user):
+    public_link = PublicCollection.query.filter_by(user_id=current_user.id).first()
+    if public_link:
+        return jsonify({'public_id': public_link.public_id}), 200
+    return jsonify({'message': 'No public link generated yet.'}), 404
+
+@app.route('/api/public_collection_link', methods=['POST'])
+@token_required
+def generate_public_collection_link(current_user):
+    existing_link = PublicCollection.query.filter_by(user_id=current_user.id).first()
+    if existing_link:
+        # If already exists, return the existing one. Or you could regenerate.
+        return jsonify({'message': 'Public link already exists', 'public_id': existing_link.public_id}), 200
+
+    new_public_link = PublicCollection(user_id=current_user.id)
+    db.session.add(new_public_link)
+    db.session.commit()
+    return jsonify({'message': 'Public link generated successfully', 'public_id': new_public_link.public_id}), 201
+
+@app.route('/api/public_collection_link', methods=['DELETE'])
+@token_required
+def revoke_public_collection_link(current_user):
+    public_link = PublicCollection.query.filter_by(user_id=current_user.id).first()
+    if not public_link:
+        return jsonify({'message': 'No public link to revoke.'}), 404
+    db.session.delete(public_link)
+    db.session.commit()
+    return jsonify({'message': 'Public link revoked successfully!'}), 200
+
+# NEW: Public View of Collection (Read-only)
+@app.route('/api/public_collection/<public_id>', methods=['GET'])
+def get_public_collection(public_id):
+    public_link = PublicCollection.query.filter_by(public_id=public_id).first()
+    if not public_link:
+        return jsonify({'message': 'Public collection not found.'}), 404
+
+    # Fetch all items for the user associated with this public_id
+    user_items = Item.query.filter_by(user_id=public_link.user_id).all()
+    output = []
+    total_value = 0.0
+
+    # Fetch live metal prices for public view as well
+    metal_prices = fetch_live_metal_prices()
+    if not metal_prices or (metal_prices.get('gold_price_per_gram_usd', 0) == 0 and metal_prices.get('silver_price_per_gram_usd', 0) == 0):
+        print("Warning: Could not fetch live metal prices for public collection view. Bullion values might be outdated.")
+        metal_prices = {'gold_price_per_gram_usd': 0, 'silver_price_per_gram_usd': 0}
+
+    for item in user_items:
+        item_value_for_total = item.value
+
+        if item.type == 'bullion' and item.weight_grams and item.purity_percent is not None:
+            current_price_per_gram = 0
+            if item.bullion_type == 'gold':
+                current_price_per_gram = metal_prices.get('gold_price_per_gram_usd', 0)
+            elif item.bullion_type == 'silver':
+                current_price_per_gram = metal_prices.get('silver_price_per_gram_usd', 0)
+
+            if current_price_per_gram > 0:
+                purity_factor = item.purity_percent / 100
+                recalculated_bullion_value = item.weight_grams * purity_factor * current_price_per_gram
+                item_value_for_total = recalculated_bullion_value
+        
+        total_value += item_value_for_total
+
+        output.append({
+            'id': item.id,
+            'type': item.type,
+            'country': item.country,
+            'year': item.year,
+            'denomination': item.denomination,
+            'value': item_value_for_total,
+            'notes': item.notes,
+            'reference_url': item.reference_url,
+            'image_path': item.image_path,
+            'bullion_type': item.bullion_type,
+            'weight_grams': item.weight_grams,
+            'purity_percent': item.purity_percent
+        })
+
+    return jsonify({'collection': output, 'total_value': total_value}), 200
 
 # --- Database Initialization (Run once to create tables) ---
 # NOTE: @app.before_request is used instead of @app.before_first_request due to Flask version compatibility.
@@ -532,5 +519,7 @@ def create_tables():
             print(f"Default user '{default_email}' created. Please change this in production!")
 
 if __name__ == '__main__':
-    # When running locally, you can access the backend at http://127.0.0.1:5000/
+    # Ensure tables are created when running directly
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
