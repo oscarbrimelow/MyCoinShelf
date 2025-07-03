@@ -544,6 +544,8 @@
                         <select id="type" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                             <option>Coin</option>
                             <option>Banknote</option>
+                            <option>Gold Bullion</option>
+                            <option>Silver Bullion</option>
                         </select>
                     </div>
                     <div>
@@ -558,7 +560,16 @@
                         <label for="value" class="block text-sm font-medium text-gray-400">Estimated Value (USD)</label>
                         <input type="number" step="0.01" id="value" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
-                    <div class="md:col-span-2">
+                    <!-- Bullion-specific fields (hidden by default) -->
+                    <div id="bullion-fields" class="hidden">
+                        <label for="weight_grams" class="block text-sm font-medium text-gray-400">Weight (grams)</label>
+                        <input type="number" step="0.01" id="weight_grams" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div id="bullion-fields-2" class="hidden">
+                        <label for="purity_percent" class="block text-sm font-medium text-gray-400">Purity (%)</label>
+                        <input type="number" step="0.1" id="purity_percent" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="e.g., 99.9">
+                    </div>
+                    <div class="md:col-span-2" id="denomination-field">
                         <label for="denomination" class="block text-sm font-medium text-gray-400">Denomination</label>
                         <input type="text" id="denomination" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
@@ -700,6 +711,7 @@
     // --- Data Store ---
     let collectionData = []; // This will be populated from the backend
     let publicCollectionData = []; // New: To store data for public view
+    let metalPrices = { gold_usd_per_oz: 0, silver_usd_per_oz: 0 }; // Store metal prices
 
     // List of all countries (you can expand this as needed)
     const ALL_COUNTRIES = [
@@ -921,48 +933,140 @@
             renderAllViews();
             return;
         }
+
         console.log('Authenticated, attempting to load collection data from backend...');
         try {
             const response = await fetch(`${API_BASE_URL}/coins`, {
-                method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${getAuthToken()}`
                 }
             });
+
+            if (response.status === 401) {
+                console.warn('Authentication failed during collection load (401 Unauthorized).');
+                handleUnauthorized();
+                return;
+            }
+
             if (!response.ok) {
-                if (response.status === 401) { // Unauthorized, token expired or invalid
-                    console.warn('Authentication failed during collection load (401 Unauthorized).');
-                    handleUnauthorized();
-                    return;
-                }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+
             collectionData = await response.json();
             console.log("Collection data loaded from backend:", collectionData);
 
-            // Region and isHistorical are now calculated by the backend upon add/update.
-            // We just ensure the data is present in case older data exists or for consistency.
+            // Process the data to ensure all items have required fields
             collectionData.forEach(item => {
-                if (!item.region || item.region === "") { // Ensure region is not null/empty
-                    item.region = getRegionForCountry(item.country);
-                }
-                // If isHistorical is not explicitly set by backend or is missing
-                if (typeof item.isHistorical === 'undefined' || item.isHistorical === null) {
-                    const historicalCountries = ["ussr", "yugoslavia", "rhodesia", "czechoslovakia", "east germany", "german democratic republic", "roman empire", "ancient greece", "seleucid", "siscia", "consz", "nicomedia", "constantinople", "rome", "thessalonica"];
-                    const yearInput = item.year;
-                    const parsedYear = yearInput ? parseInt(yearInput) : null;
-                    item.isHistorical = historicalCountries.includes((item.country || '').toLowerCase()) || (parsedYear !== null && parsedYear < 1900 && parsedYear !== 0);
-                }
+                if (!item.region) item.region = getRegionForCountry(item.country);
+                if (item.isHistorical === undefined) item.isHistorical = isHistoricalItem(item.country, item.year);
             });
-            renderAllViews(); // Re-render UI with fresh data
-        }
-        catch (error) {
+
+            renderAllViews();
+        } catch (error) {
             console.error("Error loading collection from backend:", error);
             showCustomConfirm('Failed to load collection. Please try logging in again or check backend server.', () => {});
             collectionData = []; // Clear local data on load error
             renderAllViews();
         }
+    }
+
+    // Fetch metal prices from backend API
+    async function fetchMetalPrices() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/prices/metals`);
+            if (response.ok) {
+                const data = await response.json();
+                metalPrices = {
+                    gold_usd_per_oz: data.gold_usd_per_oz || 0,
+                    silver_usd_per_oz: data.silver_usd_per_oz || 0
+                };
+                
+                // Update price display
+                const goldPriceElement = document.getElementById('gold-price');
+                const silverPriceElement = document.getElementById('silver-price');
+                
+                if (goldPriceElement) {
+                    goldPriceElement.textContent = `$${metalPrices.gold_usd_per_oz.toFixed(2)}`;
+                }
+                if (silverPriceElement) {
+                    silverPriceElement.textContent = `$${metalPrices.silver_usd_per_oz.toFixed(2)}`;
+                }
+                
+                // Re-render bullion table with updated prices
+                renderBullionTable();
+            }
+        } catch (error) {
+            console.error("Error fetching metal prices:", error);
+            // Keep existing prices or use fallback
+        }
+    }
+
+    // Calculate bullion value based on weight, purity, and current metal price
+    function calculateBullionValue(item) {
+        if (!item.weight_grams || !item.purity_percent) return 0;
+        
+        const weightInOz = item.weight_grams / 31.1035; // Convert grams to troy ounces
+        const purityDecimal = item.purity_percent / 100;
+        
+        if (item.type === 'Gold Bullion') {
+            return weightInOz * purityDecimal * metalPrices.gold_usd_per_oz;
+        } else if (item.type === 'Silver Bullion') {
+            return weightInOz * purityDecimal * metalPrices.silver_usd_per_oz;
+        }
+        
+        return 0;
+    }
+
+    // Render bullion table
+    function renderBullionTable() {
+        const bullionTableBody = document.getElementById('bullion-table-body');
+        if (!bullionTableBody) return;
+        
+        const bullionItems = collectionData.filter(item => 
+            item.type === 'Gold Bullion' || item.type === 'Silver Bullion'
+        );
+        
+        if (bullionItems.length === 0) {
+            bullionTableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="p-4 text-center text-gray-400">
+                        No bullion items in your collection yet. Add some gold or silver bullion to get started!
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        const tableRows = bullionItems.map(item => {
+            const calculatedValue = calculateBullionValue(item);
+            const metalType = item.type === 'Gold Bullion' ? 'Gold' : 'Silver';
+            const metalColor = item.type === 'Gold Bullion' ? 'text-yellow-400' : 'text-gray-300';
+            
+            return `
+                <tr class="border-b border-gray-700">
+                    <td class="p-4">
+                        <span class="${metalColor} font-semibold">${metalType}</span>
+                    </td>
+                    <td class="p-4">${item.weight_grams ? item.weight_grams.toFixed(2) : 'N/A'} g</td>
+                    <td class="p-4">${item.purity_percent ? item.purity_percent.toFixed(1) : 'N/A'}%</td>
+                    <td class="p-4">${item.year || 'N/A'}</td>
+                    <td class="p-4 font-semibold text-emerald-400">$${calculatedValue.toFixed(2)}</td>
+                    <td class="p-4">
+                        <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
+                        ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs"><i class="ph-bold ph-link-simple-horizontal"></i> Reference</a>` : ''}
+                    </td>
+                    <td class="p-4">
+                        <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
+                        <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        bullionTableBody.innerHTML = tableRows;
+        
+        // Re-attach action buttons for bullion items
+        initializeActionButtons();
     }
 
     // New function to fetch public collection data
@@ -1000,7 +1104,12 @@
         document.getElementById('notes').value = '';
         document.getElementById('referenceUrl').value = '';
         document.getElementById('localImagePath').value = '';
+        document.getElementById('weight_grams').value = '';
+        document.getElementById('purity_percent').value = '';
         document.getElementById('modal-title').innerText = 'Add New Item';
+        
+        // Reset form field visibility
+        toggleBullionFields();
     }
 
     function reinitItemForm() {
@@ -1015,6 +1124,8 @@
                         <select id="type" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                             <option>Coin</option>
                             <option>Banknote</option>
+                            <option>Gold Bullion</option>
+                            <option>Silver Bullion</option>
                         </select>
                     </div>
                     <div>
@@ -1029,7 +1140,16 @@
                         <label for="value" class="block text-sm font-medium text-gray-400">Estimated Value (USD)</label>
                         <input type="number" step="0.01" id="value" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
-                    <div class="md:col-span-2">
+                    <!-- Bullion-specific fields (hidden by default) -->
+                    <div id="bullion-fields" class="hidden">
+                        <label for="weight_grams" class="block text-sm font-medium text-gray-400">Weight (grams)</label>
+                        <input type="number" step="0.01" id="weight_grams" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div id="bullion-fields-2" class="hidden">
+                        <label for="purity_percent" class="block text-sm font-medium text-gray-400">Purity (%)</label>
+                        <input type="number" step="0.1" id="purity_percent" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="e.g., 99.9">
+                    </div>
+                    <div class="md:col-span-2" id="denomination-field">
                         <label for="denomination" class="block text-sm font-medium text-gray-400">Denomination</label>
                         <input type="text" id="denomination" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
@@ -1069,12 +1189,40 @@
             newCancelBtn.addEventListener('click', () => closeModal(modalElement, modalContentElement));
         }
 
-
         const oldSubmitBtn = form.querySelector('button[type="submit"]');
         if (oldSubmitBtn) { // Check if element exists before replacing
             const newSubmitBtn = oldSubmitBtn.cloneNode(true);
             oldSubmitBtn.parentNode.replaceChild(newSubmitBtn, oldSubmitBtn);
             newSubmitBtn.addEventListener('click', handleFormSubmission);
+        }
+
+        // Add event listener for type dropdown to show/hide bullion fields
+        const typeSelect = document.getElementById('type');
+        if (typeSelect) {
+            typeSelect.addEventListener('change', toggleBullionFields);
+        }
+    }
+
+    function toggleBullionFields() {
+        const typeSelect = document.getElementById('type');
+        const bullionFields = document.getElementById('bullion-fields');
+        const bullionFields2 = document.getElementById('bullion-fields-2');
+        const denominationField = document.getElementById('denomination-field');
+        const valueField = document.getElementById('value');
+        
+        if (typeSelect.value === 'Gold Bullion' || typeSelect.value === 'Silver Bullion') {
+            // Show bullion fields, hide denomination field, make value field read-only
+            bullionFields.classList.remove('hidden');
+            bullionFields2.classList.remove('hidden');
+            denominationField.classList.add('hidden');
+            valueField.readOnly = true;
+            valueField.value = ''; // Clear value field for bullion
+        } else {
+            // Hide bullion fields, show denomination field, make value field editable
+            bullionFields.classList.add('hidden');
+            bullionFields2.classList.add('hidden');
+            denominationField.classList.remove('hidden');
+            valueField.readOnly = false;
         }
     }
 
@@ -1105,6 +1253,9 @@
             // Region and isHistorical are now calculated by the backend, no need to send from frontend
             // region: getRegionForCountry(countryValue),
             // isHistorical: isHistoricalFlag
+            // Add bullion fields
+            weight_grams: document.getElementById('weight_grams').value ? parseFloat(document.getElementById('weight_grams').value) : null,
+            purity_percent: document.getElementById('purity_percent').value ? parseFloat(document.getElementById('purity_percent').value) : null
         };
 
         const method = itemId ? 'PUT' : 'POST';
@@ -1235,7 +1386,13 @@
 
         // Update dashboard stats
         const totalItems = collectionData.length;
-        const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        const totalValue = collectionData.reduce((sum, item) => {
+            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+                return sum + calculateBullionValue(item);
+            } else {
+                return sum + (item.value || 0);
+            }
+        }, 0);
         const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
 
         document.getElementById('dashboard-total-items').innerText = totalItems;
@@ -1283,7 +1440,13 @@
 
         let highlightsHtml = '<ul class="space-y-2">';
         highlightsHtml += `<li><strong>Total Items:</strong> ${collectionData.length}</li>`;
-        highlightsHtml += `<li><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => sum + (item.value || 0), 0).toFixed(2)}</li>`;
+        highlightsHtml += `<li><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => {
+            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+                return sum + calculateBullionValue(item);
+            } else {
+                return sum + (item.value || 0);
+            }
+        }, 0).toFixed(2)}</li>`;
         highlightsHtml += `<li><strong>Unique Countries Represented:</strong> ${new Set(collectionData.map(item => item.country)).size}</li>`;
 
         if (oldestItem) {
@@ -1547,1638 +1710,3 @@
         // Sort by year/decade
         const sortedYears = Object.keys(yearValues).sort((a, b) => parseInt(a) - parseInt(b));
         const sortedValues = sortedYears.map(year => yearValues[year]);
-
-        valueByYearChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: sortedYears.map(year => `${year}s`),
-                datasets: [{
-                    label: 'Total Value (USD)',
-                    data: sortedValues,
-                    backgroundColor: '#FCD34D', // Yellow
-                    borderColor: '#111827',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: '#d1d5db'
-                        }
-                    },
-                    tooltip: {
-                        enabled: true,
-                        mode: 'index',
-                        intersect: false,
-                        position: 'nearest',
-                        backgroundColor: '#1f2937',
-                        borderColor: '#4b5563',
-                        borderWidth: 1,
-                        titleColor: '#d1d5db',
-                        bodyColor: '#d1d5db',
-                        titleFont: { weight: 'bold' },
-                        bodyFont: { size: 12 },
-                        cornerRadius: 8,
-                        padding: 12,
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        ticks: { color: '#d1d5db' },
-                        grid: { color: '#374151' }
-                    },
-                    y: {
-                        ticks: {
-                            color: '#d1d5db',
-                            callback: function(value) {
-                                return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-                            }
-                        },
-                        grid: { color: '#374151' }
-                    }
-                }
-            }
-        });
-    }
-
-    // Function to show country details in a modal
-    function showCountryDetailsModal(countryName) {
-        const countryDetailsModal = document.getElementById('country-details-modal');
-        const countryDetailsTitle = document.getElementById('country-details-title');
-        const countryTotalItems = document.getElementById('country-total-items');
-        const countryTotalValue = document.getElementById('country-total-value');
-        const countryItemsTableBody = document.getElementById('country-items-table-body');
-
-        if (!isAuthenticated()) {
-            showCustomConfirm('Please sign in to view country details.', () => {});
-            return;
-        }
-
-        const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === countryName);
-
-        // Calculate summary stats for the country
-        const totalItemsInCountry = itemsInCountry.length;
-        const totalValueInCountry = itemsInCountry.reduce((sum, item) => sum + (item.value || 0), 0);
-
-        countryDetailsTitle.innerText = `${countryName} Collection Details`;
-        countryTotalItems.innerText = totalItemsInCountry;
-        countryTotalValue.innerText = `$${totalValueInCountry.toFixed(2)}`;
-
-        itemsInCountry.sort((a, b) => {
-            const yearCompare = (a.year || Infinity) - (b.year || Infinity); // Sort by year, N/A last
-            if (yearCompare !== 0) return yearCompare;
-            return a.denomination.localeCompare(b.denomination);
-        });
-
-        const tableRows = itemsInCountry.map(item => `
-            <tr class="border-b border-gray-700">
-                <td class="p-4">${item.id}</td>
-                <td class="p-4">${item.type}</td>
-                <td class="p-4">${item.year || 'N/A'}</td>
-                <td class="p-4">${item.denomination}</td>
-                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
-                <td class="p-4 text-xs">${item.notes || 'N/A'}</td>
-            </tr>
-        `).join('');
-        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="6" class="p-4 text-center text-gray-500">No items found for ${countryName}.</td></tr>`;
-
-        openModal('country-details-modal');
-    }
-
-
-    // --- COLLECTION INTERACTIVITY ---
-    function initializeFilters() {
-        const searchInput = document.getElementById('search-input');
-        const regionFilter = document.getElementById('region-filter');
-        const typeFilter = document.getElementById('type-filter');
-
-        const applyFilters = () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const selectedRegion = regionFilter.value;
-            const selectedType = typeFilter.value;
-
-            const filtered = collectionData.filter(item => {
-                const matchesSearch = searchTerm === '' ||
-                                      String(item.id).toLowerCase().includes(searchTerm) ||
-                                      (item.country && item.country.toLowerCase().includes(searchTerm)) || // Added null check
-                                      (item.denomination && item.denomination.toLowerCase().includes(searchTerm)) || // Added null check
-                                      (item.notes && item.notes.toLowerCase().includes(searchTerm)) ||
-                                      (item.year && item.year.toString().includes(searchTerm));
-                const matchesRegion = selectedRegion === '' || item.region === selectedRegion;
-                const matchesType = selectedType === '' || item.type === selectedType;
-                return matchesSearch && matchesRegion && matchesType;
-            });
-            renderCollectionTable(filtered);
-        };
-
-        const uniqueRegions = [...new Set(collectionData.map(item => item.region))].sort();
-        regionFilter.innerHTML = '<option value="">All Regions</option>' + uniqueRegions.map(r => `<option value="${r}">${r}</option>`).join('');
-
-        const uniqueTypes = [...new Set(collectionData.map(item => item.type))].sort();
-        typeFilter.innerHTML = '<option value="">All Types</option>' + uniqueTypes.map(t => `<option value="${t}">${t}</option>`).join('');
-
-
-        searchInput.addEventListener('input', debounce(applyFilters, 300));
-        regionFilter.addEventListener('change', applyFilters);
-        typeFilter.addEventListener('change', applyFilters);
-    }
-
-    function initializeActionButtons() {
-        document.querySelectorAll('.edit-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const id = parseInt(button.dataset.id); // Ensure ID is parsed as integer
-                const item = collectionData.find(d => d.id === id);
-                if (item) {
-                    document.getElementById('item-id').value = item.id;
-                    document.getElementById('modal-title').innerText = 'Edit Item';
-                    document.getElementById('type').value = item.type;
-                    document.getElementById('country').value = item.country;
-                    document.getElementById('year').value = item.year;
-                    document.getElementById('denomination').value = item.denomination;
-                    document.getElementById('value').value = item.value;
-                    document.getElementById('notes').value = item.notes;
-                    document.getElementById('referenceUrl').value = item.referenceUrl;
-                    document.getElementById('localImagePath').value = item.localImagePath;
-                    openModal('item-modal'); // Pass modal ID
-                }
-            });
-        });
-
-        document.querySelectorAll('.delete-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const idToDelete = parseInt(button.dataset.id);
-                showCustomConfirm('Are you sure you want to delete this item?', async () => {
-                    if (!isAuthenticated()) {
-                        showCustomConfirm('Please sign in to delete items.', () => {});
-                        return;
-                    }
-                    try {
-                        const response = await fetch(`${API_BASE_URL}/coins/${idToDelete}`, {
-                            method: 'DELETE',
-                            headers: { 'Authorization': `Bearer ${getAuthToken()}` }
-                        });
-
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                handleUnauthorized();
-                                return;
-                            }
-                            const errorData = await response.json();
-                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                        }
-
-                        const result = await response.json();
-                        showCustomConfirm(result.message || 'Item deleted successfully!', () => {});
-                        loadCollectionFromBackend(); // Reload data after deletion
-                    } catch (error) {
-                        console.error("Error deleting item:", error);
-                        showCustomConfirm(`Failed to delete item: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
-                    }
-                });
-            });
-        });
-    }
-
-    // --- COLLECTION RENDERING ---
-    let currentSort = { column: null, direction: 'asc' };
-
-    function renderCollection(filteredData = collectionData) {
-        const collectionContent = document.getElementById('content-collection');
-        const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
-        if (!collectionContentWrapper) return;
-
-        if (!isAuthenticated()) {
-            collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
-            return;
-        }
-
-        collectionContentWrapper.innerHTML = `
-            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
-                <h1 class="text-3xl font-bold text-white">Collection</h1>
-                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-                    <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2">
-                    <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
-                    <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
-                </div>
-            </div>
-            <div class="flex-1 flex overflow-hidden">
-                <div class="w-full flex flex-col">
-                    <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
-                        <table class="w-full text-left data-table min-w-max"> <!-- min-w-max to prevent crushing columns -->
-                            <thead class="bg-gray-700 sticky top-0">
-                                <tr>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
-                                    <th class="p-4 font-semibold">Type</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="country">Country</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="year">Year</th>
-                                    <th class="p-4 font-semibold">Denomination</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="value">Value</th>
-                                    <th class="p-4 font-semibold">Notes & Ref.</th>
-                                    <th class="p-4 font-semibold">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="collection-table-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
-        initializeFilters();
-        renderCollectionTable(filteredData);
-        attachSortEventListeners();
-    };
-
-    function renderCollectionTable(dataToRender) {
-        const tableBody = document.getElementById('collection-table-body');
-        const tableRows = dataToRender.map(item => `
-            <tr class="border-b border-gray-700 cursor-pointer" data-item-id="${item.id}">
-                <td class="p-4">${item.id}</td>
-                <td class="p-4">${item.type}</td>
-                <td class="p-4">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
-                <td class="p-4">${item.year || 'N/A'}</td>
-                <td class="p-4">${item.denomination}</td>
-                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
-                <td class="p-4">
-                    <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
-                    ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
-                </td>
-                <td class="p-4">
-                     <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
-                     <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
-        tableBody.innerHTML = tableRows;
-
-        initializeActionButtons();
-    }
-
-    function attachSortEventListeners() {
-        document.querySelectorAll('.data-table th[data-sort-column]').forEach(header => {
-            header.addEventListener('click', () => {
-                const column = header.dataset.sortColumn;
-                let direction = 'asc';
-
-                if (currentSort.column === column) {
-                    direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                }
-
-                sortCollection(column, direction);
-                currentSort = { column, direction };
-            });
-        });
-    }
-
-    function sortCollection(column, direction) {
-        const sortedData = [...collectionData].sort((a, b) => {
-            let valA = a[column];
-            let valB = b[column];
-
-            if (column === 'year' || column === 'value' || column === 'id') {
-                // Ensure numbers are treated as numbers and handle N/A/null for sorting
-                valA = (valA === null || valA === 'N/A') ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valA);
-                valB = (valB === null || valB === 'N/A') ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valB);
-                return direction === 'asc' ? valA - valB : valB - valA;
-            } else { // String comparison
-                return direction === 'asc' ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
-            }
-        });
-        renderCollectionTable(sortedData);
-    }
-
-
-    // Render Map
-    function renderGeoChart() {
-        const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
-        if (!mapContentWrapper) {
-            console.error('Error: GeoChart content wrapper element not found!');
-            return;
-        }
-
-        if (!isAuthenticated()) {
-            mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
-            return;
-        }
-        
-        // Ensure the map container is present within the wrapper before rendering
-        if (!mapContentWrapper.querySelector('#map-container')) {
-             mapContentWrapper.innerHTML = `
-                <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
-                    <div id="geochart-canvas"></div>
-                </div>`;
-        }
-
-        const mapContainer = document.getElementById('geochart-canvas');
-
-
-        if (geoChart) {
-            geoChart.clearChart();
-            mapContainer.innerHTML = '';
-        }
-
-        google.charts.load('current', {'packages': ['geochart']});
-        google.charts.setOnLoadCallback(drawRegionsMap);
-
-        function drawRegionsMap() {
-            const countryCounts = {};
-            collectionData.forEach(item => {
-                const geoChartCountry = getGeoChartCountryName(item.country);
-                if (geoChartCountry) {
-                    countryCounts[geoChartCountry] = (countryCounts[geoChartCountry] || 0) + 1;
-                }
-            });
-
-            if (Object.keys(countryCounts).length === 0) {
-                 mapContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-500 text-lg">No collection data to display on the map.</div>`;
-                 return;
-            }
-
-            const dataTable = new google.visualization.DataTable();
-            dataTable.addColumn('string', 'Country');
-            dataTable.addColumn('number', 'Items');
-            dataTable.addColumn({ type: 'string', role: 'tooltip', 'p': {'html': true} });
-
-            const countriesWithItems = Object.keys(countryCounts);
-            const maxItems = Math.max(...Object.values(countryCounts));
-
-            countriesWithItems.forEach(country => {
-                const itemCount = countryCounts[country];
-                let tooltipContent = `<div class="p-2 font-semibold">${country}</div>`;
-                tooltipContent += `<div class="px-2 pb-1">Items: ${itemCount}</div>`;
-
-                const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === country);
-                tooltipContent += `<div class="px-2 text-sm text-gray-400 tooltip-scroll-content">`;
-                itemsInCountry.forEach(item => {
-                    tooltipContent += `<div>${item.denomination} (${item.year || 'N/A'}) - $${(item.value || 0).toFixed(2)}</div>`;
-                });
-                tooltipContent += `</div>`;
-                dataTable.addRow([country, itemCount, tooltipContent]);
-            });
-
-
-            const options = {
-                colorAxis: {
-                    colors: ['#d9f99d', '#65a30d', '#facc15', '#f97316', '#dc2626'],
-                    minValue: 1,
-                    maxValue: maxItems,
-                },
-                backgroundColor: {
-                    fill: '#1f2937',
-                },
-                defaultColor: '#4b5563',
-                tooltip: {
-                    isHtml: true,
-                    trigger: 'focus',
-                    textStyle: { color: '#d1d5db' },
-                },
-                keepAspectRatio: true,
-                legend: { textStyle: { color: '#d1d5db' } },
-            };
-
-            if (!geoChart) {
-                geoChart = new google.visualization.GeoChart(mapContainer);
-            }
-
-            geoChart.draw(dataTable, options);
-
-            // Add event listener for country click
-            google.visualization.events.addListener(geoChart, 'select', () => {
-                const selection = geoChart.getSelection();
-                if (selection.length > 0) {
-                    const selectedCountryName = dataTable.getValue(selection[0].row, 0);
-                    showCountryDetailsModal(selectedCountryName);
-                }
-            });
-
-            window.addEventListener('resize', debounce(() => {
-                if (geoChart) {
-                    geoChart.draw(dataTable, options);
-                }
-            }, 250));
-        }
-    }
-
-
-    // --- MISSING COUNTRIES RENDERING ---
-    function renderMissingCountries() {
-        const missingCountriesContentWrapper = document.getElementById('content-missing').querySelector('.max-w-7xl.mx-auto');
-        const missingCountriesListDiv = missingCountriesContentWrapper.querySelector('#missing-countries-list');
-        const missingCountriesStatusDiv = missingCountriesContentWrapper.querySelector('#missing-countries-status');
-
-
-        if (!isAuthenticated()) {
-            missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
-            return;
-        }
-
-        // Clear existing content to prevent duplicates on re-render
-        missingCountriesListDiv.innerHTML = '';
-
-
-        const collectedCountriesNormalized = new Set(collectionData.map(item => getGeoChartCountryName(item.country)));
-        const missingCountries = ALL_COUNTRIES.filter(country => !collectedCountriesNormalized.has(getGeoChartCountryName(country)));
-
-        if (missingCountries.length === 0) {
-            missingCountriesStatusDiv.innerHTML = '<p class="text-2xl text-emerald-400 font-semibold">🥳 Congratulations! You have collected items from all tracked countries!</p>';
-            missingCountriesListDiv.classList.add('hidden');
-        } else {
-            missingCountriesStatusDiv.innerHTML = `<p class="text-lg">You still need to collect items from <span class="font-bold text-red-400">${missingCountries.length}</span> countries.</p>`;
-            missingCountriesListDiv.classList.remove('hidden');
-
-            missingCountries.forEach(country => {
-                const countryElement = document.createElement('div');
-                countryElement.className = 'bg-gray-800 p-4 rounded-md shadow-md border border-gray-700 flex items-center justify-between transition-transform transform hover:scale-102';
-                countryElement.innerHTML = `
-                    <span class="text-gray-200 font-medium">${country}</span>
-                    <button class="add-missing-country-btn text-emerald-400 hover:text-emerald-300 transition-colors" data-country="${country}" title="Quick Add Item from ${country}">
-                        <i class="ph-bold ph-plus-circle text-xl"></i>
-                    </button>
-                `;
-                missingCountriesListDiv.appendChild(countryElement);
-            });
-
-            document.querySelectorAll('.add-missing-country-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const countryToAdd = e.currentTarget.dataset.country;
-                    clearItemForm();
-                    document.getElementById('country').value = countryToAdd;
-                    document.getElementById('modal-title').innerText = `Quick Add Item from ${countryToAdd}`;
-                    openModal('item-modal');
-                });
-            });
-        }
-    }
-
-    // --- SETTINGS RENDERING ---
-    function renderSettings() {
-        const settingsDiv = document.getElementById('content-settings');
-        const settingsContent = document.getElementById('settings-content');
-        const settingsOverlay = document.getElementById('settings-unauthenticated-overlay');
-        const htmlElement = document.documentElement; // Get the <html> element
-
-        if (!isAuthenticated()) {
-            settingsContent.classList.add('hidden');
-            settingsOverlay.classList.remove('hidden');
-            return;
-        } else {
-            settingsContent.classList.remove('hidden');
-            settingsOverlay.classList.add('hidden');
-        }
-
-        // Initialize theme preference radio buttons
-        const currentTheme = localStorage.getItem('theme') || 'dark';
-        const themeRadio = document.querySelector(`input[name="theme-preference"][value="${currentTheme}"]`);
-        if(themeRadio) themeRadio.checked = true;
-
-        // Add event listener for theme change (if not already attached)
-        const themeRadios = document.querySelectorAll('input[name="theme-preference"]');
-        themeRadios.forEach(radio => {
-            // Remove existing listener to prevent duplicates
-            radio.removeEventListener('change', handleThemeChange);
-            radio.addEventListener('change', handleThemeChange);
-        });
-
-        // Add event listener for password change form (if not already attached)
-        const changePasswordForm = document.getElementById('change-password-form');
-        if (changePasswordForm) {
-            changePasswordForm.removeEventListener('submit', handleChangePassword);
-            changePasswordForm.addEventListener('submit', handleChangePassword);
-        }
-
-        // Fetch and display public URL on settings load
-        fetchPublicUrl();
-    }
-
-    function handleThemeChange(event) {
-        const newTheme = event.target.value;
-        document.documentElement.classList.remove('light', 'dark');
-        document.documentElement.classList.add(newTheme);
-        localStorage.setItem('theme', newTheme);
-        showCustomConfirm(`Theme set to ${newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}.`, () => {});
-    }
-
-    async function handleChangePassword(e) {
-        e.preventDefault();
-
-        const currentPassword = document.getElementById('current-password').value;
-        const newPassword = document.getElementById('new-password').value;
-        const confirmNewPassword = document.getElementById('confirm-new-password').value;
-
-        if (!currentPassword || !newPassword || !confirmNewPassword) {
-            showCustomConfirm('All password fields are required.', () => {});
-            return;
-        }
-
-        if (newPassword !== confirmNewPassword) {
-            showCustomConfirm('New password and confirmation do not match.', () => {});
-            return;
-        }
-
-        if (newPassword.length < 6) {
-            showCustomConfirm('New password must be at least 6 characters long.', () => {});
-            return;
-        }
-
-        if (!isAuthenticated()) {
-            showCustomConfirm('You must be logged in to change your password.', () => {});
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/change_password`, { // Assuming this endpoint exists on your backend
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getAuthToken()}`
-                },
-                body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to change password.');
-            }
-
-            const result = await response.json();
-            showCustomConfirm(result.message || 'Password changed successfully!', () => {
-                // Clear password fields after success
-                document.getElementById('current-password').value = '';
-                document.getElementById('new-password').value = '';
-                document.getElementById('confirm-new-password').value = '';
-            });
-        } catch (error) {
-            console.error("Change password error:", error.message);
-            showCustomConfirm(`Failed to change password: ${error.message}`, () => {});
-        }
-    }
-
-    // New: Public URL functionality
-    async function fetchPublicUrl() {
-        const publicUrlInput = document.getElementById('public-collection-url');
-        const publicUrlStatus = document.getElementById('public-url-status');
-        publicUrlInput.value = '';
-        publicUrlStatus.innerText = '';
-
-        if (!isAuthenticated()) {
-            publicUrlInput.placeholder = "Sign in to generate your public link.";
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/public_collection_link`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${getAuthToken()}` }
-            });
-
-            if (!response.ok) {
-                if (response.status === 404) {
-                    publicUrlStatus.innerText = 'No public link generated yet.';
-                    publicUrlInput.placeholder = "Your public collection URL will appear here";
-                    return;
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            const fullUrl = `${window.location.origin}/?public=${result.public_id}`; // Construct full URL
-            publicUrlInput.value = fullUrl;
-            publicUrlStatus.innerText = 'Your public collection link is active.';
-            publicUrlStatus.classList.remove('text-red-400');
-            publicUrlStatus.classList.add('text-emerald-400');
-
-        } catch (error) {
-            console.error("Error fetching public URL:", error);
-            publicUrlStatus.innerText = `Error: ${error.message}.`;
-            publicUrlStatus.classList.remove('text-emerald-400');
-            publicUrlStatus.classList.add('text-red-400');
-            publicUrlInput.placeholder = "Could not fetch public URL.";
-        }
-    }
-
-    async function generatePublicUrl() {
-        if (!isAuthenticated()) {
-            showCustomConfirm('Please sign in to generate a public link.', () => {});
-            return;
-        }
-        showCustomConfirm('Generate a new public link? This will make your collection viewable by anyone with the link.', async () => {
-            try {
-                const response = await fetch(`${API_BASE_URL}/generate_public_collection_link`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getAuthToken()}` }
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Failed to generate public link.');
-                }
-
-                const result = await response.json();
-                const fullUrl = `${window.location.origin}/?public=${result.public_id}`;
-                document.getElementById('public-collection-url').value = fullUrl;
-                document.getElementById('public-url-status').innerText = 'Public link generated/updated!';
-                document.getElementById('public-url-status').classList.remove('text-red-400');
-                document.getElementById('public-url-status').classList.add('text-emerald-400');
-                showCustomConfirm('Public link generated/updated successfully! Copy it from settings.', () => {});
-            } catch (error) {
-                console.error("Error generating public URL:", error);
-                showCustomConfirm(`Failed to generate public link: ${error.message}`, () => {});
-            }
-        });
-    }
-
-    async function revokePublicUrl() {
-        if (!isAuthenticated()) {
-            showCustomConfirm('Please sign in to revoke your public link.', () => {});
-            return;
-        }
-        showCustomConfirm('Are you sure you want to revoke your public link? Your collection will no longer be shareable via URL.', async () => {
-            try {
-                const response = await fetch(`${API_BASE_URL}/revoke_public_collection_link`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getAuthToken()}` }
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Failed to revoke public link.');
-                }
-
-                const result = await response.json();
-                document.getElementById('public-collection-url').value = '';
-                document.getElementById('public-collection-url').placeholder = "Your public collection URL will appear here";
-                document.getElementById('public-url-status').innerText = 'Public link revoked.';
-                document.getElementById('public-url-status').classList.remove('text-emerald-400');
-                document.getElementById('public-url-status').classList.add('text-red-400');
-                showCustomConfirm('Public link revoked successfully!', () => {});
-            } catch (error) {
-                console.error("Error revoking public URL:", error);
-                showCustomConfirm(`Failed to revoke public link: ${error.message}`, () => {});
-            }
-        });
-    }
-
-    function copyPublicUrl() {
-        const publicUrlInput = document.getElementById('public-collection-url');
-        if (publicUrlInput.value) {
-            publicUrlInput.select();
-            document.execCommand('copy');
-            showCustomConfirm('Public URL copied to clipboard!', () => {});
-        } else {
-            showCustomConfirm('No public URL to copy. Generate one first.', () => {});
-        }
-    }
-
-
-    // --- Public Collection View Rendering ---
-    function renderPublicCollection() {
-        const publicContentView = document.getElementById('content-public-collection');
-        const publicTitle = document.getElementById('public-collection-title');
-        const publicTotalItems = document.getElementById('public-total-items');
-        const publicTotalValue = document.getElementById('public-total-value');
-        const publicUniqueCountries = document.getElementById('public-unique-countries');
-        const publicTableBody = document.getElementById('public-collection-table-body');
-        const publicStatus = document.getElementById('public-collection-status');
-        const publicSummary = document.getElementById('public-collection-summary');
-
-        publicStatus.innerText = ''; // Clear previous status messages
-
-        if (publicCollectionData.length === 0) {
-            publicTitle.innerText = 'Public Collection (Empty or Not Found)';
-            publicTotalItems.innerText = '0';
-            publicTotalValue.innerText = '$0.00';
-            publicUniqueCountries.innerText = '0';
-            publicTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">No items available in this public collection.</td></tr>';
-            publicSummary.classList.remove('grid');
-            publicSummary.classList.add('hidden');
-            return;
-        }
-
-        publicSummary.classList.add('grid'); // Ensure grid display for summary
-        publicSummary.classList.remove('hidden');
-
-        // Assuming publicCollectionData comes with a 'username' or similar property from backend
-        // If not, you might need to fetch it separately or pass it with the public data.
-        // For now, let's assume `publicCollectionData[0].owner_email` or similar might be available if user data is included.
-        // Otherwise, just call it "Shared Collection"
-        const ownerName = publicCollectionData[0] ? publicCollectionData[0].owner_email : 'Shared User'; // Placeholder
-        publicTitle.innerText = `${ownerName}'s Public Collection`;
-
-        const totalItems = publicCollectionData.length;
-        const totalValue = publicCollectionData.reduce((sum, item) => sum + (item.value || 0), 0);
-        const uniqueCountries = new Set(publicCollectionData.map(item => item.country)).size;
-
-        publicTotalItems.innerText = totalItems;
-        publicTotalValue.innerText = `$${totalValue.toFixed(2)}`;
-        publicUniqueCountries.innerText = uniqueCountries;
-
-        const tableRows = publicCollectionData.map(item => `
-            <tr class="border-b border-gray-700">
-                <td class="p-4">${item.type}</td>
-                <td class="p-4">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
-                <td class="p-4">${item.year || 'N/A'}</td>
-                <td class="p-4">${item.denomination}</td>
-                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
-                <td class="p-4">
-                    <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
-                    ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
-                </td>
-            </tr>
-        `).join('');
-        publicTableBody.innerHTML = tableRows;
-    }
-
-
-    // --- NAVIGATION & UI Management ---
-    function showView(viewId) {
-        document.querySelectorAll('.content-view').forEach(view => {
-            view.classList.add('hidden');
-        });
-        document.getElementById(viewId).classList.remove('hidden');
-
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('bg-gray-700', 'text-white');
-            link.classList.add('hover:bg-gray-700');
-        });
-        // Highlight active nav link, but only if it's one of the main ones (not for public view loaded via URL)
-        const navLinkId = `nav-${viewId.replace('content-', '')}`;
-        const activeNavLink = document.getElementById(navLinkId);
-        if (activeNavLink) {
-            activeNavLink.classList.add('bg-gray-700', 'text-white');
-        }
-
-        renderAllViews();
-    }
-
-    function renderAllViews() {
-        console.log('Rendering all views. Authenticated:', isAuthenticated());
-        // Apply theme on every render to ensure consistency
-        applySavedTheme();
-
-        // Check URL for public collection ID
-        const urlParams = new URLSearchParams(window.location.search);
-        const publicId = urlParams.get('public');
-
-        if (publicId) {
-            // If public ID is present, force public collection view
-            document.querySelectorAll('.content-view').forEach(view => {
-                view.classList.add('hidden');
-            });
-            document.getElementById('content-public-collection').classList.remove('hidden');
-            loadPublicCollectionFromBackend(publicId);
-            // Do not update main nav links for public view
-            return; // Exit as we are in public view mode
-        }
-
-
-        // No authentication check needed for Home page
-        if (!document.getElementById('content-home').classList.contains('hidden')) {
-            renderHome();
-        }
-
-        // For authenticated views, check if authenticated before rendering
-        if (isAuthenticated()) {
-            if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
-                renderDashboard();
-            }
-            if (!document.getElementById('content-collection').classList.contains('hidden')) {
-                renderCollection();
-            }
-            if (!document.getElementById('content-map').classList.contains('hidden')) {
-                renderGeoChart();
-            }
-            if (!document.getElementById('content-missing').classList.contains('hidden')) {
-                renderMissingCountries();
-            }
-            if (!document.getElementById('content-settings').classList.contains('hidden')) {
-                renderSettings();
-            }
-        } else {
-            // If not authenticated, ensure these views show their respective unauthenticated overlays
-            if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
-                const dashboardContentWrapper = document.getElementById('content-dashboard').querySelector('.max-w-7xl.mx-auto');
-                if (dashboardContentWrapper) {
-                    dashboardContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view your dashboard.</p></div>`;
-                }
-            }
-            if (!document.getElementById('content-collection').classList.contains('hidden')) {
-                const collectionContentWrapper = document.getElementById('content-collection').querySelector('.max-w-7xl.mx-auto');
-                if (collectionContentWrapper) {
-                    collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
-                }
-            }
-            if (!document.getElementById('content-map').classList.contains('hidden')) {
-                const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
-                if (mapContentWrapper) {
-                    mapContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view the map.</p></div>`;
-                }
-            }
-            if (!document.getElementById('content-missing').classList.contains('hidden')) {
-                const missingCountriesContentWrapper = document.getElementById('content-missing').querySelector('.max-w-7xl.mx-auto');
-                if (missingCountriesContentWrapper) {
-                    missingCountriesContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to view missing countries.</p></div>`;
-                }
-            }
-            // For settings, it has its own internal overlay that renderSettings will handle
-            if (!document.getElementById('content-settings').classList.contains('hidden')) {
-                renderSettings(); // Calls renderSettings, which handles its own overlay
-            }
-        }
-    }
-
-    function handleUnauthorized() {
-        console.warn('Handling unauthorized state: session expired or invalid.');
-        sessionStorage.removeItem('jwt_token');
-        showCustomConfirm('Your session has expired or is invalid. Please log in again.', () => {});
-        updateAuthUI(false);
-        collectionData = []; // Clear data on logout/unauthorized
-        history.replaceState(null, '', window.location.pathname); // Clear public URL param
-        showView('content-home'); // Redirect to home page
-    }
-
-    function updateAuthUI(loggedIn) {
-        console.log('Updating Auth UI. Logged In:', loggedIn);
-        const authStatusDiv = document.getElementById('auth-status');
-        const loginForm = document.getElementById('login-form');
-        const logoutBtn = document.getElementById('logout-btn');
-        const quickAddBtn = document.getElementById('quick-add-btn');
-        const importDataBtn = document.getElementById('import-data-btn');
-        const exportDataBtn = document.getElementById('export-data-btn'); // New
-        const clearAllBtn = document.getElementById('clear-all-btn'); // Get clear all button
-        const shareCollectionBtn = document.getElementById('share-collection-btn'); // New
-
-        if (loggedIn) {
-            authStatusDiv.innerHTML = `<span class="text-emerald-400 font-semibold">Logged in!</span>`;
-            if (loginForm) loginForm.classList.add('hidden');
-            if (logoutBtn) logoutBtn.classList.remove('hidden');
-            if (quickAddBtn) quickAddBtn.classList.remove('hidden'); // Show Quick Add
-            if (importDataBtn) importDataBtn.classList.remove('hidden'); // Show Import Data
-            if (exportDataBtn) exportDataBtn.classList.remove('hidden'); // Show Export Data
-            if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
-            if (shareCollectionBtn) shareCollectionBtn.classList.remove('hidden'); // Show Share Collection
-        } else {
-            authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
-            if (loginForm) loginForm.classList.remove('hidden');
-            if (logoutBtn) logoutBtn.classList.add('hidden');
-            if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
-            if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
-            if (exportDataBtn) exportDataBtn.classList.add('hidden'); // Hide Export Data
-            if (clearAllBtn) clearAllBtn.classList.add('hidden'); // Hide Clear All
-            if (shareCollectionBtn) shareCollectionBtn.classList.add('hidden'); // Hide Share Collection
-        }
-        // Also update settings view authentication state
-        const settingsContent = document.getElementById('settings-content');
-        const settingsOverlay = document.getElementById('settings-unauthenticated-overlay');
-        if (settingsContent && settingsOverlay) {
-            if (loggedIn) {
-                settingsContent.classList.remove('hidden');
-                settingsOverlay.classList.add('hidden');
-            } else {
-                settingsContent.classList.add('hidden');
-                settingsOverlay.classList.remove('hidden');
-            }
-        }
-    }
-
-    function applySavedTheme() {
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            document.documentElement.classList.remove('light', 'dark');
-            document.documentElement.classList.add(savedTheme);
-        } else {
-            // Default to dark if no theme is saved
-            document.documentElement.classList.add('dark');
-        }
-    }
-
-
-    // --- GLOBAL UI Elements ---
-    const sidebar = document.getElementById('sidebar');
-    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
-    const mobileSidebarOverlay = document.getElementById('mobile-sidebar-overlay');
-    // We target document.body for overflow-hidden to prevent background scroll when sidebar is open
-    // const appContent = document.getElementById('app-content'); // No longer directly used for overflow control
-
-    // Function to toggle sidebar visibility
-    function toggleSidebar() {
-        console.log('Toggling sidebar...');
-        sidebar.classList.toggle('-translate-x-full'); // Toggle sidebar's off-screen state
-        mobileSidebarOverlay.classList.toggle('hidden'); // Toggle overlay visibility
-        document.body.classList.toggle('overflow-hidden'); // Toggle body scroll
-        sidebar.classList.toggle('open'); // Add/remove 'open' class for media query targeting
-    }
-
-    // --- Export Functions ---
-    function exportCollectionAsJson() {
-        const jsonString = JSON.stringify(collectionData, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'coinshelf_collection.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showCustomConfirm('Collection exported as JSON!', () => {});
-        closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
-    }
-
-    function exportCollectionAsCsv() {
-        if (collectionData.length === 0) {
-            showCustomConfirm('No data to export.', () => {});
-            return;
-        }
-
-        const headers = ['id', 'type', 'country', 'year', 'denomination', 'value', 'notes', 'referenceUrl', 'localImagePath', 'region', 'isHistorical'];
-        let csv = headers.join(',') + '\n';
-
-        collectionData.forEach(item => {
-            const row = headers.map(header => {
-                let value = item[header];
-                if (value === null || typeof value === 'undefined') {
-                    value = '';
-                } else if (typeof value === 'string') {
-                    // Escape double quotes and enclose in double quotes if it contains comma or double quote
-                    value = `"${value.replace(/"/g, '""')}"`;
-                }
-                return value;
-            }).join(',');
-            csv += row + '\n';
-        });
-
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'coinshelf_collection.csv';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showCustomConfirm('Collection exported as CSV!', () => {});
-        closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
-    }
-
-    function printCollectionReport() {
-        // Create a new window or iframe for printing
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write('<html><head><title>CoinShelf Collection Report</title>');
-        // Include minimal styles for printing
-        printWindow.document.write('<style>');
-        printWindow.document.write('body { font-family: sans-serif; margin: 20px; }');
-        printWindow.document.write('h1 { text-align: center; margin-bottom: 20px; }');
-        printWindow.document.write('table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }');
-        printWindow.document.write('th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }');
-        printWindow.document.write('th { background-color: #f2f2f2; }');
-        printWindow.document.write('p { margin-bottom: 5px; }');
-        printWindow.document.write('</style>');
-        printWindow.document.write('</head><body>');
-        printWindow.document.write('<h1>CoinShelf Collection Report</h1>');
-
-        if (collectionData.length === 0) {
-            printWindow.document.write('<p>No items in your collection to print.</p>');
-        } else {
-            // Summary
-            const totalItems = collectionData.length;
-            const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
-            const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
-
-            printWindow.document.write('<h2>Summary</h2>');
-            printWindow.document.write(`<p><strong>Total Items:</strong> ${totalItems}</p>`);
-            printWindow.document.write(`<p><strong>Total Estimated Value:</strong> $${totalValue.toFixed(2)}</p>`);
-            printWindow.document.write(`<p><strong>Unique Countries:</strong> ${uniqueCountries}</p>`);
-
-            // Detailed table
-            printWindow.document.write('<h2>Detailed Collection</h2>');
-            printWindow.document.write('<table>');
-            printWindow.document.write('<thead><tr><th>Type</th><th>Country</th><th>Year</th><th>Denomination</th><th>Value</th><th>Notes</th></tr></thead>');
-            printWindow.document.write('<tbody>');
-            collectionData.forEach(item => {
-                printWindow.document.write(`
-                    <tr>
-                        <td>${item.type}</td>
-                        <td>${item.country}</td>
-                        <td>${item.year || 'N/A'}</td>
-                        <td>${item.denomination}</td>
-                        <td>$${(item.value || 0).toFixed(2)}</td>
-                        <td>${item.notes || 'N/A'}</td>
-                    </tr>
-                `);
-            });
-            printWindow.document.write('</tbody></table>');
-        }
-
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
-    }
-
-
-    // --- EVENT LISTENERS ---
-    function attachGlobalEventListeners() {
-        console.log('Attaching global event listeners...');
-
-        // Navigation links
-        const navHome = document.getElementById('nav-home');
-        if (navHome) {
-            console.log('Found nav-home');
-            navHome.addEventListener('click', (e) => { e.preventDefault(); showView('content-home'); });
-        } else { console.error('nav-home not found!'); }
-
-        const navDashboard = document.getElementById('nav-dashboard');
-        if (navDashboard) {
-            console.log('Found nav-dashboard');
-            navDashboard.addEventListener('click', (e) => { e.preventDefault(); showView('content-dashboard'); });
-        } else { console.error('nav-dashboard not found!'); }
-
-        const navCollection = document.getElementById('nav-collection');
-        if (navCollection) {
-            console.log('Found nav-collection');
-            navCollection.addEventListener('click', (e) => { e.preventDefault(); showView('content-collection'); });
-        } else { console.error('nav-collection not found!'); }
-
-        const navMap = document.getElementById('nav-map');
-        if (navMap) {
-            console.log('Found nav-map');
-            navMap.addEventListener('click', (e) => { e.preventDefault(); showView('content-map'); });
-        } else { console.error('nav-map not found!'); }
-
-        const navMissing = document.getElementById('nav-missing');
-        if (navMissing) {
-            console.log('Found nav-missing');
-            navMissing.addEventListener('click', (e) => { e.preventDefault(); showView('content-missing'); });
-        } else { console.error('nav-missing not found!'); }
-
-        const navSettings = document.getElementById('nav-settings');
-        if (navSettings) {
-            console.log('Found nav-settings');
-            navSettings.addEventListener('click', (e) => { e.preventDefault(); showView('content-settings'); });
-        } else { console.error('nav-settings not found!'); }
-
-
-        // Homepage buttons
-        const homeSignupBtn = document.getElementById('home-signup-btn');
-        if (homeSignupBtn) {
-            console.log('Found home-signup-btn');
-            homeSignupBtn.addEventListener('click', () => {
-                console.log('home-signup-btn clicked');
-                if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
-                    toggleSidebar(); // Open sidebar if closed
-                }
-                const loginEmailInput = document.getElementById('login-email');
-                if (loginEmailInput) loginEmailInput.focus();
-            });
-        } else {
-            console.error('home-signup-btn not found!');
-        }
-
-        const homeLearnMoreBtn = document.getElementById('home-learn-more-btn');
-        if (homeLearnMoreBtn) {
-            console.log('Found home-learn-more-btn');
-            homeLearnMoreBtn.addEventListener('click', () => {
-                console.log('home-learn-more-btn clicked');
-                showView('content-dashboard'); // Redirects to dashboard
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            });
-        } else {
-            console.error('home-learn-more-btn not found!');
-        }
-
-
-        // Quick Add button
-        const quickAddBtn = document.getElementById('quick-add-btn');
-        if (quickAddBtn) {
-            console.log('Found quick-add-btn');
-            quickAddBtn.addEventListener('click', () => {
-                console.log('Quick Add button clicked');
-                if (!isAuthenticated()) {
-                    showCustomConfirm('Please sign in to add new items.', () => {});
-                    return;
-                }
-                clearItemForm();
-                openModal('item-modal');
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            });
-        } else {
-            console.error('quick-add-btn not found!');
-        }
-
-        // Import Data button
-        const importDataBtn = document.getElementById('import-data-btn');
-        if (importDataBtn) {
-            console.log('Found import-data-btn');
-            importDataBtn.addEventListener('click', () => {
-                console.log('Import Data button clicked');
-                if (!isAuthenticated()) {
-                    showCustomConfirm('Please sign in to import data.', () => {});
-                    return;
-                }
-                document.getElementById('import-json-data').value = ''; // Clear previous data
-                openModal('import-modal');
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            });
-        } else {
-            console.error('import-data-btn not found!');
-        }
-
-        // Export Data button
-        const exportDataBtn = document.getElementById('export-data-btn');
-        if (exportDataBtn) {
-            console.log('Found export-data-btn');
-            exportDataBtn.addEventListener('click', () => {
-                console.log('Export Data button clicked');
-                if (!isAuthenticated()) {
-                    showCustomConfirm('Please sign in to export data.', () => {});
-                    return;
-                }
-                openModal('export-modal'); // Open the new export options modal
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            });
-        } else {
-            console.error('export-data-btn not found!');
-        }
-
-        // New: Share Collection button
-        const shareCollectionBtn = document.getElementById('share-collection-btn');
-        if (shareCollectionBtn) {
-            console.log('Found share-collection-btn');
-            shareCollectionBtn.addEventListener('click', () => {
-                console.log('Share Collection button clicked');
-                if (!isAuthenticated()) {
-                    showCustomConfirm('Please sign in to share your collection.', () => {});
-                    return;
-                }
-                showView('content-settings'); // Go to settings page
-                // Optionally scroll to the public link section in settings
-                setTimeout(() => {
-                    document.getElementById('generate-public-url-btn').scrollIntoView({ behavior: 'smooth' });
-                }, 100);
-                 if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            });
-        } else { console.error('share-collection-btn not found!'); }
-
-
-        // Handle import submission
-        const importSubmitBtn = document.getElementById('import-submit-btn');
-        if (importSubmitBtn) {
-            console.log('Found import-submit-btn');
-            importSubmitBtn.addEventListener('click', async () => {
-                console.log('Import submit button clicked');
-                const jsonData = document.getElementById('import-json-data').value;
-                let itemsToImport;
-                try {
-                    itemsToImport = JSON.parse(jsonData);
-                    if (!Array.isArray(itemsToImport)) {
-                        throw new Error("Pasted data is not a JSON array.");
-                    }
-                } catch (error) {
-                    showCustomConfirm(`Invalid JSON data: ${error.message}. Please paste a valid JSON array of coin objects.`, () => {});
-                    return;
-                }
-
-                if (itemsToImport.length === 0) {
-                    showCustomConfirm('No items found in the pasted data.', () => {});
-                    return;
-                }
-
-                showCustomConfirm(`Are you sure you want to import ${itemsToImport.length} items? This will add them to your collection.`, async () => {
-                    if (!isAuthenticated()) {
-                        showCustomConfirm('Please sign in to import data.', () => {});
-                        return;
-                    }
-                    try {
-                        const response = await fetch(`${API_BASE_URL}/coins/bulk_upload`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${getAuthToken()}`
-                            },
-                            body: JSON.stringify(itemsToImport)
-                        });
-
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                handleUnauthorized();
-                                return;
-                            }
-                            const errorData = await response.json();
-                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                        }
-
-                        const result = await response.json();
-                        let message = result.message || 'Import process completed.';
-                        if (result.errors && result.errors.length > 0) {
-                            message += ` Some items had errors: ${result.errors.map(err => err.substring(0, 50) + "...").join('; ')}`; // Truncate errors for message box
-                        }
-                        showCustomConfirm(message, () => {});
-                        loadCollectionFromBackend(); // Reload data after successful import
-                    } catch (error) {
-                        console.error("Error during bulk import:", error);
-                        showCustomConfirm(`Failed to import data: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
-                    } finally {
-                        closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
-                    }
-                });
-            });
-        } else { console.error('import-submit-btn not found!'); }
-
-        const importCancelBtn = document.getElementById('import-cancel-btn');
-        if (importCancelBtn) {
-            console.log('Found import-cancel-btn');
-            importCancelBtn.addEventListener('click', () => {
-                console.log('Import cancel button clicked');
-                closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
-            });
-        } else { console.error('import-cancel-btn not found!'); }
-
-        // Export Modal Buttons
-        const exportJsonBtn = document.getElementById('export-json-btn');
-        if (exportJsonBtn) {
-            console.log('Found export-json-btn');
-            exportJsonBtn.addEventListener('click', exportCollectionAsJson);
-        } else { console.error('export-json-btn not found!'); }
-
-        const exportCsvBtn = document.getElementById('export-csv-btn');
-        if (exportCsvBtn) {
-            console.log('Found export-csv-btn');
-            exportCsvBtn.addEventListener('click', exportCollectionAsCsv);
-        } else { console.error('export-csv-btn not found!'); }
-
-        const exportPrintBtn = document.getElementById('export-print-btn');
-        if (exportPrintBtn) {
-            console.log('Found export-print-btn');
-            exportPrintBtn.addEventListener('click', printCollectionReport);
-        } else { console.error('export-print-btn not found!'); }
-
-        const exportCancelBtn = document.getElementById('export-cancel-btn');
-        if (exportCancelBtn) {
-            console.log('Found export-cancel-btn');
-            exportCancelBtn.addEventListener('click', () => closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div')));
-        } else { console.error('export-cancel-btn not found!'); }
-
-
-        // Clear All Items button and modal logic
-        const clearAllBtn = document.getElementById('clear-all-btn');
-        const clearConfirmModal = document.getElementById('clear-confirm-modal');
-        const clearConfirmInput = document.getElementById('clear-confirm-input');
-        const clearAllConfirmBtn = document.getElementById('clear-all-confirm-btn');
-        const clearAllCancelBtn = document.getElementById('clear-all-cancel-btn');
-
-        if (clearAllBtn) {
-            console.log('Found clear-all-btn');
-            clearAllBtn.addEventListener('click', () => {
-                console.log('Clear All button clicked');
-                if (!isAuthenticated()) {
-                    showCustomConfirm('Please sign in to clear items.', () => {});
-                    return;
-                }
-                clearConfirmInput.value = ''; // Clear input field
-                openModal('clear-confirm-modal');
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            });
-        } else { console.error('clear-all-btn not found!'); }
-
-        if (clearAllConfirmBtn) {
-            console.log('Found clear-all-confirm-btn');
-            clearAllConfirmBtn.addEventListener('click', async () => {
-                console.log('Clear All confirm button clicked');
-                if (clearConfirmInput.value.trim() === 'CLEARYES') {
-                    if (!isAuthenticated()) {
-                        showCustomConfirm('Please sign in to clear items.', () => {});
-                        closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
-                        return;
-                    }
-                    try {
-                        const response = await fetch(`${API_BASE_URL}/coins/clear_all`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Authorization': `Bearer ${getAuthToken()}`
-                            }
-                        });
-
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                handleUnauthorized();
-                                return;
-                            }
-                            const errorData = await response.json();
-                            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                        }
-
-                        const result = await response.json();
-                        showCustomConfirm(result.message || 'All items deleted successfully!', () => {});
-                        collectionData = []; // Clear local data
-                        renderAllViews(); // Re-render UI
-                    } catch (error) {
-                        console.error("Error clearing all items:", error);
-                        showCustomConfirm(`Failed to clear all items: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
-                    } finally {
-                        closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
-                    }
-                } else {
-                    showCustomConfirm('Incorrect confirmation phrase. Please type "CLEARYES" exactly to proceed.', () => {});
-                }
-            });
-        } else { console.error('clear-all-confirm-btn not found!'); }
-
-        if (clearAllCancelBtn) {
-            console.log('Found clear-all-cancel-btn');
-            clearAllCancelBtn.addEventListener('click', () => {
-                console.log('Clear All cancel button clicked');
-                closeModal(clearConfirmModal, clearConfirmModal.querySelector('div'));
-            });
-        } else { console.error('clear-all-cancel-btn not found!'); }
-
-
-        // New: Public URL buttons
-        const generatePublicUrlBtn = document.getElementById('generate-public-url-btn');
-        if (generatePublicUrlBtn) {
-            generatePublicUrlBtn.addEventListener('click', generatePublicUrl);
-        } else { console.error('generate-public-url-btn not found!'); }
-
-        const revokePublicUrlBtn = document.getElementById('revoke-public-url-btn');
-        if (revokePublicUrlBtn) {
-            revokePublicUrlBtn.addEventListener('click', revokePublicUrl);
-        } else { console.error('revoke-public-url-btn not found!'); }
-
-        const copyPublicUrlBtn = document.getElementById('copy-public-url-btn');
-        if (copyPublicUrlBtn) {
-            copyPublicUrlBtn.addEventListener('click', copyPublicUrl);
-        } else { console.error('copy-public-url-btn not found!'); }
-
-
-        // Modal close listeners (click outside or ESC)
-        const itemModal = document.getElementById('item-modal');
-        const importModal = document.getElementById('import-modal');
-        const exportModal = document.getElementById('export-modal'); // New modal
-        const countryDetailsModal = document.getElementById('country-details-modal');
-        const customConfirmModal = document.getElementById('custom-confirm-modal');
-        const clearConfirmModalElement = document.getElementById('clear-confirm-modal');
-
-        if (itemModal) {
-            itemModal.addEventListener('click', function(event) {
-                const modalContent = this.querySelector('div');
-                if (!modalContent.contains(event.target)) {
-                    closeModal(this, modalContent);
-                    reinitItemForm();
-                }
-            });
-        } else { console.error('item-modal not found!'); }
-
-
-        if (importModal) {
-            importModal.addEventListener('click', function(event) {
-                const modalContent = this.querySelector('div');
-                if (!modalContent.contains(event.target)) {
-                    closeModal(this, modalContent);
-                }
-            });
-        } else { console.error('import-modal not found!'); }
-
-        if (exportModal) { // New modal
-            exportModal.addEventListener('click', function(event) {
-                const modalContent = this.querySelector('div');
-                if (!modalContent.contains(event.target)) {
-                    closeModal(this, modalContent);
-                }
-            });
-        } else { console.error('export-modal not found!'); }
-
-
-        if (countryDetailsModal) {
-            countryDetailsModal.addEventListener('click', function(event) {
-                const modalContent = this.querySelector('div');
-                if (!modalContent.contains(event.target)) {
-                    closeModal(this, modalContent);
-                }
-            });
-            document.getElementById('country-details-close-btn').addEventListener('click', () => {
-                closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
-            });
-        } else { console.error('country-details-modal not found!'); }
-
-
-        if (clearConfirmModalElement) {
-            clearConfirmModalElement.addEventListener('click', function(event) {
-                const modalContent = this.querySelector('div');
-                if (!modalContent.contains(event.target)) {
-                    closeModal(this, modalContent);
-                }
-            });
-        } else { console.error('clear-confirm-modal not found!'); }
-
-
-        if (customConfirmModal) {
-            customConfirmModal.addEventListener('click', function(event) {
-                const modalContent = this.querySelector('div');
-                if (!modalContent.contains(event.target)) {
-                    closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
-                }
-            });
-        } else { console.error('custom-confirm-modal not found!'); }
-
-
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                if (itemModal && !itemModal.classList.contains('hidden')) {
-                    closeModal(itemModal, itemModal.querySelector('div'));
-                    reinitItemForm();
-                }
-                if (importModal && !importModal.classList.contains('hidden')) {
-                    closeModal(importModal, importModal.querySelector('div'));
-                }
-                if (exportModal && !exportModal.classList.contains('hidden')) { // Close export modal
-                    closeModal(exportModal, exportModal.querySelector('div'));
-                }
-                if (countryDetailsModal && !countryDetailsModal.classList.contains('hidden')) {
-                    closeModal(countryDetailsModal, countryDetailsModal.querySelector('div'));
-                }
-                if (customConfirmModal && !customConfirmModal.classList.contains('hidden')) {
-                    closeModal(customConfirmModal, customConfirmModal.querySelector('div'));
-                }
-                 if (clearConfirmModalElement && !clearConfirmModalElement.classList.contains('hidden')) {
-                    closeModal(clearConfirmModalElement, clearConfirmModalElement.querySelector('div'));
-                }
-                // Close sidebar if open on mobile
-                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            }
-        });
-
-        // Event listener for mobile menu toggle button
-        if (mobileMenuToggle) { // Ensure button exists
-            console.log('Found mobile-menu-toggle');
-            mobileMenuToggle.addEventListener('click', toggleSidebar);
-        } else { console.error('mobile-menu-toggle not found!'); }
-
-        // Event listener for overlay to close sidebar
-        if (mobileSidebarOverlay) { // Ensure overlay exists
-            console.log('Found mobile-sidebar-overlay');
-            mobileSidebarOverlay.addEventListener('click', toggleSidebar);
-        } else { console.error('mobile-sidebar-overlay not found!'); }
-
-
-        // Close sidebar if screen resizes to desktop and is currently open
-        window.addEventListener('resize', () => {
-            if (window.innerWidth >= 768) { // md breakpoint for Tailwind
-                if (sidebar && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            }
-        });
-
-        // When a nav link is clicked (on mobile), close the sidebar
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', () => {
-                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
-            });
-        });
-
-
-        attachFormEventListeners(); // Attach event listeners for the item form
-
-
-        // --- AUTHENTICATION EVENT LISTENERS ---
-        const loginForm = document.getElementById('login-form');
-        if (loginForm) {
-            console.log('Found login-form');
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                console.log('Login form submitted');
-                const email = document.getElementById('login-email').value;
-                const password = document.getElementById('login-password').value;
-                try {
-                    const response = await fetch(`${API_BASE_URL}/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Login failed.');
-                    }
-
-                    const result = await response.json();
-                    sessionStorage.setItem('jwt_token', result.token); // Store JWT
-                    showCustomConfirm('Signed in successfully!', () => {});
-                    updateAuthUI(true);
-                    loadCollectionFromBackend(); // Load data after successful login
-                    history.replaceState(null, '', window.location.pathname); // Clear public URL param
-                } catch (error) {
-                    console.error("Login error:", error.message);
-                    showCustomConfirm(`Login failed: ${error.message}`, () => {});
-                }
-            });
-        } else { console.error('login-form not found during attachGlobalEventListeners!'); }
-
-        const signupBtn = document.getElementById('signup-btn');
-        if (signupBtn) {
-            console.log('Found signup-btn');
-            signupBtn.addEventListener('click', async () => {
-                console.log('Sign Up button clicked');
-                const email = document.getElementById('login-email').value;
-                const password = document.getElementById('login-password').value;
-                if (!email || !password) {
-                    showCustomConfirm('Please enter both email and password to sign up.', () => {});
-                    return;
-                }
-                try {
-                    const response = await fetch(`${API_BASE_URL}/register`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Signup failed.');
-                    }
-
-                    const result = await response.json();
-                    showCustomConfirm(result.message || 'Signed up successfully! Please log in.', () => {
-                        // Optionally auto-login after signup if desired, but
-                        // for explicit flow, user logs in separately
-                    });
-                } catch (error) {
-                    console.error("Sign-up error:", error.message);
-                    showCustomConfirm(`Sign-up failed: ${error.message}`, () => {});
-                }
-            });
-        } else { console.error('signup-btn not found during attachGlobalEventListeners!'); }
-
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            console.log('Found logout-btn');
-            logoutBtn.addEventListener('click', () => {
-                console.log('Logout button clicked');
-                sessionStorage.removeItem('jwt_token'); // Clear JWT
-                updateAuthUI(false);
-                collectionData = []; // Clear data when logged out
-                history.replaceState(null, '', window.location.pathname); // Clear public URL param on logout
-                renderAllViews();
-                showCustomConfirm('Signed out successfully!', () => {});
-            });
-        } else { console.error('logout-btn not found during attachGlobalEventListeners!'); }
-    }
-
-    // --- INITIAL LOAD ---
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('DOM Content Loaded. Starting app initialization...');
-        applySavedTheme(); // Apply theme immediately on load
-        attachGlobalEventListeners();
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const publicId = urlParams.get('public');
-
-        if (publicId) {
-            // If public ID is present, render public collection view directly
-            updateAuthUI(false); // Ensure logged out state for public view
-            showView('content-public-collection'); // This will trigger loading public data
-        } else {
-            // Otherwise, proceed with normal authenticated app flow
-            updateAuthUI(isAuthenticated()); // Update UI based on initial token presence
-            loadCollectionFromBackend(); // Attempt to load data if already authenticated
-            showView('content-home'); // Default view on load is now the home page
-        }
-        console.log('App initialization completed successfully.');
-    });
-
-</script>
-
-</body>
-</html>
