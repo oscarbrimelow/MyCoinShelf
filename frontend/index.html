@@ -462,6 +462,25 @@
                             </div>
                         </div>
 
+                        <!-- Currency Preference -->
+                        <div class="mb-8">
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Currency Preference</h3>
+                            <p class="text-gray-400 mb-4">Choose your preferred currency for displaying values throughout the app.</p>
+                            <div class="flex items-center space-x-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="currency-preference" value="USD" class="form-radio h-4 w-4 text-emerald-600" ${currencySetting === 'USD' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-300">USD (US Dollar)</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="currency-preference" value="ZAR" class="form-radio h-4 w-4 text-emerald-600" ${currencySetting === 'ZAR' ? 'checked' : ''}>
+                                    <span class="ml-2 text-gray-300">ZAR (South African Rand)</span>
+                                </label>
+                            </div>
+                            <button id="update-currency-btn" class="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                                Update Currency Setting
+                            </button>
+                        </div>
+
                         <!-- New Public Collection Link Section -->
                         <div>
                             <h3 class="text-xl font-semibold text-gray-300 mb-4">Public Collection Link</h3>
@@ -2466,6 +2485,8 @@
                 renderSettings(); // Calls renderSettings, which handles its own overlay
             }
         }
+        // Apply sitewide currency settings
+        applySitewideCurrency();
     }
 
     function handleUnauthorized() {
@@ -3220,6 +3241,12 @@
                 showCustomConfirm('Signed out successfully!', () => {});
             });
         } else { console.error('logout-btn not found during attachGlobalEventListeners!'); }
+
+        // Currency update button
+        const updateCurrencyBtn = document.getElementById('update-currency-btn');
+        if (updateCurrencyBtn) {
+            updateCurrencyBtn.addEventListener('click', updateSitewideCurrency);
+        } else { console.error('update-currency-btn not found during attachGlobalEventListeners!'); }
     }
 
     // --- INITIAL LOAD ---
@@ -3544,13 +3571,13 @@
                     <!-- Price Inputs -->
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Gold Price (${currencySetting} per ${weightUnitSetting})</label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Gold Price</label>
                             <input type="number" id="manual-gold-price" step="0.01" 
                                    value="${getCurrentPrice('gold', currencySetting, weightUnitSetting)}" 
                                    class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Silver Price (${currencySetting} per ${weightUnitSetting})</label>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Silver Price</label>
                             <input type="number" id="manual-silver-price" step="0.01" 
                                    value="${getCurrentPrice('silver', currencySetting, weightUnitSetting)}" 
                                    class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
@@ -3601,12 +3628,12 @@
         // Show/hide exchange rate section
         exchangeRateSection.style.display = currency === 'ZAR' ? 'block' : 'none';
         
-        // Update labels
+        // Update labels (simplified)
         const goldLabel = document.querySelector('label[for="manual-gold-price"]');
         const silverLabel = document.querySelector('label[for="manual-silver-price"]');
         
-        if (goldLabel) goldLabel.textContent = `Gold Price (${currency} per ${unit})`;
-        if (silverLabel) silverLabel.textContent = `Silver Price (${currency} per ${unit})`;
+        if (goldLabel) goldLabel.textContent = 'Gold Price';
+        if (silverLabel) silverLabel.textContent = 'Silver Price';
         
         // Update input values
         const goldInput = document.getElementById('manual-gold-price');
@@ -3689,6 +3716,56 @@
                 console.error('Error loading saved prices:', e);
             }
         }
+    }
+
+    // --- Sitewide Currency Management ---
+    function updateSitewideCurrency() {
+        const selectedCurrency = document.querySelector('input[name="currency-preference"]:checked').value;
+        
+        if (selectedCurrency !== currencySetting) {
+            currencySetting = selectedCurrency;
+            localStorage.setItem('currency', currencySetting);
+            
+            // Update all displays that show currency
+            renderAllViews();
+            
+            showCustomConfirm(`Currency updated to ${currencySetting}. All values will now display in ${currencySetting}.`, () => {});
+        } else {
+            showCustomConfirm('Currency setting is already set to your selection.', () => {});
+        }
+    }
+
+    function applySitewideCurrency() {
+        // Update all value displays throughout the app
+        if (document.getElementById('dashboard-total-value')) {
+            const totalValue = collectionData.reduce((sum, item) => {
+                if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+                    return sum + calculateBullionValue(item);
+                } else {
+                    return sum + (item.value || 0);
+                }
+            }, 0);
+            document.getElementById('dashboard-total-value').innerText = formatCurrency(totalValue, currencySetting);
+        }
+        
+        // Update collection table values
+        const valueCells = document.querySelectorAll('.data-table td:nth-child(6)');
+        valueCells.forEach(cell => {
+            const itemId = cell.closest('tr').dataset.itemId;
+            if (itemId) {
+                const item = collectionData.find(coin => coin.id === parseInt(itemId));
+                if (item) {
+                    if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+                        cell.textContent = formatCurrency(calculateBullionValue(item), currencySetting);
+                    } else {
+                        cell.textContent = formatCurrency(item.value || 0, currencySetting);
+                    }
+                }
+            }
+        });
+        
+        // Update bullion section
+        renderBullionSection();
     }
 
     // --- Bullion Edit and Delete Functions ---
