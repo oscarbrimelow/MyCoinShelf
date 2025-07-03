@@ -1015,7 +1015,12 @@
         document.getElementById('notes').value = '';
         document.getElementById('referenceUrl').value = '';
         document.getElementById('localImagePath').value = '';
+        document.getElementById('weight_grams').value = '';
+        document.getElementById('purity_percent').value = '';
         document.getElementById('modal-title').innerText = 'Add New Item';
+        
+        // Reset form field visibility
+        toggleBullionFields();
     }
 
     function reinitItemForm() {
@@ -3215,11 +3220,18 @@
         try {
             const res = await fetch(`${API_BASE_URL}/prices/metals`);
             if (res.ok) {
-                metalPrices = await res.json();
+                const data = await res.json();
+                metalPrices = {
+                    gold_usd_per_oz: data.gold_usd_per_oz || 2300,
+                    silver_usd_per_oz: data.silver_usd_per_oz || 29.5
+                };
+                console.log(`Metal prices updated: Gold $${metalPrices.gold_usd_per_oz}/oz, Silver $${metalPrices.silver_usd_per_oz}/oz (Source: ${data.source || 'unknown'})`);
             } else {
+                console.warn('Failed to fetch metal prices, using fallback values');
                 metalPrices = { gold_usd_per_oz: 2300, silver_usd_per_oz: 29.5 };
             }
-        } catch {
+        } catch (error) {
+            console.error('Error fetching metal prices:', error);
             metalPrices = { gold_usd_per_oz: 2300, silver_usd_per_oz: 29.5 };
         }
         renderBullionSection();
@@ -3237,33 +3249,57 @@
         const wrapper = document.getElementById('bullion-section');
         if (!wrapper) return;
         const bullionItems = collectionData.filter(item => item.type === 'Gold Bullion' || item.type === 'Silver Bullion');
-        let html = `<div class="mb-4">
-            <h2 class="text-xl font-bold text-yellow-400">Bullion / Gold / Silver</h2>
-            <div class="flex space-x-6 mb-2">
-                <span>Gold Price: <span class="font-bold">$${metalPrices.gold_usd_per_oz}</span> USD/oz</span>
-                <span>Silver Price: <span class="font-bold">$${metalPrices.silver_usd_per_oz}</span> USD/oz</span>
+        
+        // Check if we have any bullion items to show
+        if (bullionItems.length === 0) {
+            wrapper.innerHTML = '';
+            return;
+        }
+        
+        let html = `<div class="mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-xl font-bold text-yellow-400">Bullion / Gold / Silver</h2>
+                <button onclick="fetchMetalPrices()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+                    <i class="ph-bold ph-arrows-clockwise mr-1"></i>Refresh Prices
+                </button>
             </div>
-            <table class="w-full text-left data-table mb-2">
-                <thead class="bg-gray-700">
-                    <tr>
-                        <th>Type</th><th>Weight (g)</th><th>Purity (%)</th><th>Year</th><th>Value (USD)</th><th>Notes</th><th>Reference</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${bullionItems.map(item => `
+            <div class="flex flex-wrap gap-6 mb-3 text-sm">
+                <span class="text-gray-300">Gold Price: <span class="font-bold text-yellow-400">$${metalPrices.gold_usd_per_oz.toFixed(2)}</span> USD/oz</span>
+                <span class="text-gray-300">Silver Price: <span class="font-bold text-gray-400">$${metalPrices.silver_usd_per_oz.toFixed(2)}</span> USD/oz</span>
+            </div>`;
+        
+        if (bullionItems.length > 0) {
+            html += `<div class="overflow-x-auto">
+                <table class="w-full text-left data-table">
+                    <thead class="bg-gray-700">
                         <tr>
-                            <td>${item.type}</td>
-                            <td>${item.weight_grams || ''}</td>
-                            <td>${item.purity_percent || ''}</td>
-                            <td>${item.year || ''}</td>
-                            <td>$${calculateBullionValue(item).toFixed(2)}</td>
-                            <td>${item.notes || ''}</td>
-                            <td>${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank">Link</a>` : ''}</td>
+                            <th class="p-2">Type</th>
+                            <th class="p-2">Weight (g)</th>
+                            <th class="p-2">Purity (%)</th>
+                            <th class="p-2">Year</th>
+                            <th class="p-2">Value (USD)</th>
+                            <th class="p-2">Notes</th>
+                            <th class="p-2">Reference</th>
                         </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>`;
+                    </thead>
+                    <tbody>
+                        ${bullionItems.map(item => `
+                            <tr class="border-b border-gray-600">
+                                <td class="p-2">${item.type}</td>
+                                <td class="p-2">${item.weight_grams || '-'}</td>
+                                <td class="p-2">${item.purity_percent || '-'}</td>
+                                <td class="p-2">${item.year || '-'}</td>
+                                <td class="p-2 font-bold text-emerald-400">$${calculateBullionValue(item).toFixed(2)}</td>
+                                <td class="p-2">${item.notes || '-'}</td>
+                                <td class="p-2">${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:text-blue-300">Link</a>` : '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+        
+        html += `</div>`;
         wrapper.innerHTML = html;
     }
 
