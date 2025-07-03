@@ -1301,11 +1301,17 @@
 
         // Update dashboard stats
         const totalItems = collectionData.length;
-        const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        const totalValue = collectionData.reduce((sum, item) => {
+            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+                return sum + calculateBullionValue(item);
+            } else {
+                return sum + (item.value || 0);
+            }
+        }, 0);
         const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
 
         document.getElementById('dashboard-total-items').innerText = totalItems;
-        document.getElementById('dashboard-total-value').innerText = `$${totalValue.toFixed(2)}`;
+        document.getElementById('dashboard-total-value').innerText = formatCurrency(totalValue, currencySetting);
         document.getElementById('dashboard-unique-countries').innerText = uniqueCountries;
 
         // Render additional dashboard content
@@ -1340,8 +1346,11 @@
             return newest;
         }, null);
 
+        // For highest value, use calculated value for bullion
         const highestValueItem = collectionData.reduce((highest, current) => {
-            if (current.value && (!highest || current.value > highest.value)) {
+            const currentValue = (current.type === 'Gold Bullion' || current.type === 'Silver Bullion') ? calculateBullionValue(current) : (current.value || 0);
+            const highestValue = (highest && (highest.type === 'Gold Bullion' || highest.type === 'Silver Bullion')) ? calculateBullionValue(highest) : (highest && highest.value || 0);
+            if (!highest || currentValue > highestValue) {
                 return current;
             }
             return highest;
@@ -1349,7 +1358,14 @@
 
         let highlightsHtml = '<ul class="space-y-2">';
         highlightsHtml += `<li><strong>Total Items:</strong> ${collectionData.length}</li>`;
-        highlightsHtml += `<li><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => sum + (item.value || 0), 0).toFixed(2)}</li>`;
+        const totalValue = collectionData.reduce((sum, item) => {
+            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+                return sum + calculateBullionValue(item);
+            } else {
+                return sum + (item.value || 0);
+            }
+        }, 0);
+        highlightsHtml += `<li><strong>Total Estimated Value:</strong> ${formatCurrency(totalValue, currencySetting)}</li>`;
         highlightsHtml += `<li><strong>Unique Countries Represented:</strong> ${new Set(collectionData.map(item => item.country)).size}</li>`;
 
         if (oldestItem) {
@@ -1359,7 +1375,8 @@
             highlightsHtml += `<li><strong>Newest Item:</strong> ${newestItem.denomination} from ${newestItem.country} (${newestItem.year})</li>`;
         }
         if (highestValueItem) {
-            highlightsHtml += `<li><strong>Highest Value Item:</strong> ${highestValueItem.denomination} from ${highestValueItem.country} ($${highestValueItem.value.toFixed(2)})</li>`;
+            const highestValue = (highestValueItem.type === 'Gold Bullion' || highestValueItem.type === 'Silver Bullion') ? calculateBullionValue(highestValueItem) : (highestValueItem.value || 0);
+            highlightsHtml += `<li><strong>Highest Value Item:</strong> ${highestValueItem.denomination} from ${highestValueItem.country} (${formatCurrency(highestValue, currencySetting)})</li>`;
         }
         highlightsHtml += '</ul>';
         highlightsDiv.innerHTML = highlightsHtml;
