@@ -3356,6 +3356,12 @@
     function convertToCurrency(value, fromCurrency, toCurrency) {
         if (fromCurrency === toCurrency) return value;
         
+        // Ensure zarExchangeRate is available
+        if (!zarExchangeRate || isNaN(zarExchangeRate)) {
+            console.warn('ZAR exchange rate not available, using fallback rate of 18.25');
+            zarExchangeRate = 18.25;
+        }
+        
         if (fromCurrency === 'USD' && toCurrency === 'ZAR') {
             return value * zarExchangeRate;
         } else if (fromCurrency === 'ZAR' && toCurrency === 'USD') {
@@ -3372,8 +3378,17 @@
             // For bullion, calculate the USD value first, then convert
             if (!item.weight_grams || !item.purity_percent) return 0;
             
-            const price = item.type === 'Gold Bullion' ? metalPrices.gold_usd_per_oz : metalPrices.silver_usd_per_oz;
-            baseValue = ((item.weight_grams / 31.1035) * (item.purity_percent / 100) * price) || 0;
+            // Ensure metalPrices is available
+            if (!metalPrices || !metalPrices.gold_usd_per_oz || !metalPrices.silver_usd_per_oz) {
+                console.warn('Metal prices not available, using fallback values');
+                const fallbackGoldPrice = 2300;
+                const fallbackSilverPrice = 29.5;
+                const price = item.type === 'Gold Bullion' ? fallbackGoldPrice : fallbackSilverPrice;
+                baseValue = ((item.weight_grams / 31.1035) * (item.purity_percent / 100) * price) || 0;
+            } else {
+                const price = item.type === 'Gold Bullion' ? metalPrices.gold_usd_per_oz : metalPrices.silver_usd_per_oz;
+                baseValue = ((item.weight_grams / 31.1035) * (item.purity_percent / 100) * price) || 0;
+            }
         } else {
             // For regular items, assume the stored value is in USD
             baseValue = item.value || 0;
@@ -3775,31 +3790,35 @@
     }
 
     function applySitewideCurrency() {
-        // Update all value displays throughout the app
-        if (document.getElementById('dashboard-total-value')) {
-            const totalValue = collectionData.reduce((sum, item) => {
-                return sum + getItemValueInCurrency(item, currencySetting);
-            }, 0);
-            document.getElementById('dashboard-total-value').innerText = formatCurrency(totalValue, currencySetting);
-        }
-        
-        // Update collection table values
-        const valueCells = document.querySelectorAll('.data-table td:nth-child(6)');
-        valueCells.forEach(cell => {
-            const itemId = cell.closest('tr').dataset.itemId;
-            if (itemId) {
-                const item = collectionData.find(coin => coin.id === parseInt(itemId));
-                if (item) {
-                    cell.textContent = formatCurrency(getItemValueInCurrency(item, currencySetting), currencySetting);
-                }
+        try {
+            // Update all value displays throughout the app
+            if (document.getElementById('dashboard-total-value')) {
+                const totalValue = collectionData.reduce((sum, item) => {
+                    return sum + getItemValueInCurrency(item, currencySetting);
+                }, 0);
+                document.getElementById('dashboard-total-value').innerText = formatCurrency(totalValue, currencySetting);
             }
-        });
-        
-        // Update bullion section
-        renderBullionSection();
-        
-        // Re-render dashboard highlights
-        renderCollectionHighlights();
+            
+            // Update collection table values
+            const valueCells = document.querySelectorAll('.data-table td:nth-child(6)');
+            valueCells.forEach(cell => {
+                const itemId = cell.closest('tr').dataset.itemId;
+                if (itemId) {
+                    const item = collectionData.find(coin => coin.id === parseInt(itemId));
+                    if (item) {
+                        cell.textContent = formatCurrency(getItemValueInCurrency(item, currencySetting), currencySetting);
+                    }
+                }
+            });
+            
+            // Update bullion section
+            renderBullionSection();
+            
+            // Re-render dashboard highlights
+            renderCollectionHighlights();
+        } catch (error) {
+            console.error('Error in applySitewideCurrency:', error);
+        }
     }
 
     // --- Bullion Edit and Delete Functions ---
