@@ -9,6 +9,7 @@ import jwt
 import datetime
 from functools import wraps
 import uuid # Import uuid for generating unique public IDs
+from datetime import datetime, timezone
 
 # Import configuration
 from config import Config
@@ -45,7 +46,7 @@ class Coin(db.Model):
     purchase_price = db.Column(db.Float)
     current_value = db.Column(db.Float)
     quantity = db.Column(db.Integer, default=1, nullable=False)
-    date_added = db.Column(db.DateTime, default=datetime.utcnow)
+    date_added = db.Column(db.DateTime, default=lambda: datetime.datetime.now(timezone.utc))
     image_url = db.Column(db.String(255))
     notes = db.Column(db.Text)
 
@@ -57,7 +58,7 @@ class PublicCollection(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
     public_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.datetime.now(timezone.utc))
 
     def __repr__(self):
         return f'<PublicCollection {self.public_id}>'
@@ -72,7 +73,7 @@ class Bullion(db.Model):
     purchase_price_usd = db.Column(db.Float, nullable=False)
     current_value_usd = db.Column(db.Float) # Optional: Can be updated via external API
     quantity = db.Column(db.Integer, default=1, nullable=False)
-    date_added = db.Column(db.DateTime, default=datetime.utcnow)
+    date_added = db.Column(db.DateTime, default=lambda: datetime.datetime.now(timezone.utc))
     image_url = db.Column(db.String(255)) # Optional
     notes = db.Column(db.Text) # Optional
 
@@ -126,7 +127,7 @@ def login():
 
     token = jwt.encode({
         'user_id': user.id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)
+        'exp': datetime.datetime.now(timezone.utc) + datetime.timedelta(minutes=30
     }, app.config['SECRET_KEY'], algorithm='HS256')
 
     return jsonify({'token': token}), 200
