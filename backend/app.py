@@ -1,3 +1,4 @@
+
 # backend/app.py
 
 import os
@@ -9,7 +10,6 @@ import jwt
 import datetime
 from functools import wraps
 import uuid # Import uuid for generating unique public IDs
-import requests # Import requests for external API calls
 
 # Import configuration
 from config import Config
@@ -39,20 +39,17 @@ class User(db.Model):
 class Coin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    type = db.Column(db.String(50), nullable=False) # e.g., Coin, Banknote, Gold Bullion, Silver Bullion
+    type = db.Column(db.String(50), nullable=False) # e.g., Coin, Banknote
     country = db.Column(db.String(100), nullable=False)
     year = db.Column(db.Integer)
-    denomination = db.Column(db.String(100), nullable=True) # Made nullable for bullion items
-    value = db.Column(db.Float) # Estimated value for coins/banknotes, calculated for bullion
+    denomination = db.Column(db.String(100), nullable=False)
+    value = db.Column(db.Float) # Estimated value
     notes = db.Column(db.Text)
     referenceUrl = db.Column(db.String(500))
     localImagePath = db.Column(db.String(500)) # Path to local image
     # New fields for better data management and charting
     region = db.Column(db.String(100)) # e.g., Europe, Asia, North America
     isHistorical = db.Column(db.Boolean, default=False) # True if from a historical entity or pre-1900
-    # New fields for bullion tracking
-    weight_grams = db.Column(db.Float, nullable=True) # Weight in grams for bullion
-    purity_percent = db.Column(db.Float, nullable=True) # Purity percentage for bullion (e.g., 99.9)
 
     def __repr__(self):
         return f'<Coin {self.denomination} from {self.country} ({self.year})>'
@@ -298,9 +295,7 @@ def get_coins(current_user):
             'referenceUrl': coin.referenceUrl,
             'localImagePath': coin.localImagePath,
             'region': coin.region, # Include region from DB
-            'isHistorical': coin.isHistorical, # Include isHistorical from DB
-            'weight_grams': coin.weight_grams, # Include bullion fields
-            'purity_percent': coin.purity_percent # Include bullion fields
+            'isHistorical': coin.isHistorical # Include isHistorical from DB
         }
         output.append(coin_data)
     return jsonify(output), 200
@@ -310,93 +305,63 @@ def get_coins(current_user):
 def add_coin(current_user):
     data = request.get_json()
     
-    # Validate required fields based on item type
-    item_type = data.get('type', 'Coin')
-    country_name = data.get('country', '').strip()
-    
-    if not country_name:
-        return jsonify({'message': 'Country is a required field.'}), 400
-    
-    # For coins and banknotes, denomination is required
-    if item_type in ['Coin', 'Banknote'] and not data.get('denomination'):
-        return jsonify({'message': 'Denomination is required for coins and banknotes.'}), 400
-    
-    # For bullion, weight and purity are required
-    if item_type in ['Gold Bullion', 'Silver Bullion']:
-        if not data.get('weight_grams'):
-            return jsonify({'message': 'Weight (grams) is required for bullion items.'}), 400
-        if not data.get('purity_percent'):
-            return jsonify({'message': 'Purity (%) is required for bullion items.'}), 400
+    # Required fields validation
+    if not data.get('country') or not data.get('denomination'):
+        return jsonify({'message': 'Country and Denomination are required fields.'}), 400
 
     # Calculate region and isHistorical on the backend
+    country_name = data.get('country').strip()
     year_value = data.get('year')
     region = get_region_for_country(country_name)
     is_historical = is_historical_item(country_name, year_value)
 
     new_coin = Coin(
         user_id=current_user.id,
-        type=item_type,
+        type=data.get('type'),
         country=country_name,
         year=year_value,
-        denomination=data.get('denomination', '').strip() if item_type in ['Coin', 'Banknote'] else None,
+        denomination=data.get('denomination').strip(),
         value=data.get('value'),
         notes=data.get('notes'),
         referenceUrl=data.get('referenceUrl'),
         localImagePath=data.get('localImagePath'),
         region=region, # Set calculated region
-        isHistorical=is_historical, # Set calculated historical flag
-        weight_grams=data.get('weight_grams') if item_type in ['Gold Bullion', 'Silver Bullion'] else None,
-        purity_percent=data.get('purity_percent') if item_type in ['Gold Bullion', 'Silver Bullion'] else None
+        isHistorical=is_historical # Set calculated historical flag
     )
     db.session.add(new_coin)
     db.session.commit()
-    return jsonify({'message': 'Item added successfully!', 'id': new_coin.id}), 201
+    return jsonify({'message': 'Coin added successfully!', 'id': new_coin.id}), 201
 
 @app.route('/api/coins/<int:coin_id>', methods=['PUT'])
 @jwt_required
 def update_coin(current_user, coin_id):
     coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
     if not coin:
-        return jsonify({'message': 'Item not found or unauthorized'}), 404
+        return jsonify({'message': 'Coin not found or unauthorized'}), 404
 
     data = request.get_json()
 
-    # Validate required fields based on item type
-    item_type = data.get('type', coin.type)
-    country_name = data.get('country', '').strip()
-    
-    if not country_name:
-        return jsonify({'message': 'Country is a required field.'}), 400
-    
-    # For coins and banknotes, denomination is required
-    if item_type in ['Coin', 'Banknote'] and not data.get('denomination'):
-        return jsonify({'message': 'Denomination is required for coins and banknotes.'}), 400
-    
-    # For bullion, weight and purity are required
-    if item_type in ['Gold Bullion', 'Silver Bullion']:
-        if not data.get('weight_grams'):
-            return jsonify({'message': 'Weight (grams) is required for bullion items.'}), 400
-        if not data.get('purity_percent'):
-            return jsonify({'message': 'Purity (%) is required for bullion items.'}), 400
+    # Required fields validation
+    if not data.get('country') or not data.get('denomination'):
+        return jsonify({'message': 'Country and Denomination are required fields.'}), 400
 
     # Calculate region and isHistorical on the backend
+    country_name = data.get('country').strip()
     year_value = data.get('year')
     coin.region = get_region_for_country(country_name)
     coin.isHistorical = is_historical_item(country_name, year_value)
 
-    coin.type = item_type
+    coin.type = data.get('type', coin.type)
     coin.country = country_name
     coin.year = year_value
-    coin.denomination = data.get('denomination', '').strip() if item_type in ['Coin', 'Banknote'] else None
+    coin.denomination = data.get('denomination').strip()
     coin.value = data.get('value', coin.value)
     coin.notes = data.get('notes', coin.notes)
     coin.referenceUrl = data.get('referenceUrl', coin.referenceUrl)
     coin.localImagePath = data.get('localImagePath', coin.localImagePath)
-    coin.weight_grams = data.get('weight_grams') if item_type in ['Gold Bullion', 'Silver Bullion'] else None
-    coin.purity_percent = data.get('purity_percent') if item_type in ['Gold Bullion', 'Silver Bullion'] else None
 
     db.session.commit()
-    return jsonify({'message': 'Item updated successfully!'}), 200
+    return jsonify({'message': 'Coin updated successfully!'}), 200
 
 @app.route('/api/coins/<int:coin_id>', methods=['DELETE'])
 @jwt_required
@@ -420,47 +385,29 @@ def bulk_upload_coins(current_user):
     errors = []
     for item_data in data:
         try:
-            # Validate essential fields based on item type
-            item_type = item_data.get('type', 'Coin')
-            country_name = item_data.get('country', '').strip()
-            
-            if not country_name:
-                errors.append(f"Skipping item due to missing country")
+            # Validate essential fields
+            if not item_data.get('country') or not item_data.get('denomination'):
+                errors.append(f"Skipping item due to missing country or denomination: {item_data.get('denomination')} from {item_data.get('country')}")
                 continue
-            
-            # For coins and banknotes, denomination is required
-            if item_type in ['Coin', 'Banknote'] and not item_data.get('denomination'):
-                errors.append(f"Skipping item due to missing denomination: {item_data.get('denomination')} from {country_name}")
-                continue
-            
-            # For bullion, weight and purity are required
-            if item_type in ['Gold Bullion', 'Silver Bullion']:
-                if not item_data.get('weight_grams'):
-                    errors.append(f"Skipping bullion item due to missing weight: {country_name}")
-                    continue
-                if not item_data.get('purity_percent'):
-                    errors.append(f"Skipping bullion item due to missing purity: {country_name}")
-                    continue
 
             # Calculate region and isHistorical on the backend
-            year_value = item_data.get('year')
+            country_name = item_data.get('country').strip()
+            year_value = item_data.get('year') # Corrected: Was year_data.get('year')
             region = get_region_for_country(country_name)
             is_historical = is_historical_item(country_name, year_value)
 
             new_coin = Coin(
                 user_id=current_user.id,
-                type=item_type,
+                type=item_data.get('type', 'Coin'), # Default to Coin if not provided
                 country=country_name,
-                year=year_value,
-                denomination=item_data.get('denomination', '').strip() if item_type in ['Coin', 'Banknote'] else None,
+                year=year_value, # Corrected: Was year_data.get('year')
+                denomination=item_data.get('denomination').strip(),
                 value=item_data.get('value', 0.0),
                 notes=item_data.get('notes'),
                 referenceUrl=item_data.get('referenceUrl'),
                 localImagePath=item_data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
                 region=region, # Set calculated region
-                isHistorical=is_historical, # Set calculated historical flag
-                weight_grams=item_data.get('weight_grams') if item_type in ['Gold Bullion', 'Silver Bullion'] else None,
-                purity_percent=item_data.get('purity_percent') if item_type in ['Gold Bullion', 'Silver Bullion'] else None
+                isHistorical=is_historical # Set calculated historical flag
             )
             db.session.add(new_coin)
             added_count += 1
@@ -557,78 +504,12 @@ def get_public_coins(public_id):
             'localImagePath': coin.localImagePath,
             'region': coin.region,
             'isHistorical': coin.isHistorical,
-            'owner_email': user.email, # Include owner's email for display in public view
-            # Include bullion fields for public view
-            'weight_grams': coin.weight_grams,
-            'purity_percent': coin.purity_percent
+            'owner_email': user.email # Include owner's email for display in public view
         }
         output.append(coin_data)
     
     return jsonify(output), 200
 
-# --- New Precious Metal Prices API Endpoint ---
-@app.route('/api/prices/metals', methods=['GET'])
-def get_metal_prices():
-    """Fetch current gold and silver prices from external API."""
-    try:
-        # Using a free API for metal prices (Metals-API.com alternative)
-        # For production, consider using a paid service like GoldAPI.io or Metals-API.com
-        # This is a fallback using a free endpoint that provides basic metal prices
-        
-        # Try to get prices from a free API (using Yahoo Finance data through a free service)
-        url = "https://query1.finance.yahoo.com/v8/finance/chart/GC=F,SI=F"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        data = response.json()
-        
-        # Extract current prices from Yahoo Finance response
-        gold_price = None
-        silver_price = None
-        
-        if 'chart' in data and 'result' in data['chart'] and len(data['chart']['result']) >= 2:
-            # Gold price (GC=F)
-            if len(data['chart']['result']) > 0 and 'meta' in data['chart']['result'][0]:
-                gold_price = data['chart']['result'][0]['meta'].get('regularMarketPrice')
-            
-            # Silver price (SI=F)
-            if len(data['chart']['result']) > 1 and 'meta' in data['chart']['result'][1]:
-                silver_price = data['chart']['result'][1]['meta'].get('regularMarketPrice')
-        
-        # Fallback prices if API fails (these should be updated periodically)
-        if not gold_price:
-            gold_price = 2300.00  # Fallback gold price
-        if not silver_price:
-            silver_price = 29.50   # Fallback silver price
-            
-        return jsonify({
-            'gold_usd_per_oz': round(float(gold_price), 2),
-            'silver_usd_per_oz': round(float(silver_price), 2),
-            'timestamp': datetime.datetime.utcnow().isoformat(),
-            'source': 'yahoo_finance'
-        }), 200
-        
-    except requests.RequestException as e:
-        # Return fallback prices if API call fails
-        return jsonify({
-            'gold_usd_per_oz': 2300.00,
-            'silver_usd_per_oz': 29.50,
-            'timestamp': datetime.datetime.utcnow().isoformat(),
-            'source': 'fallback',
-            'error': 'API call failed, using fallback prices'
-        }), 200
-    except Exception as e:
-        return jsonify({
-            'error': f'Failed to fetch metal prices: {str(e)}',
-            'gold_usd_per_oz': 2300.00,
-            'silver_usd_per_oz': 29.50,
-            'timestamp': datetime.datetime.utcnow().isoformat(),
-            'source': 'fallback'
-        }), 500
 
 # --- Database Initialization (Run once to create tables) ---
 # NOTE: @app.before_request is used instead of @app.before_first_request due to Flask version compatibility.
