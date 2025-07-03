@@ -595,6 +595,42 @@ def get_public_coins(public_id):
     
     return jsonify(output), 200
 
+# --- Database Migration Endpoint ---
+@app.route('/api/migrate_database', methods=['POST'])
+def migrate_database():
+    """Add missing bullion columns to existing database"""
+    try:
+        # Check if weight_grams column exists
+        result = db.session.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'coin' AND column_name = 'weight_grams'
+        """)
+        
+        if not result.fetchone():
+            # Add weight_grams column
+            db.session.execute("ALTER TABLE coin ADD COLUMN weight_grams FLOAT")
+            print("Added weight_grams column to coin table")
+        
+        # Check if purity_percent column exists
+        result = db.session.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'coin' AND column_name = 'purity_percent'
+        """)
+        
+        if not result.fetchone():
+            # Add purity_percent column
+            db.session.execute("ALTER TABLE coin ADD COLUMN purity_percent FLOAT")
+            print("Added purity_percent column to coin table")
+        
+        db.session.commit()
+        return jsonify({'message': 'Database migration completed successfully!'}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Migration error: {e}")
+        return jsonify({'message': f'Migration failed: {str(e)}'}), 500
 
 # --- Database Initialization (Run once to create tables) ---
 # NOTE: @app.before_request is used instead of @app.before_first_request due to Flask version compatibility.
@@ -605,6 +641,38 @@ def create_tables():
     # We use app.app_context() to ensure we're in the right Flask application context.
     with app.app_context():
         db.create_all()
+        
+        # Check and add missing bullion columns if needed
+        try:
+            # Check if weight_grams column exists
+            result = db.session.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'coin' AND column_name = 'weight_grams'
+            """)
+            
+            if not result.fetchone():
+                # Add weight_grams column
+                db.session.execute("ALTER TABLE coin ADD COLUMN weight_grams FLOAT")
+                print("Added weight_grams column to coin table")
+            
+            # Check if purity_percent column exists
+            result = db.session.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'coin' AND column_name = 'purity_percent'
+            """)
+            
+            if not result.fetchone():
+                # Add purity_percent column
+                db.session.execute("ALTER TABLE coin ADD COLUMN purity_percent FLOAT")
+                print("Added purity_percent column to coin table")
+            
+            db.session.commit()
+        except Exception as e:
+            print(f"Database migration check failed: {e}")
+            db.session.rollback()
+        
         # Optional: Create a default user if none exists for easy setup
         if not User.query.first():
             print("No users found. Creating a default admin user.")
