@@ -3246,10 +3246,20 @@
     });
 
     // --- Metal Prices State ---
-    let metalPrices = { gold_usd_per_oz: 2300, silver_usd_per_oz: 29.5 };
+    let metalPrices = { 
+        gold_usd_per_oz: 2300, 
+        silver_usd_per_oz: 29.5,
+        gold_zar_per_oz: 42000, // Approximate ZAR conversion
+        silver_zar_per_oz: 540   // Approximate ZAR conversion
+    };
     let lastPriceUpdate = 0;
     let isFetchingPrices = false; // Prevent multiple simultaneous requests
     const PRICE_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+    
+    // --- Currency and Unit Settings ---
+    let currencySetting = localStorage.getItem('currency') || 'USD';
+    let weightUnitSetting = localStorage.getItem('weightUnit') || 'oz';
+    let zarExchangeRate = parseFloat(localStorage.getItem('zarExchangeRate')) || 18.25; // USD to ZAR rate
 
     // --- Fetch Metal Prices (with caching) ---
     async function fetchMetalPrices(forceRefresh = false) {
@@ -3296,10 +3306,27 @@
         renderBullionSection();
     }
 
+    // --- Currency Helper Functions ---
+    function getCurrencySymbol(currency) {
+        return currency === 'USD' ? '$' : 'R';
+    }
+
+    function formatCurrency(amount, currency) {
+        const symbol = getCurrencySymbol(currency);
+        return `${symbol}${amount.toFixed(2)}`;
+    }
+
     // --- Calculate Bullion Value ---
     function calculateBullionValue(item) {
         if (!item.weight_grams || !item.purity_percent) return 0;
-        const price = item.type === 'Gold Bullion' ? metalPrices.gold_usd_per_oz : metalPrices.silver_usd_per_oz;
+        
+        let price;
+        if (currencySetting === 'USD') {
+            price = item.type === 'Gold Bullion' ? metalPrices.gold_usd_per_oz : metalPrices.silver_usd_per_oz;
+        } else if (currencySetting === 'ZAR') {
+            price = item.type === 'Gold Bullion' ? metalPrices.gold_zar_per_oz : metalPrices.silver_zar_per_oz;
+        }
+        
         return ((item.weight_grams / 31.1035) * (item.purity_percent / 100) * price) || 0;
     }
 
@@ -3323,8 +3350,8 @@
                 </button>
             </div>
             <div class="flex flex-wrap gap-6 mb-3 text-sm">
-                <span class="text-gray-300">Gold Price: <span class="font-bold text-yellow-400">$${metalPrices.gold_usd_per_oz.toFixed(2)}</span> USD/oz</span>
-                <span class="text-gray-300">Silver Price: <span class="font-bold text-gray-400">$${metalPrices.silver_usd_per_oz.toFixed(2)}</span> USD/oz</span>
+                <span class="text-gray-300">Gold Price: <span class="font-bold text-yellow-400">${getCurrencySymbol(currencySetting)}${getCurrentPrice('gold', currencySetting, weightUnitSetting)}</span> ${currencySetting}/${weightUnitSetting}</span>
+                <span class="text-gray-300">Silver Price: <span class="font-bold text-gray-400">${getCurrencySymbol(currencySetting)}${getCurrentPrice('silver', currencySetting, weightUnitSetting)}</span> ${currencySetting}/${weightUnitSetting}</span>
                 <button onclick="showManualPriceModal()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
                     <i class="ph-bold ph-pencil-simple mr-1"></i>Update Prices
                 </button>
@@ -3352,7 +3379,7 @@
                                 <td class="p-2">${item.weight_grams || '-'}</td>
                                 <td class="p-2">${item.purity_percent || '-'}</td>
                                 <td class="p-2">${item.year || '-'}</td>
-                                <td class="p-2 font-bold text-emerald-400">$${calculateBullionValue(item).toFixed(2)}</td>
+                                <td class="p-2 font-bold text-emerald-400">${formatCurrency(calculateBullionValue(item), currencySetting)}</td>
                                 <td class="p-2">${item.notes || '-'}</td>
                                 <td class="p-2">${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:text-blue-300">Link</a>` : '-'}</td>
                                 <td class="p-2">
@@ -3486,20 +3513,50 @@
     function showManualPriceModal() {
         const modalHtml = `
             <div id="price-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg mx-4">
                     <h3 class="text-xl font-bold text-white mb-4">Update Metal Prices</h3>
+                    
+                    <!-- Currency and Unit Settings -->
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Currency</label>
+                            <select id="price-currency" class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                                <option value="USD" ${currencySetting === 'USD' ? 'selected' : ''}>USD</option>
+                                <option value="ZAR" ${currencySetting === 'ZAR' ? 'selected' : ''}>ZAR (South African Rand)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Weight Unit</label>
+                            <select id="price-weight-unit" class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                                <option value="oz" ${weightUnitSetting === 'oz' ? 'selected' : ''}>Ounces (oz)</option>
+                                <option value="g" ${weightUnitSetting === 'g' ? 'selected' : ''}>Grams (g)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Exchange Rate (for ZAR) -->
+                    <div id="exchange-rate-section" class="mb-4" style="display: ${currencySetting === 'ZAR' ? 'block' : 'none'};">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">USD to ZAR Exchange Rate</label>
+                        <input type="number" id="zar-exchange-rate" step="0.01" value="${zarExchangeRate}" 
+                               class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    
+                    <!-- Price Inputs -->
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Gold Price (USD per ounce)</label>
-                            <input type="number" id="manual-gold-price" step="0.01" value="${metalPrices.gold_usd_per_oz}" 
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Gold Price (${currencySetting} per ${weightUnitSetting})</label>
+                            <input type="number" id="manual-gold-price" step="0.01" 
+                                   value="${getCurrentPrice('gold', currencySetting, weightUnitSetting)}" 
                                    class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Silver Price (USD per ounce)</label>
-                            <input type="number" id="manual-silver-price" step="0.01" value="${metalPrices.silver_usd_per_oz}" 
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Silver Price (${currencySetting} per ${weightUnitSetting})</label>
+                            <input type="number" id="manual-silver-price" step="0.01" 
+                                   value="${getCurrentPrice('silver', currencySetting, weightUnitSetting)}" 
                                    class="w-full bg-gray-700 border-gray-600 rounded-md px-3 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
                         </div>
                     </div>
+                    
                     <div class="flex justify-end space-x-3 mt-6">
                         <button onclick="closePriceModal()" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md">Cancel</button>
                         <button onclick="updateManualPrices()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-md">Update Prices</button>
@@ -3508,6 +3565,10 @@
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Add event listeners for currency/unit changes
+        document.getElementById('price-currency').addEventListener('change', updatePriceLabels);
+        document.getElementById('price-weight-unit').addEventListener('change', updatePriceLabels);
     }
 
     function closePriceModal() {
@@ -3515,25 +3576,97 @@
         if (modal) modal.remove();
     }
 
+    // --- Price Conversion Helper Functions ---
+    function getCurrentPrice(metal, currency, unit) {
+        const ozToGram = 31.1035; // 1 ounce = 31.1035 grams
+        
+        let basePrice;
+        if (currency === 'USD') {
+            basePrice = metal === 'gold' ? metalPrices.gold_usd_per_oz : metalPrices.silver_usd_per_oz;
+        } else if (currency === 'ZAR') {
+            basePrice = metal === 'gold' ? metalPrices.gold_zar_per_oz : metalPrices.silver_zar_per_oz;
+        }
+        
+        if (unit === 'g') {
+            return (basePrice / ozToGram).toFixed(2);
+        }
+        return basePrice.toFixed(2);
+    }
+
+    function updatePriceLabels() {
+        const currency = document.getElementById('price-currency').value;
+        const unit = document.getElementById('price-weight-unit').value;
+        const exchangeRateSection = document.getElementById('exchange-rate-section');
+        
+        // Show/hide exchange rate section
+        exchangeRateSection.style.display = currency === 'ZAR' ? 'block' : 'none';
+        
+        // Update labels
+        const goldLabel = document.querySelector('label[for="manual-gold-price"]');
+        const silverLabel = document.querySelector('label[for="manual-silver-price"]');
+        
+        if (goldLabel) goldLabel.textContent = `Gold Price (${currency} per ${unit})`;
+        if (silverLabel) silverLabel.textContent = `Silver Price (${currency} per ${unit})`;
+        
+        // Update input values
+        const goldInput = document.getElementById('manual-gold-price');
+        const silverInput = document.getElementById('manual-silver-price');
+        
+        if (goldInput) goldInput.value = getCurrentPrice('gold', currency, unit);
+        if (silverInput) silverInput.value = getCurrentPrice('silver', currency, unit);
+    }
+
     function updateManualPrices() {
+        const currency = document.getElementById('price-currency').value;
+        const unit = document.getElementById('price-weight-unit').value;
         const goldPrice = parseFloat(document.getElementById('manual-gold-price').value);
         const silverPrice = parseFloat(document.getElementById('manual-silver-price').value);
+        const zarRate = parseFloat(document.getElementById('zar-exchange-rate').value) || zarExchangeRate;
         
         if (isNaN(goldPrice) || isNaN(silverPrice) || goldPrice <= 0 || silverPrice <= 0) {
             showCustomConfirm('Please enter valid prices greater than 0.', () => {});
             return;
         }
         
-        metalPrices.gold_usd_per_oz = goldPrice;
-        metalPrices.silver_usd_per_oz = silverPrice;
-        lastPriceUpdate = Date.now(); // Update timestamp
+        const ozToGram = 31.1035;
         
-        // Save to localStorage for persistence
+        // Convert to base prices (USD per ounce)
+        let goldUsdPerOz, silverUsdPerOz;
+        
+        if (currency === 'USD') {
+            goldUsdPerOz = unit === 'g' ? goldPrice * ozToGram : goldPrice;
+            silverUsdPerOz = unit === 'g' ? silverPrice * ozToGram : silverPrice;
+        } else if (currency === 'ZAR') {
+            const goldUsdPerUnit = unit === 'g' ? goldPrice * ozToGram : goldPrice;
+            const silverUsdPerUnit = unit === 'g' ? silverPrice * ozToGram : silverPrice;
+            goldUsdPerOz = goldUsdPerUnit / zarRate;
+            silverUsdPerOz = silverUsdPerUnit / zarRate;
+        }
+        
+        // Update all price formats
+        metalPrices.gold_usd_per_oz = goldUsdPerOz;
+        metalPrices.silver_usd_per_oz = silverUsdPerOz;
+        metalPrices.gold_zar_per_oz = goldUsdPerOz * zarRate;
+        metalPrices.silver_zar_per_oz = silverUsdPerOz * zarRate;
+        
+        // Update settings
+        currencySetting = currency;
+        weightUnitSetting = unit;
+        zarExchangeRate = zarRate;
+        
+        // Save to localStorage
+        localStorage.setItem('currency', currency);
+        localStorage.setItem('weightUnit', unit);
+        localStorage.setItem('zarExchangeRate', zarRate.toString());
         localStorage.setItem('metalPrices', JSON.stringify({
-            gold_usd_per_oz: goldPrice,
-            silver_usd_per_oz: silverPrice,
-            lastUpdate: lastPriceUpdate
+            gold_usd_per_oz: goldUsdPerOz,
+            silver_usd_per_oz: silverUsdPerOz,
+            gold_zar_per_oz: metalPrices.gold_zar_per_oz,
+            silver_zar_per_oz: metalPrices.silver_zar_per_oz,
+            lastUpdate: Date.now()
         }));
+        
+        lastPriceUpdate = Date.now();
         
         closePriceModal();
         renderBullionSection();
@@ -3548,6 +3681,8 @@
                 const savedPrices = JSON.parse(saved);
                 metalPrices.gold_usd_per_oz = savedPrices.gold_usd_per_oz || 2300;
                 metalPrices.silver_usd_per_oz = savedPrices.silver_usd_per_oz || 29.5;
+                metalPrices.gold_zar_per_oz = savedPrices.gold_zar_per_oz || (2300 * zarExchangeRate);
+                metalPrices.silver_zar_per_oz = savedPrices.silver_zar_per_oz || (29.5 * zarExchangeRate);
                 lastPriceUpdate = savedPrices.lastUpdate || 0;
                 console.log('Loaded saved metal prices:', metalPrices);
             } catch (e) {
