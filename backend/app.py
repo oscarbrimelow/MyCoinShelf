@@ -10,6 +10,7 @@ import datetime
 from functools import wraps
 import uuid # Import uuid for generating unique public IDs
 import requests # Import requests for metal price API calls
+from sqlalchemy import text # Import text for raw SQL queries
 
 # Import configuration
 from config import Config
@@ -603,29 +604,29 @@ def migrate_database():
         print("Starting database migration...")
         
         # Check if weight_grams column exists
-        result = db.session.execute("""
+        result = db.session.execute(text("""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = 'coin' AND column_name = 'weight_grams'
-        """)
+        """))
         
         if not result.fetchone():
             # Add weight_grams column
-            db.session.execute("ALTER TABLE coin ADD COLUMN weight_grams FLOAT")
+            db.session.execute(text("ALTER TABLE coin ADD COLUMN weight_grams FLOAT"))
             print("Added weight_grams column to coin table")
         else:
             print("weight_grams column already exists")
         
         # Check if purity_percent column exists
-        result = db.session.execute("""
+        result = db.session.execute(text("""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = 'coin' AND column_name = 'purity_percent'
-        """)
+        """))
         
         if not result.fetchone():
             # Add purity_percent column
-            db.session.execute("ALTER TABLE coin ADD COLUMN purity_percent FLOAT")
+            db.session.execute(text("ALTER TABLE coin ADD COLUMN purity_percent FLOAT"))
             print("Added purity_percent column to coin table")
         else:
             print("purity_percent column already exists")
@@ -652,27 +653,27 @@ def create_tables():
         # Check and add missing bullion columns if needed
         try:
             # Check if weight_grams column exists
-            result = db.session.execute("""
+            result = db.session.execute(text("""
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'coin' AND column_name = 'weight_grams'
-            """)
+            """))
             
             if not result.fetchone():
                 # Add weight_grams column
-                db.session.execute("ALTER TABLE coin ADD COLUMN weight_grams FLOAT")
+                db.session.execute(text("ALTER TABLE coin ADD COLUMN weight_grams FLOAT"))
                 print("Added weight_grams column to coin table")
             
             # Check if purity_percent column exists
-            result = db.session.execute("""
+            result = db.session.execute(text("""
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'coin' AND column_name = 'purity_percent'
-            """)
+            """))
             
             if not result.fetchone():
                 # Add purity_percent column
-                db.session.execute("ALTER TABLE coin ADD COLUMN purity_percent FLOAT")
+                db.session.execute(text("ALTER TABLE coin ADD COLUMN purity_percent FLOAT"))
                 print("Added purity_percent column to coin table")
             
             db.session.commit()
