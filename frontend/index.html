@@ -1302,11 +1302,7 @@
         // Update dashboard stats
         const totalItems = collectionData.length;
         const totalValue = collectionData.reduce((sum, item) => {
-            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
-                return sum + calculateBullionValue(item);
-            } else {
-                return sum + (item.value || 0);
-            }
+            return sum + getItemValueInCurrency(item, currencySetting);
         }, 0);
         const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
 
@@ -1346,26 +1342,22 @@
             return newest;
         }, null);
 
-        // For highest value, use calculated value for bullion
-        const highestValueItem = collectionData.reduce((highest, current) => {
-            const currentValue = (current.type === 'Gold Bullion' || current.type === 'Silver Bullion') ? calculateBullionValue(current) : (current.value || 0);
-            const highestValue = (highest && (highest.type === 'Gold Bullion' || highest.type === 'Silver Bullion')) ? calculateBullionValue(highest) : (highest && highest.value || 0);
-            if (!highest || currentValue > highestValue) {
-                return current;
-            }
-            return highest;
-        }, null);
+            // For highest value, use calculated value for bullion
+    const highestValueItem = collectionData.reduce((highest, current) => {
+        const currentValue = getItemValueInCurrency(current, currencySetting);
+        const highestValue = highest ? getItemValueInCurrency(highest, currencySetting) : 0;
+        if (!highest || currentValue > highestValue) {
+            return current;
+        }
+        return highest;
+    }, null);
 
-        let highlightsHtml = '<ul class="space-y-2">';
-        highlightsHtml += `<li><strong>Total Items:</strong> ${collectionData.length}</li>`;
-        const totalValue = collectionData.reduce((sum, item) => {
-            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
-                return sum + calculateBullionValue(item);
-            } else {
-                return sum + (item.value || 0);
-            }
-        }, 0);
-        highlightsHtml += `<li><strong>Total Estimated Value:</strong> ${formatCurrency(totalValue, currencySetting)}</li>`;
+            let highlightsHtml = '<ul class="space-y-2">';
+    highlightsHtml += `<li><strong>Total Items:</strong> ${collectionData.length}</li>`;
+    const totalValue = collectionData.reduce((sum, item) => {
+        return sum + getItemValueInCurrency(item, currencySetting);
+    }, 0);
+    highlightsHtml += `<li><strong>Total Estimated Value:</strong> ${formatCurrency(totalValue, currencySetting)}</li>`;
         highlightsHtml += `<li><strong>Unique Countries Represented:</strong> ${new Set(collectionData.map(item => item.country)).size}</li>`;
 
         if (oldestItem) {
@@ -1374,10 +1366,10 @@
         if (newestItem) {
             highlightsHtml += `<li><strong>Newest Item:</strong> ${newestItem.denomination} from ${newestItem.country} (${newestItem.year})</li>`;
         }
-        if (highestValueItem) {
-            const highestValue = (highestValueItem.type === 'Gold Bullion' || highestValueItem.type === 'Silver Bullion') ? calculateBullionValue(highestValueItem) : (highestValueItem.value || 0);
-            highlightsHtml += `<li><strong>Highest Value Item:</strong> ${highestValueItem.denomination} from ${highestValueItem.country} (${formatCurrency(highestValue, currencySetting)})</li>`;
-        }
+            if (highestValueItem) {
+        const highestValue = getItemValueInCurrency(highestValueItem, currencySetting);
+        highlightsHtml += `<li><strong>Highest Value Item:</strong> ${highestValueItem.denomination} from ${highestValueItem.country} (${formatCurrency(highestValue, currencySetting)})</li>`;
+    }
         highlightsHtml += '</ul>';
         highlightsDiv.innerHTML = highlightsHtml;
     }
@@ -1914,7 +1906,7 @@
                 <td class="p-4">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
                 <td class="p-4">${item.year || 'N/A'}</td>
                 <td class="p-4">${item.denomination}</td>
-                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
+                <td class="p-4">${formatCurrency(getItemValueInCurrency(item, currencySetting), currencySetting)}</td>
                 <td class="p-4">
                     <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
                     ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
@@ -3360,6 +3352,36 @@
         return `${symbol}${amount.toFixed(2)}`;
     }
 
+    // --- Currency Conversion Functions ---
+    function convertToCurrency(value, fromCurrency, toCurrency) {
+        if (fromCurrency === toCurrency) return value;
+        
+        if (fromCurrency === 'USD' && toCurrency === 'ZAR') {
+            return value * zarExchangeRate;
+        } else if (fromCurrency === 'ZAR' && toCurrency === 'USD') {
+            return value / zarExchangeRate;
+        }
+        
+        return value; // Fallback
+    }
+
+    function getItemValueInCurrency(item, targetCurrency) {
+        let baseValue;
+        
+        if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+            // For bullion, calculate the USD value first, then convert
+            if (!item.weight_grams || !item.purity_percent) return 0;
+            
+            const price = item.type === 'Gold Bullion' ? metalPrices.gold_usd_per_oz : metalPrices.silver_usd_per_oz;
+            baseValue = ((item.weight_grams / 31.1035) * (item.purity_percent / 100) * price) || 0;
+        } else {
+            // For regular items, assume the stored value is in USD
+            baseValue = item.value || 0;
+        }
+        
+        return convertToCurrency(baseValue, 'USD', targetCurrency);
+    }
+
     // --- Calculate Bullion Value ---
     function calculateBullionValue(item) {
         if (!item.weight_grams || !item.purity_percent) return 0;
@@ -3423,7 +3445,7 @@
                                 <td class="p-2">${item.weight_grams || '-'}</td>
                                 <td class="p-2">${item.purity_percent || '-'}</td>
                                 <td class="p-2">${item.year || '-'}</td>
-                                <td class="p-2 font-bold text-emerald-400">${formatCurrency(calculateBullionValue(item), currencySetting)}</td>
+                                <td class="p-2 font-bold text-emerald-400">${formatCurrency(getItemValueInCurrency(item, currencySetting), currencySetting)}</td>
                                 <td class="p-2">${item.notes || '-'}</td>
                                 <td class="p-2">${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:text-blue-300">Link</a>` : '-'}</td>
                                 <td class="p-2">
@@ -3756,11 +3778,7 @@
         // Update all value displays throughout the app
         if (document.getElementById('dashboard-total-value')) {
             const totalValue = collectionData.reduce((sum, item) => {
-                if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
-                    return sum + calculateBullionValue(item);
-                } else {
-                    return sum + (item.value || 0);
-                }
+                return sum + getItemValueInCurrency(item, currencySetting);
             }, 0);
             document.getElementById('dashboard-total-value').innerText = formatCurrency(totalValue, currencySetting);
         }
@@ -3772,17 +3790,16 @@
             if (itemId) {
                 const item = collectionData.find(coin => coin.id === parseInt(itemId));
                 if (item) {
-                    if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
-                        cell.textContent = formatCurrency(calculateBullionValue(item), currencySetting);
-                    } else {
-                        cell.textContent = formatCurrency(item.value || 0, currencySetting);
-                    }
+                    cell.textContent = formatCurrency(getItemValueInCurrency(item, currencySetting), currencySetting);
                 }
             }
         });
         
         // Update bullion section
         renderBullionSection();
+        
+        // Re-render dashboard highlights
+        renderCollectionHighlights();
     }
 
     // --- Bullion Edit and Delete Functions ---
