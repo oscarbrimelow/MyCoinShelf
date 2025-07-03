@@ -913,14 +913,10 @@
                     silver: data.silver_usd_per_oz
                 };
                 updateMetalPriceDisplay();
-            } else {
-                console.warn('Failed to fetch metal prices, using fallback values');
-                updateMetalPriceDisplay(); // Update with fallback prices
             }
         } catch (error) {
             console.error('Error fetching metal prices:', error);
-            // Keep using fallback prices and update display
-            updateMetalPriceDisplay();
+            // Keep using fallback prices
         }
     }
 
@@ -1150,12 +1146,7 @@
         }
         catch (error) {
             console.error("Error loading collection from backend:", error);
-            console.error("Error details:", {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            });
-            showCustomConfirm(`Failed to load collection: ${error.message}. Please try logging in again or check backend server.`, () => {});
+            showCustomConfirm('Failed to load collection. Please try logging in again or check backend server.', () => {});
             collectionData = []; // Clear local data on load error
             renderAllViews();
         }
@@ -1265,10 +1256,6 @@
                 </div>
             `;
             attachFormEventListeners(); // Re-attach event listeners after recreating elements
-            // Ensure form fields are properly toggled after reinitializing
-            setTimeout(() => {
-                toggleFormFields('Coin');
-            }, 50);
         }
         document.getElementById('modal-title').innerText = 'Add New Item'; // Reset title
     }
@@ -1311,19 +1298,12 @@
             newCancelBtn.addEventListener('click', () => closeModal(modalElement, modalContentElement));
         }
 
+
         const oldSubmitBtn = form.querySelector('button[type="submit"]');
         if (oldSubmitBtn) { // Check if element exists before replacing
             const newSubmitBtn = oldSubmitBtn.cloneNode(true);
             oldSubmitBtn.parentNode.replaceChild(newSubmitBtn, oldSubmitBtn);
             newSubmitBtn.addEventListener('click', handleFormSubmission);
-        }
-
-        // Add event listener for type dropdown to toggle form fields
-        const typeSelect = document.getElementById('type');
-        if (typeSelect) {
-            typeSelect.addEventListener('change', (e) => {
-                toggleFormFields(e.target.value);
-            });
         }
     }
 
@@ -3000,10 +2980,6 @@
                 }
                 clearItemForm();
                 openModal('item-modal');
-                // Ensure form fields are properly toggled after modal opens
-                setTimeout(() => {
-                    toggleFormFields('Coin');
-                }, 50);
                 if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
@@ -3427,11 +3403,6 @@
                     history.replaceState(null, '', window.location.pathname); // Clear public URL param
                 } catch (error) {
                     console.error("Login error:", error.message);
-                    console.error("Login error details:", {
-                        message: error.message,
-                        stack: error.stack,
-                        name: error.name
-                    });
                     showCustomConfirm(`Login failed: ${error.message}`, () => {});
                 }
             });
