@@ -955,6 +955,7 @@
             }
             collectionData = await response.json();
             console.log("Collection data loaded from backend:", collectionData);
+            console.log("Number of items in collection:", collectionData.length);
 
             // Region and isHistorical are now calculated by the backend upon add/update.
             // We just ensure the data is present in case older data exists or for consistency.
@@ -1794,6 +1795,8 @@
     let currentSort = { column: null, direction: 'asc' };
 
     function renderCollection(filteredData = collectionData) {
+        console.log('Rendering collection with data:', filteredData);
+        console.log('Number of items to render:', filteredData.length);
         const collectionContent = document.getElementById('content-collection');
         const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
         if (!collectionContentWrapper) return;
@@ -1835,7 +1838,22 @@
             </div>
         `;
         initializeFilters();
-        renderCollectionTable(filteredData);
+        if (filteredData.length === 0) {
+            const tableBody = document.getElementById('collection-table-body');
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="p-8 text-center text-gray-500">
+                        <div class="flex flex-col items-center space-y-4">
+                            <i class="ph ph-coin text-4xl"></i>
+                            <p class="text-lg">Your collection is empty</p>
+                            <p class="text-sm">Click the "Quick Add" button to add your first item!</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        } else {
+            renderCollectionTable(filteredData);
+        }
         attachSortEventListeners();
     };
 
@@ -1900,6 +1918,8 @@
 
     // Render Map
     function renderGeoChart() {
+        console.log('Rendering GeoChart with collection data:', collectionData);
+        console.log('Number of items for map:', collectionData.length);
         const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
         if (!mapContentWrapper) {
             console.error('Error: GeoChart content wrapper element not found!');
