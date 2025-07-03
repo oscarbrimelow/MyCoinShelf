@@ -3233,11 +3233,23 @@
     });
 
     // --- Metal Prices State ---
-    let metalPrices = { gold_usd_per_oz: 0, silver_usd_per_oz: 0 };
+    let metalPrices = { gold_usd_per_oz: 2300, silver_usd_per_oz: 29.5 };
+    let lastPriceUpdate = 0;
+    const PRICE_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
 
-    // --- Fetch Metal Prices ---
-    async function fetchMetalPrices() {
+    // --- Fetch Metal Prices (with caching) ---
+    async function fetchMetalPrices(forceRefresh = false) {
+        const now = Date.now();
+        
+        // Check if we have cached prices that are still valid
+        if (!forceRefresh && (now - lastPriceUpdate) < PRICE_CACHE_DURATION && metalPrices.gold_usd_per_oz > 0) {
+            console.log('Using cached metal prices (last updated:', new Date(lastPriceUpdate).toLocaleTimeString(), ')');
+            renderBullionSection();
+            return;
+        }
+
         try {
+            console.log('Fetching fresh metal prices...');
             const res = await fetch(`${API_BASE_URL}/prices/metals`);
             if (res.ok) {
                 const data = await res.json();
@@ -3245,6 +3257,7 @@
                     gold_usd_per_oz: data.gold_usd_per_oz || 2300,
                     silver_usd_per_oz: data.silver_usd_per_oz || 29.5
                 };
+                lastPriceUpdate = now;
                 console.log(`Metal prices updated: Gold $${metalPrices.gold_usd_per_oz}/oz, Silver $${metalPrices.silver_usd_per_oz}/oz (Source: ${data.source || 'unknown'})`);
             } else {
                 console.warn('Failed to fetch metal prices, using fallback values');
@@ -3279,7 +3292,7 @@
         let html = `<div class="mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
             <div class="flex justify-between items-center mb-3">
                 <h2 class="text-xl font-bold text-yellow-400">Bullion / Gold / Silver</h2>
-                <button onclick="fetchMetalPrices()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+                <button onclick="fetchMetalPrices(true)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
                     <i class="ph-bold ph-arrows-clockwise mr-1"></i>Refresh Prices
                 </button>
             </div>
@@ -3347,7 +3360,8 @@
             wrapper.id = 'bullion-section';
             parent.insertBefore(wrapper, parent.firstChild);
         }
-        fetchMetalPrices();
+        // Only fetch prices if we don't have them cached or if cache is expired
+        fetchMetalPrices(false); // Use cached prices if available
         origRenderCollection(filteredData);
     }
 
