@@ -596,10 +596,12 @@ def get_public_coins(public_id):
     return jsonify(output), 200
 
 # --- Database Migration Endpoint ---
-@app.route('/api/migrate_database', methods=['POST'])
+@app.route('/api/migrate_database', methods=['GET', 'POST'])
 def migrate_database():
     """Add missing bullion columns to existing database"""
     try:
+        print("Starting database migration...")
+        
         # Check if weight_grams column exists
         result = db.session.execute("""
             SELECT column_name 
@@ -611,6 +613,8 @@ def migrate_database():
             # Add weight_grams column
             db.session.execute("ALTER TABLE coin ADD COLUMN weight_grams FLOAT")
             print("Added weight_grams column to coin table")
+        else:
+            print("weight_grams column already exists")
         
         # Check if purity_percent column exists
         result = db.session.execute("""
@@ -623,8 +627,11 @@ def migrate_database():
             # Add purity_percent column
             db.session.execute("ALTER TABLE coin ADD COLUMN purity_percent FLOAT")
             print("Added purity_percent column to coin table")
+        else:
+            print("purity_percent column already exists")
         
         db.session.commit()
+        print("Database migration completed successfully!")
         return jsonify({'message': 'Database migration completed successfully!'}), 200
         
     except Exception as e:
