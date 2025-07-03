@@ -1112,6 +1112,9 @@
             oldSubmitBtn.parentNode.replaceChild(newSubmitBtn, oldSubmitBtn);
             newSubmitBtn.addEventListener('click', handleFormSubmission);
         }
+        
+        // Attach bullion event listeners
+        attachBullionEventListeners();
     }
 
     async function handleFormSubmission(e) {
@@ -1123,17 +1126,26 @@
 
         const itemId = document.getElementById('item-id').value;
         const countryValue = document.getElementById('country').value.trim();
+        const typeValue = document.getElementById('type').value;
+        const isBullion = (typeValue === 'Gold Bullion' || typeValue === 'Silver Bullion');
 
-        if (!countryValue || !document.getElementById('denomination').value.trim()) {
+        // For bullion, only country is required (denomination is auto-set to type)
+        if (!countryValue) {
+            showCustomConfirm('Country is a required field.', () => {});
+            return;
+        }
+
+        // For non-bullion items, denomination is required
+        if (!isBullion && !document.getElementById('denomination').value.trim()) {
             showCustomConfirm('Country and Denomination are required fields.', () => {});
             return;
         }
 
         const itemData = {
-            type: document.getElementById('type').value,
+            type: typeValue,
             country: countryValue,
             year: document.getElementById('year').value ? parseInt(document.getElementById('year').value) : null,
-            denomination: document.getElementById('denomination').value.trim(),
+            denomination: isBullion ? typeValue : document.getElementById('denomination').value.trim(),
             value: parseFloat(document.getElementById('value').value) || 0,
             notes: document.getElementById('notes').value.trim(),
             referenceUrl: document.getElementById('referenceUrl').value.trim(),
@@ -3353,14 +3365,28 @@
     function toggleBullionFields() {
         const type = document.getElementById('type').value;
         const show = (type === 'Gold Bullion' || type === 'Silver Bullion');
-        document.getElementById('bullion-fields').style.display = show ? '' : 'none';
-        document.getElementById('denomination').parentElement.style.display = show ? 'none' : '';
-        document.getElementById('value').parentElement.style.display = show ? 'none' : '';
+        const bullionFields = document.getElementById('bullion-fields');
+        const denominationField = document.getElementById('denomination').parentElement;
+        const valueField = document.getElementById('value').parentElement;
+        
+        if (bullionFields) bullionFields.style.display = show ? '' : 'none';
+        if (denominationField) denominationField.style.display = show ? 'none' : '';
+        if (valueField) valueField.style.display = show ? 'none' : '';
+        
+        // For bullion, set denomination to the type (e.g., "Gold Bullion")
+        if (show && document.getElementById('denomination')) {
+            document.getElementById('denomination').value = type;
+        }
     }
 
-    document.getElementById('type').addEventListener('change', toggleBullionFields);
-
-    toggleBullionFields(); // On load
+    // Add event listener when the type field exists
+    function attachBullionEventListeners() {
+        const typeField = document.getElementById('type');
+        if (typeField) {
+            typeField.addEventListener('change', toggleBullionFields);
+            toggleBullionFields(); // Initialize on load
+        }
+    }
 
     // --- Patch Collection Rendering ---
     function renderCollection(filteredData = collectionData) {
@@ -3378,6 +3404,9 @@
         
         // Only fetch prices if we don't have them cached or if cache is expired
         fetchMetalPrices(false); // Use cached prices if available
+        
+        // Force render the bullion section
+        renderBullionSection();
         
         // Now call the original renderCollection logic
         const collectionContent = document.getElementById('content-collection');
