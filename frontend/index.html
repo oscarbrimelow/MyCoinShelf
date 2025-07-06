@@ -505,7 +505,7 @@
                             Get Started - Sign Up
                         </button>
                         <button id="home-learn-more-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-md text-lg transition-colors shadow-lg">
-                            Learn More (Go to Dashboard)
+                            Learn More
                         </button>
                     </div>
                 </div>
@@ -3111,7 +3111,7 @@
             console.log('Found home-learn-more-btn');
             homeLearnMoreBtn.addEventListener('click', () => {
                 console.log('home-learn-more-btn clicked');
-                showView('content-dashboard'); // Redirects to dashboard
+                showView('content-about'); // Redirects to About page
                 if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
                     toggleSidebar();
                 }
