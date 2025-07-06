@@ -893,10 +893,10 @@
             <form id="item-form">
                 <input type="hidden" id="item-id">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Form fields -->
+                    <!-- Group 1: Type, Country, Year, Value -->
                     <div>
-                        <label for="type" class="block text-sm font-medium text-gray-400">Type</label>
-                        <select id="type" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <label for="type" class="block text-sm font-medium text-gray-400">Type <span class="text-red-400">*</span></label>
+                        <select id="type" required aria-label="Type" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                             <option>Coin</option>
                             <option>Banknote</option>
                             <option>Gold Bullion</option>
@@ -904,54 +904,64 @@
                         </select>
                     </div>
                     <div>
-                        <label for="country" class="block text-sm font-medium text-gray-400">Country</label>
-                        <input type="text" id="country" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <label for="country" class="block text-sm font-medium text-gray-400">Country <span class="text-red-400">*</span></label>
+                        <input type="text" id="country" required aria-label="Country" placeholder="e.g., South Africa" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
                     <div>
                         <label for="year" class="block text-sm font-medium text-gray-400">Year</label>
-                        <input type="number" id="year" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
-                    </div>
-                     <div>
-                        <label for="value" class="block text-sm font-medium text-gray-400">Estimated Value (USD)</label>
-                        <input type="number" step="0.01" id="value" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <input type="number" id="year" aria-label="Year" placeholder="e.g., 2023" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
                     <div>
-                        <label for="quantity" class="block text-sm font-medium text-gray-400">Quantity</label>
-                        <input type="number" id="quantity" min="1" value="1" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <label for="value" class="block text-sm font-medium text-gray-400">Estimated Value (USD)</label>
+                        <input type="number" step="0.01" id="value" aria-label="Estimated Value" placeholder="e.g., 100.00" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <span class="text-xs text-gray-500">Leave blank if unknown</span>
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="denomination" class="block text-sm font-medium text-gray-400">Denomination</label>
-                        <input type="text" id="denomination" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    <!-- Group 2: Denomination, Quantity -->
+                    <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="denomination" class="block text-sm font-medium text-gray-400">Denomination <span class="text-red-400">*</span></label>
+                            <input type="text" id="denomination" required aria-label="Denomination" placeholder="e.g., 1 Rand, $1" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label for="quantity" class="block text-sm font-medium text-gray-400">Quantity <span class="text-red-400">*</span></label>
+                            <input type="number" id="quantity" min="1" value="1" required aria-label="Quantity" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
                     </div>
+                    <!-- Group 3: Notes (full width) -->
                     <div class="md:col-span-2">
                         <label for="notes" class="block text-sm font-medium text-gray-400">Notes</label>
-                        <textarea id="notes" rows="3" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"></textarea>
+                        <textarea id="notes" rows="3" aria-label="Notes" placeholder="Any extra details, history, or condition..." class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"></textarea>
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="referenceUrl" class="block text-sm font-medium text-gray-400">Reference URL (eBay, etc.)</label>
-                        <input type="text" id="referenceUrl" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                    <!-- Group 4: Reference URL, Local Image Path (full width) -->
+                    <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="referenceUrl" class="block text-sm font-medium text-gray-400">Reference URL</label>
+                            <input type="text" id="referenceUrl" aria-label="Reference URL" placeholder="e.g., eBay, Numista, etc." class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label for="localImagePath" class="block text-sm font-medium text-gray-400">Local Image Path</label>
+                            <input type="text" id="localImagePath" aria-label="Local Image Path" placeholder="e.g., C:\Users\You\Pictures\Coins\my_coin.jpg" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            <span class="text-xs text-gray-500">Optional. Used for local display only.</span>
+                        </div>
                     </div>
-                    <div class="md:col-span-2">
-                        <label for="localImagePath" class="block text-sm font-medium text-gray-400">Local Image Path</label>
-                        <input type="text" id="localImagePath" placeholder="e.g., C:\Users\YourName\Pictures\Coins\my_coin.jpg" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
-                    </div>
-                    <!-- --- Bullion Fields (hidden by default, shown for Gold/Silver Bullion) --- -->
+                    <!-- Bullion Fields (hidden by default, shown for Gold/Silver Bullion) -->
                     <div id="bullion-fields" class="md:col-span-2" style="display:none;">
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label for="weight_grams" class="block text-sm font-medium text-gray-400">Weight (grams)</label>
-                                <input type="number" id="weight_grams" step="0.01" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                <input type="number" id="weight_grams" step="0.01" aria-label="Weight in grams" placeholder="e.g., 31.1035" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                             </div>
                             <div>
                                 <label for="purity_percent" class="block text-sm font-medium text-gray-400">Purity (%)</label>
-                                <input type="number" id="purity_percent" step="0.01" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                <input type="number" id="purity_percent" step="0.01" aria-label="Purity percent" placeholder="e.g., 99.9" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                             </div>
                         </div>
+                        <span class="text-xs text-gray-500">Only required for bullion items.</span>
                     </div>
                 </div>
                 <div class="flex justify-end mt-8">
                     <button type="button" id="cancel-btn" class="mr-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
-                    <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-md transition-colors">Save Item</button>
+                    <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-8 rounded-md shadow-lg text-base transition-colors">Save Item</button>
                 </div>
             </form>
         </div>
