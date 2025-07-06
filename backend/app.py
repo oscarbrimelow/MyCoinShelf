@@ -585,8 +585,8 @@ def forgot_password():
     db.session.add(reset_token_obj)
     db.session.commit()
 
-    # Generate reset URL
-    reset_url = f"https://mycoinshelf.com/reset-password?token={reset_token}"
+    # Generate reset URL - point to main app with token parameter
+    reset_url = f"https://mycoinshelf.com/?token={reset_token}"
 
     # Generate email content
     html_content, text_content = generate_password_reset_email(email, reset_token, reset_url)
