@@ -312,7 +312,7 @@ def send_email(to_email, subject, html_content, text_content=None):
     try:
         if RESEND_AVAILABLE:
             # Use Resend
-            resend.api_key = os.environ.get('re_iuKwsuj8_ANTNfGNb2w5BwHQqCtz1DxvL')
+            resend.api_key = os.environ.get('RESEND_API_KEY', 're_iuKwsuj8_ANTNfGNb2w5BwHQqCtz1DxvL')
             from_email = os.environ.get('RESEND_FROM_EMAIL', 'noreply@mycoinshelf.com')
             
             params = {
