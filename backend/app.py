@@ -206,6 +206,10 @@ def is_historical_item(country_name, year):
 
 # --- Routes ---
 
+@app.route('/')
+def index():
+    return 'CoinShelf backend is running!', 200
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
