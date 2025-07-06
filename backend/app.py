@@ -15,8 +15,54 @@ from sqlalchemy import text # Import text for raw SQL queries
 # Import configuration
 from config import Config
 
-# Import the new reliable price fetcher
-from google_finance_prices import price_fetcher
+# Import the new reliable price fetcher (optional)
+try:
+    from google_finance_prices import price_fetcher
+    PRICE_FETCHER_AVAILABLE = True
+except ImportError:
+    print("Warning: google_finance_prices module not found, using fallback price fetching")
+    PRICE_FETCHER_AVAILABLE = False
+    price_fetcher = None
+
+# Simple Yahoo Finance price fetcher as fallback
+def fetch_yahoo_finance_prices():
+    """Fetch prices from Yahoo Finance (no API key required)"""
+    try:
+        import requests
+        from datetime import datetime
+        
+        # Yahoo Finance symbols for gold and silver
+        symbols = {
+            'gold': 'GC=F',  # Gold futures
+            'silver': 'SI=F',  # Silver futures
+            'usd_zar': 'USDZAR=X'  # USD to ZAR
+        }
+        
+        prices = {}
+        
+        for metal, symbol in symbols.items():
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+            response = requests.get(url, timeout=10)
+            data = response.json()
+            
+            if data.get('chart', {}).get('result'):
+                result = data['chart']['result'][0]
+                if result.get('meta', {}).get('regularMarketPrice'):
+                    prices[metal] = result['meta']['regularMarketPrice']
+        
+        if len(prices) == 3:  # All prices fetched
+            return {
+                'gold_usd_per_oz': prices['gold'],
+                'silver_usd_per_oz': prices['silver'],
+                'gold_zar_per_oz': prices['gold'] * prices['usd_zar'],
+                'silver_zar_per_oz': prices['silver'] * prices['usd_zar'],
+                'lastUpdate': datetime.utcnow().isoformat()
+            }
+        
+    except Exception as e:
+        print(f"Yahoo Finance error: {e}")
+    
+    return None
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -461,22 +507,36 @@ def clear_all_coins(current_user):
 def get_metal_prices():
     """Fetch live gold and silver prices using multiple reliable sources"""
     try:
-        # Use the new reliable price fetcher
-        prices = price_fetcher.get_prices()
-        
-        if prices and prices['gold_usd_per_oz'] > 0 and prices['silver_usd_per_oz'] > 0:
+        # Try Yahoo Finance first (no API key required)
+        yahoo_prices = fetch_yahoo_finance_prices()
+        if yahoo_prices and yahoo_prices['gold_usd_per_oz'] > 0 and yahoo_prices['silver_usd_per_oz'] > 0:
             return jsonify({
-                'gold_usd_per_oz': round(prices['gold_usd_per_oz'], 2),
-                'silver_usd_per_oz': round(prices['silver_usd_per_oz'], 2),
-                'gold_zar_per_oz': round(prices['gold_zar_per_oz'], 2),
-                'silver_zar_per_oz': round(prices['silver_zar_per_oz'], 2),
+                'gold_usd_per_oz': round(yahoo_prices['gold_usd_per_oz'], 2),
+                'silver_usd_per_oz': round(yahoo_prices['silver_usd_per_oz'], 2),
+                'gold_zar_per_oz': round(yahoo_prices['gold_zar_per_oz'], 2),
+                'silver_zar_per_oz': round(yahoo_prices['silver_zar_per_oz'], 2),
                 'timestamp': datetime.datetime.utcnow().isoformat(),
-                'source': 'reliable_apis',
-                'lastUpdate': prices.get('lastUpdate')
+                'source': 'Yahoo Finance',
+                'lastUpdate': yahoo_prices.get('lastUpdate')
             }), 200
-        else:
-            # Fallback to CoinGecko if reliable fetcher fails
-            return _fallback_to_coingecko()
+        
+        # Use the new reliable price fetcher if available
+        if PRICE_FETCHER_AVAILABLE and price_fetcher:
+            prices = price_fetcher.get_prices()
+            
+            if prices and prices['gold_usd_per_oz'] > 0 and prices['silver_usd_per_oz'] > 0:
+                return jsonify({
+                    'gold_usd_per_oz': round(prices['gold_usd_per_oz'], 2),
+                    'silver_usd_per_oz': round(prices['silver_usd_per_oz'], 2),
+                    'gold_zar_per_oz': round(prices['gold_zar_per_oz'], 2),
+                    'silver_zar_per_oz': round(prices['silver_zar_per_oz'], 2),
+                    'timestamp': datetime.datetime.utcnow().isoformat(),
+                    'source': 'reliable_apis',
+                    'lastUpdate': prices.get('lastUpdate')
+                }), 200
+        
+        # Fallback to CoinGecko if reliable fetcher is not available or fails
+        return _fallback_to_coingecko()
             
     except Exception as e:
         print(f"Error with reliable price fetcher: {e}")
