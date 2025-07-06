@@ -111,7 +111,7 @@ class ReliablePriceFetcher:
         """Fetch from Alpha Vantage API (free tier available)"""
         try:
             # You'd need to get a free API key from https://www.alphavantage.co/
-            api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
+            api_key = os.getenv('QKBD34PXNS85D5WH')
             if not api_key:
                 return None
             
