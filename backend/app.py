@@ -41,14 +41,44 @@ def fetch_yahoo_finance_prices():
         prices = {}
         
         for metal, symbol in symbols.items():
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-            response = requests.get(url, timeout=10)
-            data = response.json()
-            
-            if data.get('chart', {}).get('result'):
-                result = data['chart']['result'][0]
-                if result.get('meta', {}).get('regularMarketPrice'):
-                    prices[metal] = result['meta']['regularMarketPrice']
+            try:
+                url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+                response = requests.get(url, headers=headers, timeout=10)
+                
+                # Check if response is valid
+                if response.status_code != 200:
+                    print(f"Yahoo Finance HTTP error for {symbol}: {response.status_code}")
+                    continue
+                
+                # Check if response has content
+                if not response.text.strip():
+                    print(f"Yahoo Finance empty response for {symbol}")
+                    continue
+                
+                # Try to parse JSON
+                try:
+                    data = response.json()
+                except ValueError as json_error:
+                    print(f"Yahoo Finance JSON parse error for {symbol}: {json_error}")
+                    print(f"Response content: {response.text[:200]}...")
+                    continue
+                
+                if data.get('chart', {}).get('result'):
+                    result = data['chart']['result'][0]
+                    if result.get('meta', {}).get('regularMarketPrice'):
+                        prices[metal] = result['meta']['regularMarketPrice']
+                        print(f"Successfully fetched {metal} price: {prices[metal]}")
+                    else:
+                        print(f"No price data in Yahoo Finance response for {symbol}")
+                else:
+                    print(f"No chart result in Yahoo Finance response for {symbol}")
+                    
+            except requests.RequestException as req_error:
+                print(f"Yahoo Finance request error for {symbol}: {req_error}")
+                continue
         
         if len(prices) == 3:  # All prices fetched
             return {
@@ -58,9 +88,11 @@ def fetch_yahoo_finance_prices():
                 'silver_zar_per_oz': prices['silver'] * prices['usd_zar'],
                 'lastUpdate': datetime.utcnow().isoformat()
             }
+        else:
+            print(f"Yahoo Finance: Only got {len(prices)} out of 3 prices: {list(prices.keys())}")
         
     except Exception as e:
-        print(f"Yahoo Finance error: {e}")
+        print(f"Yahoo Finance general error: {e}")
     
     return None
 
@@ -545,6 +577,25 @@ def get_metal_prices():
 def _fallback_to_coingecko():
     """Fallback to CoinGecko API"""
     try:
+        print("Trying CoinGecko API as fallback...")
+        
+        # First try to get USD/ZAR exchange rate
+        zar_rate = 18.5  # Default fallback rate
+        try:
+            zar_url = "https://api.coingecko.com/api/v3/simple/price"
+            zar_params = {
+                'ids': 'usd-coin',
+                'vs_currencies': 'zar'
+            }
+            zar_response = requests.get(zar_url, params=zar_params, timeout=10)
+            if zar_response.status_code == 200:
+                zar_data = zar_response.json()
+                zar_rate = zar_data.get('usd-coin', {}).get('zar', 18.5)
+                print(f"CoinGecko ZAR rate: {zar_rate}")
+        except Exception as zar_error:
+            print(f"CoinGecko ZAR rate error: {zar_error}")
+        
+        # Get gold and silver prices
         url = "https://api.coingecko.com/api/v3/simple/price"
         params = {
             'ids': 'gold,silver',
@@ -565,17 +616,27 @@ def _fallback_to_coingecko():
             silver_price_per_oz = silver_price_per_gram * 31.1035
             
             if gold_price_per_oz > 0 and silver_price_per_oz > 0:
+                print(f"CoinGecko prices - Gold: ${gold_price_per_oz:.2f}, Silver: ${silver_price_per_oz:.2f}")
                 return jsonify({
                     'gold_usd_per_oz': round(gold_price_per_oz, 2),
                     'silver_usd_per_oz': round(silver_price_per_oz, 2),
+                    'gold_zar_per_oz': round(gold_price_per_oz * zar_rate, 2),
+                    'silver_zar_per_oz': round(silver_price_per_oz * zar_rate, 2),
                     'timestamp': datetime.datetime.utcnow().isoformat(),
                     'source': 'CoinGecko'
                 }), 200
+            else:
+                print("CoinGecko returned zero prices")
+        else:
+            print(f"CoinGecko HTTP error: {response.status_code}")
         
         # Final fallback to static prices
+        print("Using static fallback prices")
         return jsonify({
             'gold_usd_per_oz': 2300.00,
             'silver_usd_per_oz': 29.50,
+            'gold_zar_per_oz': 42550.00,  # 2300 * 18.5
+            'silver_zar_per_oz': 545.75,  # 29.50 * 18.5
             'timestamp': datetime.datetime.utcnow().isoformat(),
             'note': 'Using fallback prices - all APIs unavailable',
             'source': 'fallback'
@@ -586,6 +647,8 @@ def _fallback_to_coingecko():
         return jsonify({
             'gold_usd_per_oz': 2300.00,
             'silver_usd_per_oz': 29.50,
+            'gold_zar_per_oz': 42550.00,  # 2300 * 18.5
+            'silver_zar_per_oz': 545.75,  # 29.50 * 18.5
             'timestamp': datetime.datetime.utcnow().isoformat(),
             'note': 'Using fallback prices - network error',
             'source': 'fallback'
