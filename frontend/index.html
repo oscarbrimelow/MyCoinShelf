@@ -419,6 +419,9 @@
                     <a href="#" id="nav-home" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
                         <i class="ph-bold ph-house-simple mr-3"></i> Home
                     </a>
+                    <a href="#" id="nav-about" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-info mr-3"></i> About CoinShelf
+                    </a>
                     <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
                     </a>
@@ -434,9 +437,6 @@
                     <a href="#" id="nav-settings" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-gear mr-3"></i> Account Settings
                     </a>
-                    <a href="#" id="nav-about" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-info mr-3"></i> About CoinShelf
-                    </a>
                 </nav>
             </div>
             <!-- Buttons Section: flex-shrink-0 to keep it from shrinking -->
@@ -449,9 +449,6 @@
                 </button>
                 <button id="export-data-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
                     <i class="ph-bold ph-download-simple mr-2"></i> Export Data
-                </button>
-                 <button id="clear-all-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
-                    <i class="ph-bold ph-trash-simple mr-2"></i> Clear All Items
                 </button>
                 <!-- New Share Collection button -->
                 <button id="share-collection-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
@@ -630,6 +627,26 @@
                             <button id="revoke-public-url-btn" class="mt-4 ml-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
                                 Revoke Public Link
                             </button>
+                        </div>
+
+                        <!-- Data Management Section -->
+                        <div class="mt-8 pt-8 border-t border-gray-700">
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Data Management</h3>
+                            <p class="text-gray-400 mb-4">Manage your collection data. These actions cannot be undone.</p>
+                            
+                            <div class="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-4">
+                                <h4 class="text-lg font-semibold text-red-400 mb-2 flex items-center">
+                                    <i class="ph-bold ph-warning-circle mr-2"></i>
+                                    Dangerous Actions
+                                </h4>
+                                <p class="text-red-300 text-sm mb-4">
+                                    The following actions will permanently delete your data and cannot be undone.
+                                </p>
+                                
+                                <button id="clear-all-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                                    <i class="ph-bold ph-trash-simple mr-2"></i> Clear All Collection Items
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
