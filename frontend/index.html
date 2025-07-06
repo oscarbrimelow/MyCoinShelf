@@ -1314,7 +1314,7 @@
         `;
 
         // Update dashboard stats
-        const totalItems = collectionData.length;
+        const totalItems = collectionData.reduce((sum, item) => sum + (item.quantity || 1), 0);
         const totalValue = collectionData.reduce((sum, item) => {
             return sum + (getItemValueInCurrency(item, currencySetting) * (item.quantity || 1));
         }, 0);
