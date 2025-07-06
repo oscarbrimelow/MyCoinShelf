@@ -3824,19 +3824,19 @@
             // Update all value displays throughout the app
             if (document.getElementById('dashboard-total-value')) {
                 const totalValue = collectionData.reduce((sum, item) => {
-                    return sum + getItemValueInCurrency(item, currencySetting);
+                    return sum + (getItemValueInCurrency(item, currencySetting) * (item.quantity || 1));
                 }, 0);
                 document.getElementById('dashboard-total-value').innerText = formatCurrency(totalValue, currencySetting);
             }
             
             // Update collection table values
-            const valueCells = document.querySelectorAll('.data-table td:nth-child(6)');
+            const valueCells = document.querySelectorAll('.data-table td:nth-child(7)');
             valueCells.forEach(cell => {
                 const itemId = cell.closest('tr').dataset.itemId;
                 if (itemId) {
                     const item = collectionData.find(coin => coin.id === parseInt(itemId));
                     if (item) {
-                        cell.textContent = formatCurrency(getItemValueInCurrency(item, currencySetting), currencySetting);
+                        cell.textContent = formatCurrency(getItemValueInCurrency(item, currencySetting) * (item.quantity || 1), currencySetting);
                     }
                 }
             });
