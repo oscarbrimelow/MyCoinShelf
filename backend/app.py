@@ -10,6 +10,7 @@ import datetime
 from functools import wraps
 import uuid # Import uuid for generating unique public IDs
 import requests # Import requests for metal price API calls
+from sqlalchemy import text # Import text for raw SQL queries
 
 # Import configuration
 from config import Config
@@ -44,6 +45,7 @@ class Coin(db.Model):
     year = db.Column(db.Integer)
     denomination = db.Column(db.String(100), nullable=False)
     value = db.Column(db.Float) # Estimated value
+    quantity = db.Column(db.Integer, default=1) # Number of duplicates
     notes = db.Column(db.Text)
     referenceUrl = db.Column(db.String(500))
     localImagePath = db.Column(db.String(500)) # Path to local image
@@ -294,6 +296,7 @@ def get_coins(current_user):
             'year': coin.year,
             'denomination': coin.denomination,
             'value': coin.value,
+            'quantity': coin.quantity, # Include quantity from DB
             'notes': coin.notes,
             'referenceUrl': coin.referenceUrl,
             'localImagePath': coin.localImagePath,
@@ -327,6 +330,7 @@ def add_coin(current_user):
         year=year_value,
         denomination=data.get('denomination').strip(),
         value=data.get('value'),
+        quantity=data.get('quantity', 1), # Set quantity, default to 1
         notes=data.get('notes'),
         referenceUrl=data.get('referenceUrl'),
         localImagePath=data.get('localImagePath'),
@@ -363,6 +367,7 @@ def update_coin(current_user, coin_id):
     coin.year = year_value
     coin.denomination = data.get('denomination').strip()
     coin.value = data.get('value', coin.value)
+    coin.quantity = data.get('quantity', coin.quantity) # Update quantity
     coin.notes = data.get('notes', coin.notes)
     coin.referenceUrl = data.get('referenceUrl', coin.referenceUrl)
     coin.localImagePath = data.get('localImagePath', coin.localImagePath)
@@ -412,6 +417,7 @@ def bulk_upload_coins(current_user):
                 year=year_value, # Corrected: Was year_data.get('year')
                 denomination=item_data.get('denomination').strip(),
                 value=item_data.get('value', 0.0),
+                quantity=item_data.get('quantity', 1), # Set quantity, default to 1
                 notes=item_data.get('notes'),
                 referenceUrl=item_data.get('referenceUrl'),
                 localImagePath=item_data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
@@ -582,6 +588,7 @@ def get_public_coins(public_id):
             'year': coin.year,
             'denomination': coin.denomination,
             'value': coin.value,
+            'quantity': coin.quantity, # Include quantity for public view
             'notes': coin.notes,
             'referenceUrl': coin.referenceUrl,
             'localImagePath': coin.localImagePath,
@@ -595,6 +602,63 @@ def get_public_coins(public_id):
     
     return jsonify(output), 200
 
+# --- Database Migration Endpoint ---
+@app.route('/api/migrate_database', methods=['GET', 'POST'])
+def migrate_database():
+    """Add missing columns to existing database"""
+    try:
+        print("Starting database migration...")
+        
+        # Check if weight_grams column exists
+        result = db.session.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'coin' AND column_name = 'weight_grams'
+        """))
+        
+        if not result.fetchone():
+            # Add weight_grams column
+            db.session.execute(text("ALTER TABLE coin ADD COLUMN weight_grams FLOAT"))
+            print("Added weight_grams column to coin table")
+        else:
+            print("weight_grams column already exists")
+        
+        # Check if purity_percent column exists
+        result = db.session.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'coin' AND column_name = 'purity_percent'
+        """))
+        
+        if not result.fetchone():
+            # Add purity_percent column
+            db.session.execute(text("ALTER TABLE coin ADD COLUMN purity_percent FLOAT"))
+            print("Added purity_percent column to coin table")
+        else:
+            print("purity_percent column already exists")
+        
+        # Check if quantity column exists
+        result = db.session.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'coin' AND column_name = 'quantity'
+        """))
+        
+        if not result.fetchone():
+            # Add quantity column with default value 1
+            db.session.execute(text("ALTER TABLE coin ADD COLUMN quantity INTEGER DEFAULT 1"))
+            print("Added quantity column to coin table")
+        else:
+            print("quantity column already exists")
+        
+        db.session.commit()
+        print("Database migration completed successfully!")
+        return jsonify({'message': 'Database migration completed successfully!'}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Migration error: {e}")
+        return jsonify({'message': f'Migration failed: {str(e)}'}), 500
 
 # --- Database Initialization (Run once to create tables) ---
 # NOTE: @app.before_request is used instead of @app.before_first_request due to Flask version compatibility.
@@ -605,6 +669,50 @@ def create_tables():
     # We use app.app_context() to ensure we're in the right Flask application context.
     with app.app_context():
         db.create_all()
+        
+        # Check and add missing columns if needed
+        try:
+            # Check if weight_grams column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'coin' AND column_name = 'weight_grams'
+            """))
+            
+            if not result.fetchone():
+                # Add weight_grams column
+                db.session.execute(text("ALTER TABLE coin ADD COLUMN weight_grams FLOAT"))
+                print("Added weight_grams column to coin table")
+            
+            # Check if purity_percent column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'coin' AND column_name = 'purity_percent'
+            """))
+            
+            if not result.fetchone():
+                # Add purity_percent column
+                db.session.execute(text("ALTER TABLE coin ADD COLUMN purity_percent FLOAT"))
+                print("Added purity_percent column to coin table")
+            
+            # Check if quantity column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'coin' AND column_name = 'quantity'
+            """))
+            
+            if not result.fetchone():
+                # Add quantity column with default value 1
+                db.session.execute(text("ALTER TABLE coin ADD COLUMN quantity INTEGER DEFAULT 1"))
+                print("Added quantity column to coin table")
+            
+            db.session.commit()
+        except Exception as e:
+            print(f"Database migration check failed: {e}")
+            db.session.rollback()
+        
         # Optional: Create a default user if none exists for easy setup
         if not User.query.first():
             print("No users found. Creating a default admin user.")
