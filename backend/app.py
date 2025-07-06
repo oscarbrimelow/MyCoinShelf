@@ -11,14 +11,13 @@ from functools import wraps
 import uuid # Import uuid for generating unique public IDs
 import requests # Import requests for metal price API calls
 from sqlalchemy import text # Import text for raw SQL queries
-# Email functionality - using SendGrid for professional email delivery
+# Email functionality - using Resend for permanent free email delivery
 try:
-    import sendgrid
-    from sendgrid.helpers.mail import Mail, Email, To, Content
-    SENDGRID_AVAILABLE = True
+    import resend
+    RESEND_AVAILABLE = True
 except ImportError:
-    print("Warning: SendGrid not available, using fallback email method")
-    SENDGRID_AVAILABLE = False
+    print("Warning: Resend not available, using fallback email method")
+    RESEND_AVAILABLE = False
     import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
@@ -309,23 +308,25 @@ def is_historical_item(country_name, year):
 
 # --- Email Functions ---
 def send_email(to_email, subject, html_content, text_content=None):
-    """Send email using SendGrid or fallback to SMTP"""
+    """Send email using Resend or fallback to SMTP"""
     try:
-        if SENDGRID_AVAILABLE:
-            # Use SendGrid
-            sg = sendgrid.SendGridAPIClient(api_key=os.environ.get('SENDGRID_API_KEY'))
-            from_email = Email(os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@mycoinshelf.com'))
-            to_email_obj = To(to_email)
+        if RESEND_AVAILABLE:
+            # Use Resend
+            resend.api_key = os.environ.get('RESEND_API_KEY')
+            from_email = os.environ.get('RESEND_FROM_EMAIL', 'noreply@mycoinshelf.com')
+            
+            params = {
+                "from": from_email,
+                "to": to_email,
+                "subject": subject,
+                "html": html_content
+            }
             
             if text_content:
-                content = Content("text/plain", text_content)
-                mail = Mail(from_email, to_email_obj, subject, content)
-            else:
-                content = Content("text/html", html_content)
-                mail = Mail(from_email, to_email_obj, subject, content)
+                params["text"] = text_content
             
-            response = sg.send(mail)
-            print(f"SendGrid email sent successfully to {to_email}")
+            response = resend.Emails.send(params)
+            print(f"Resend email sent successfully to {to_email}")
             return True
             
         else:
@@ -345,14 +346,19 @@ def send_email(to_email, subject, html_content, text_content=None):
             # Connect to SMTP server
             server = smtplib.SMTP('smtp.gmail.com', 587)
             server.starttls()
-            server.login(
-                os.environ.get('SMTP_EMAIL'),
-                os.environ.get('SMTP_PASSWORD')
-            )
-            server.send_message(msg)
-            server.quit()
-            print(f"SMTP email sent successfully to {to_email}")
-            return True
+            
+            smtp_email = os.environ.get('SMTP_EMAIL')
+            smtp_password = os.environ.get('SMTP_PASSWORD')
+            
+            if smtp_email and smtp_password:
+                server.login(smtp_email, smtp_password)
+                server.send_message(msg)
+                server.quit()
+                print(f"SMTP email sent successfully to {to_email}")
+                return True
+            else:
+                print("SMTP credentials not configured")
+                return False
             
     except Exception as e:
         print(f"Error sending email to {to_email}: {e}")

@@ -1,32 +1,31 @@
 # Password Reset Setup Guide
 
-## 🚀 **Option 1: SendGrid (Recommended)**
+## 🚀 **Option 1: Resend (Recommended - Permanent Free)**
 
-### **Step 1: Create SendGrid Account**
-1. Go to [sendgrid.com](https://sendgrid.com)
-2. Click "Start for Free"
-3. Sign up with your email
+### **Step 1: Create Resend Account**
+1. Go to [resend.com](https://resend.com)
+2. Click "Get Started for Free"
+3. Sign up with your email (no credit card required)
 4. Verify your email address
 
 ### **Step 2: Get API Key**
-1. Go to Settings → API Keys
+1. Go to API Keys section
 2. Click "Create API Key"
 3. Name it "CoinShelf Password Reset"
-4. Choose "Restricted Access" → "Mail Send"
-5. Copy the API key
+4. Copy the API key
 
 ### **Step 3: Set Environment Variables**
 Add these to your Render environment variables:
 
 ```
-SENDGRID_API_KEY=your_api_key_here
-SENDGRID_FROM_EMAIL=noreply@mycoinshelf.com
+RESEND_API_KEY=your_api_key_here
+RESEND_FROM_EMAIL=noreply@mycoinshelf.com
 ```
 
-### **Step 4: Verify Sender**
-1. Go to Settings → Sender Authentication
-2. Verify your domain or at least your sender email
-3. This improves email delivery
+### **Step 4: Verify Domain (Optional)**
+1. Go to Domains section
+2. Add your domain for better deliverability
+3. Or use the default Resend domain
 
 ---
 
@@ -90,9 +89,10 @@ fetch('/api/reset_password', {
 
 ---
 
-## 📊 **SendGrid Free Tier Limits**
-- 100 emails/day
+## 📊 **Resend Free Tier Limits**
 - 3,000 emails/month
+- **Permanent free tier** - no expiration
+- No credit card required
 - Perfect for most small to medium applications
 
 ---
