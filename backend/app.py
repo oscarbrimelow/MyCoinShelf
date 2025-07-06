@@ -15,6 +15,9 @@ from sqlalchemy import text # Import text for raw SQL queries
 # Import configuration
 from config import Config
 
+# Import the new reliable price fetcher
+from google_finance_prices import price_fetcher
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -456,10 +459,32 @@ def clear_all_coins(current_user):
 # --- New Metal Prices API Endpoint ---
 @app.route('/api/prices/metals', methods=['GET'])
 def get_metal_prices():
-    """Fetch live gold and silver prices from a reliable free API"""
+    """Fetch live gold and silver prices using multiple reliable sources"""
     try:
-        # Using CoinGecko API which is more reliable than metals.live
-        # Gold and Silver are tracked as commodities on CoinGecko
+        # Use the new reliable price fetcher
+        prices = price_fetcher.get_prices()
+        
+        if prices and prices['gold_usd_per_oz'] > 0 and prices['silver_usd_per_oz'] > 0:
+            return jsonify({
+                'gold_usd_per_oz': round(prices['gold_usd_per_oz'], 2),
+                'silver_usd_per_oz': round(prices['silver_usd_per_oz'], 2),
+                'gold_zar_per_oz': round(prices['gold_zar_per_oz'], 2),
+                'silver_zar_per_oz': round(prices['silver_zar_per_oz'], 2),
+                'timestamp': datetime.datetime.utcnow().isoformat(),
+                'source': 'reliable_apis',
+                'lastUpdate': prices.get('lastUpdate')
+            }), 200
+        else:
+            # Fallback to CoinGecko if reliable fetcher fails
+            return _fallback_to_coingecko()
+            
+    except Exception as e:
+        print(f"Error with reliable price fetcher: {e}")
+        return _fallback_to_coingecko()
+
+def _fallback_to_coingecko():
+    """Fallback to CoinGecko API"""
+    try:
         url = "https://api.coingecko.com/api/v3/simple/price"
         params = {
             'ids': 'gold,silver',
@@ -486,43 +511,23 @@ def get_metal_prices():
                     'timestamp': datetime.datetime.utcnow().isoformat(),
                     'source': 'CoinGecko'
                 }), 200
-            else:
-                # Fallback to static prices if API doesn't return expected data
-                return jsonify({
-                    'gold_usd_per_oz': 2300.00,
-                    'silver_usd_per_oz': 29.50,
-                    'timestamp': datetime.datetime.utcnow().isoformat(),
-                    'note': 'Using fallback prices - API data unavailable',
-                    'source': 'fallback'
-                }), 200
-        else:
-            # Fallback to static prices if API fails
-            return jsonify({
-                'gold_usd_per_oz': 2300.00,
-                'silver_usd_per_oz': 29.50,
-                'timestamp': datetime.datetime.utcnow().isoformat(),
-                'note': 'Using fallback prices - API unavailable',
-                'source': 'fallback'
-            }), 200
-            
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching metal prices from CoinGecko: {e}")
-        # Return fallback prices on any network error
+        
+        # Final fallback to static prices
+        return jsonify({
+            'gold_usd_per_oz': 2300.00,
+            'silver_usd_per_oz': 29.50,
+            'timestamp': datetime.datetime.utcnow().isoformat(),
+            'note': 'Using fallback prices - all APIs unavailable',
+            'source': 'fallback'
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in CoinGecko fallback: {e}")
         return jsonify({
             'gold_usd_per_oz': 2300.00,
             'silver_usd_per_oz': 29.50,
             'timestamp': datetime.datetime.utcnow().isoformat(),
             'note': 'Using fallback prices - network error',
-            'source': 'fallback'
-        }), 200
-    except Exception as e:
-        print(f"Unexpected error fetching metal prices: {e}")
-        # Return fallback prices on any other error
-        return jsonify({
-            'gold_usd_per_oz': 2300.00,
-            'silver_usd_per_oz': 29.50,
-            'timestamp': datetime.datetime.utcnow().isoformat(),
-            'note': 'Using fallback prices - unexpected error',
             'source': 'fallback'
         }), 200
 
