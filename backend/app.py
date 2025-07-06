@@ -11,6 +11,17 @@ from functools import wraps
 import uuid # Import uuid for generating unique public IDs
 import requests # Import requests for metal price API calls
 from sqlalchemy import text # Import text for raw SQL queries
+# Email functionality - using SendGrid for professional email delivery
+try:
+    import sendgrid
+    from sendgrid.helpers.mail import Mail, Email, To, Content
+    SENDGRID_AVAILABLE = True
+except ImportError:
+    print("Warning: SendGrid not available, using fallback email method")
+    SENDGRID_AVAILABLE = False
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
 
 # Import configuration
 from config import Config
@@ -149,6 +160,18 @@ class PublicCollection(db.Model):
     def __repr__(self):
         return f'<PublicCollection ID: {self.id} for User: {self.user_id}>'
 
+# New: Model for Password Reset Tokens
+class PasswordResetToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token = db.Column(db.String(100), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used = db.Column(db.Boolean, default=False)
+
+    def __repr__(self):
+        return f'<PasswordResetToken for User: {self.user_id}>'
+
 # --- JWT Authentication Decorator ---
 def jwt_required(f):
     @wraps(f)
@@ -284,6 +307,123 @@ def is_historical_item(country_name, year):
         return True
     return False
 
+# --- Email Functions ---
+def send_email(to_email, subject, html_content, text_content=None):
+    """Send email using SendGrid or fallback to SMTP"""
+    try:
+        if SENDGRID_AVAILABLE:
+            # Use SendGrid
+            sg = sendgrid.SendGridAPIClient(api_key=os.environ.get('SENDGRID_API_KEY'))
+            from_email = Email(os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@mycoinshelf.com'))
+            to_email_obj = To(to_email)
+            
+            if text_content:
+                content = Content("text/plain", text_content)
+                mail = Mail(from_email, to_email_obj, subject, content)
+            else:
+                content = Content("text/html", html_content)
+                mail = Mail(from_email, to_email_obj, subject, content)
+            
+            response = sg.send(mail)
+            print(f"SendGrid email sent successfully to {to_email}")
+            return True
+            
+        else:
+            # Fallback to SMTP (Gmail)
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = os.environ.get('SMTP_FROM_EMAIL', 'noreply@mycoinshelf.com')
+            msg['To'] = to_email
+            
+            if text_content:
+                text_part = MIMEText(text_content, 'plain')
+                msg.attach(text_part)
+            
+            html_part = MIMEText(html_content, 'html')
+            msg.attach(html_part)
+            
+            # Connect to SMTP server
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(
+                os.environ.get('SMTP_EMAIL'),
+                os.environ.get('SMTP_PASSWORD')
+            )
+            server.send_message(msg)
+            server.quit()
+            print(f"SMTP email sent successfully to {to_email}")
+            return True
+            
+    except Exception as e:
+        print(f"Error sending email to {to_email}: {e}")
+        return False
+
+def generate_password_reset_email(user_email, reset_token, reset_url):
+    """Generate password reset email content"""
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Reset Your CoinShelf Password</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #10b981, #3b82f6); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .button {{ display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🪙 CoinShelf</h1>
+                <p>Password Reset Request</p>
+            </div>
+            <div class="content">
+                <h2>Hello!</h2>
+                <p>We received a request to reset your password for your CoinShelf account.</p>
+                <p>Click the button below to reset your password:</p>
+                <a href="{reset_url}" class="button">Reset Password</a>
+                <p><strong>This link will expire in 1 hour.</strong></p>
+                <p>If you didn't request this password reset, you can safely ignore this email.</p>
+                <p>If you're having trouble clicking the button, copy and paste this URL into your browser:</p>
+                <p style="word-break: break-all; color: #666;">{reset_url}</p>
+            </div>
+            <div class="footer">
+                <p>Best regards,<br>The CoinShelf Team</p>
+                <p>This email was sent to {user_email}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    CoinShelf Password Reset
+    
+    Hello!
+    
+    We received a request to reset your password for your CoinShelf account.
+    
+    Click the link below to reset your password:
+    {reset_url}
+    
+    This link will expire in 1 hour.
+    
+    If you didn't request this password reset, you can safely ignore this email.
+    
+    Best regards,
+    The CoinShelf Team
+    
+    This email was sent to {user_email}
+    """
+    
+    return html_content, text_content
+
+
+
 
 # --- Routes ---
 
@@ -365,6 +505,93 @@ def change_password(current_user):
     current_user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
     db.session.commit()
     return jsonify({'message': 'Password changed successfully!'}), 200
+
+@app.route('/api/forgot_password', methods=['POST'])
+def forgot_password():
+    """Request a password reset email"""
+    data = request.get_json()
+    email = data.get('email')
+
+    if not email:
+        return jsonify({'message': 'Email is required'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        # Don't reveal if email exists or not for security
+        return jsonify({'message': 'If an account with that email exists, a password reset link has been sent.'}), 200
+
+    # Generate reset token
+    reset_token = str(uuid.uuid4())
+    expires_at = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+
+    # Save reset token to database
+    reset_token_obj = PasswordResetToken(
+        user_id=user.id,
+        token=reset_token,
+        expires_at=expires_at
+    )
+    db.session.add(reset_token_obj)
+    db.session.commit()
+
+    # Generate reset URL
+    reset_url = f"https://mycoinshelf.com/reset-password?token={reset_token}"
+
+    # Generate email content
+    html_content, text_content = generate_password_reset_email(email, reset_token, reset_url)
+
+    # Send email
+    email_sent = send_email(
+        to_email=email,
+        subject="Reset Your CoinShelf Password",
+        html_content=html_content,
+        text_content=text_content
+    )
+
+    if email_sent:
+        return jsonify({'message': 'If an account with that email exists, a password reset link has been sent.'}), 200
+    else:
+        return jsonify({'message': 'Failed to send password reset email. Please try again later.'}), 500
+
+@app.route('/api/reset_password', methods=['POST'])
+def reset_password():
+    """Reset password using token"""
+    data = request.get_json()
+    token = data.get('token')
+    new_password = data.get('new_password')
+
+    if not token or not new_password:
+        return jsonify({'message': 'Token and new password are required'}), 400
+
+    if len(new_password) < 6:
+        return jsonify({'message': 'New password must be at least 6 characters long'}), 400
+
+    # Find valid reset token
+    reset_token_obj = PasswordResetToken.query.filter_by(
+        token=token,
+        used=False
+    ).first()
+
+    if not reset_token_obj:
+        return jsonify({'message': 'Invalid or expired reset token'}), 400
+
+    # Check if token is expired
+    if datetime.datetime.utcnow() > reset_token_obj.expires_at:
+        return jsonify({'message': 'Reset token has expired'}), 400
+
+    # Get user and update password
+    user = User.query.get(reset_token_obj.user_id)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    # Update password
+    user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
+    
+    # Mark token as used
+    reset_token_obj.used = True
+    
+    db.session.commit()
+
+    return jsonify({'message': 'Password reset successfully!'}), 200
 
 
 @app.route('/api/coins', methods=['GET'])
