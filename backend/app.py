@@ -364,6 +364,195 @@ def send_email(to_email, subject, html_content, text_content=None):
         print(f"Error sending email to {to_email}: {e}")
         return False
 
+def generate_welcome_email(user_email):
+    """Generate welcome email content for new users"""
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Welcome to CoinShelf!</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #10b981, #3b82f6); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .button {{ display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
+            .feature {{ background: #e5f3ff; padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #3b82f6; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🪙 CoinShelf</h1>
+                <p>Welcome to Your Digital Coin Collection!</p>
+            </div>
+            <div class="content">
+                <h2>Welcome to CoinShelf!</h2>
+                <p>Thank you for joining CoinShelf! You're now part of a community of coin collectors and numismatists who are organizing their collections digitally.</p>
+                
+                <div class="feature">
+                    <h3>🚀 What You Can Do:</h3>
+                    <ul>
+                        <li><strong>Track Your Collection:</strong> Add coins, banknotes, and bullion with detailed information</li>
+                        <li><strong>Live Metal Prices:</strong> Get real-time gold and silver prices for your bullion</li>
+                        <li><strong>World Map View:</strong> Visualize your collection by country on an interactive map</li>
+                        <li><strong>Value Analytics:</strong> Track the total value of your collection over time</li>
+                        <li><strong>Share Your Collection:</strong> Generate public links to showcase your treasures</li>
+                    </ul>
+                </div>
+                
+                <p><strong>Ready to get started?</strong> Log in to your account and add your first item!</p>
+                <a href="https://mycoinshelf.com" class="button">Start Your Collection</a>
+                
+                <p><strong>Need Help?</strong> Check out our features and start building your digital collection today.</p>
+            </div>
+            <div class="footer">
+                <p>Happy Collecting!<br>The CoinShelf Team</p>
+                <p>Created with passion by <a href="https://www.instagram.com/oscarbrimelow/" style="color: #3b82f6;">Oscar Brimelow</a></p>
+                <p>This email was sent to {user_email}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    Welcome to CoinShelf!
+    
+    Thank you for joining CoinShelf! You're now part of a community of coin collectors and numismatists who are organizing their collections digitally.
+    
+    What You Can Do:
+    - Track Your Collection: Add coins, banknotes, and bullion with detailed information
+    - Live Metal Prices: Get real-time gold and silver prices for your bullion
+    - World Map View: Visualize your collection by country on an interactive map
+    - Value Analytics: Track the total value of your collection over time
+    - Share Your Collection: Generate public links to showcase your treasures
+    
+    Ready to get started? Log in to your account and add your first item!
+    Visit: https://mycoinshelf.com
+    
+    Need Help? Check out our features and start building your digital collection today.
+    
+    Happy Collecting!
+    The CoinShelf Team
+    
+    Created with passion by Oscar Brimelow
+    This email was sent to {user_email}
+    """
+    
+    return html_content, text_content
+
+def send_welcome_email(user_email):
+    """Send welcome email to new users"""
+    try:
+        html_content, text_content = generate_welcome_email(user_email)
+        
+        success = send_email(
+            to_email=user_email,
+            subject="Welcome to CoinShelf! 🪙",
+            html_content=html_content,
+            text_content=text_content
+        )
+        
+        if success:
+            print(f"Welcome email sent successfully to {user_email}")
+        else:
+            print(f"Failed to send welcome email to {user_email}")
+            
+    except Exception as e:
+        print(f"Error sending welcome email to {user_email}: {e}")
+
+def generate_password_change_notification_email(user_email):
+    """Generate password change notification email content"""
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>CoinShelf Password Changed</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #10b981, #3b82f6); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .alert {{ background: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 5px; margin: 15px 0; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🪙 CoinShelf</h1>
+                <p>Password Changed Successfully</p>
+            </div>
+            <div class="content">
+                <h2>Hello!</h2>
+                <p>Your CoinShelf account password has been successfully changed.</p>
+                
+                <div class="alert">
+                    <strong>🔒 Security Notice:</strong> If you did not make this change, please contact us immediately and consider resetting your password.
+                </div>
+                
+                <p><strong>When this happened:</strong> {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}</p>
+                
+                <p>Your account is now secured with your new password. You can continue using CoinShelf as normal.</p>
+                
+                <p><strong>Need help?</strong> If you have any questions or concerns, please don't hesitate to reach out.</p>
+            </div>
+            <div class="footer">
+                <p>Best regards,<br>The CoinShelf Team</p>
+                <p>This email was sent to {user_email}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    CoinShelf Password Changed
+    
+    Hello!
+    
+    Your CoinShelf account password has been successfully changed.
+    
+    SECURITY NOTICE: If you did not make this change, please contact us immediately and consider resetting your password.
+    
+    When this happened: {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}
+    
+    Your account is now secured with your new password. You can continue using CoinShelf as normal.
+    
+    Need help? If you have any questions or concerns, please don't hesitate to reach out.
+    
+    Best regards,
+    The CoinShelf Team
+    
+    This email was sent to {user_email}
+    """
+    
+    return html_content, text_content
+
+def send_password_change_notification(user_email):
+    """Send password change notification email"""
+    try:
+        html_content, text_content = generate_password_change_notification_email(user_email)
+        
+        success = send_email(
+            to_email=user_email,
+            subject="CoinShelf Password Changed - Security Alert",
+            html_content=html_content,
+            text_content=text_content
+        )
+        
+        if success:
+            print(f"Password change notification sent successfully to {user_email}")
+        else:
+            print(f"Failed to send password change notification to {user_email}")
+            
+    except Exception as e:
+        print(f"Error sending password change notification to {user_email}: {e}")
+
 def generate_password_reset_email(user_email, reset_token, reset_url):
     """Generate password reset email content"""
     html_content = f"""
@@ -501,6 +690,10 @@ def register():
     new_user = User(email=email, password_hash=hashed_password)
     db.session.add(new_user)
     db.session.commit()
+    
+    # Send welcome email
+    send_welcome_email(email)
+    
     print(f"DEBUG: User {email} registered successfully.")
     return jsonify({'message': 'User registered successfully!'}), 201
 
@@ -556,6 +749,10 @@ def change_password(current_user):
 
     current_user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
     db.session.commit()
+    
+    # Send password change notification email
+    send_password_change_notification(current_user.email)
+    
     return jsonify({'message': 'Password changed successfully!'}), 200
 
 @app.route('/api/forgot_password', methods=['POST'])
