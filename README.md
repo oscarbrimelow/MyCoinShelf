@@ -1,39 +1,82 @@
-# 🪙 Coin Collection Showcase Website
+# 🪙 CoinShelf - Professional Coin & Bullion Collection Manager
 
-A web app to proudly display your coin and banknote collection – made for collectors, by someone who had no clue what they were doing 😄
+A comprehensive web application for coin collectors, numismatists, and precious metal investors to organize, track, and value their collections with live market data.
 
-https://mycoinshelf.com
+**Live Site:** https://mycoinshelf.com
 
 ---
 
 ## ✨ Features
 
-- 📱 **Mobile support**
-- 🧹 **Mass Delete** – does exactly what it sounds like
-- 📥 **Mass Import** – easily upload all your coins and notes in bulk
-- 🔍 **Searchable Collection** – quickly find any item
-- 🌍 **World Map View** – see where your collection spans across the globe
-- 📊 **Pie Chart by Region** – visual breakdown of items per region
-- 💰 **Value by Region** – track how much your collection is worth geographically
-- 🏆 **Collection Highlights** – top 5 countries by item count
-- 📅 **Sort** – by **Year**, **Country**, or **Price**
-- 📌 **Track Missing Coins** – see which countries you're missing
+### 🔐 **Authentication & Security**
+- **Secure User Registration & Login** - Full authentication system with encrypted passwords
+- **Password Reset System** - Professional email-based password recovery
+- **Account Management** - Change passwords, manage preferences
+- **Session Management** - Secure JWT-based authentication
 
-### 🧾 Detailed Stats
+### 📱 **Core Collection Management**
+- **Mobile-Responsive Design** - Works perfectly on all devices
+- **Add Items Individually** - Detailed forms for coins, banknotes, and bullion
+- **Bulk Import/Export** - Mass upload and download of collection data
+- **Advanced Search & Filtering** - Find items quickly by type, country, year, value
+- **Collection Analytics** - Comprehensive statistics and insights
 
-- Total items (coins and notes)  
-- Total value of collection  
-- Number of unique countries  
-- Remaining countries to collect  
+### 🪙 **Bullion & Precious Metals**
+- **Live Gold & Silver Prices** - Real-time market data from multiple sources
+- **Bullion Tracking** - Track weight, purity, and calculate melt value
+- **Multi-Currency Support** - USD and South African Rand (ZAR)
+- **Automatic Value Calculation** - Live pricing for precious metal investments
 
-### 🔍 Filters
+### 🌍 **Geographic Features**
+- **Interactive World Map** - Visualize your collection by country
+- **Missing Countries Tracker** - Discover new territories to collect
+- **Regional Analytics** - Breakdown by continent and region
+- **Collection Highlights** - Top countries by item count and value
 
-- By Region  
-- By Coin or Banknote  
+### 📊 **Advanced Analytics**
+- **Dashboard Overview** - Key metrics and collection insights
+- **Value Tracking** - Total collection value with live updates
+- **Regional Breakdown** - Geographic distribution analysis
+- **Historical Data** - Track collection growth over time
 
-### ➕ Add Items
+### 🔗 **Sharing & Collaboration**
+- **Public Collection Links** - Share read-only views of your collection
+- **Secure Sharing** - Generate unique URLs for insurance or showcasing
+- **Collection Export** - Download your data in JSON format
 
-- Add items one-by-one
+### 🎨 **User Experience**
+- **Dark Mode Interface** - Modern, professional design
+- **Intuitive Navigation** - Organized sidebar with logical flow
+- **Quick Actions** - Fast access to common tasks
+- **Responsive Design** - Optimized for desktop, tablet, and mobile
+
+---
+
+## 🚀 **What's New**
+
+### **Professional Email System**
+- Welcome emails for new users
+- Password reset functionality
+- Security notifications for account changes
+- Professional branding with CoinShelf styling
+
+### **Enhanced Security**
+- Encrypted password storage
+- Secure token-based authentication
+- Account activity notifications
+- Professional password management
+
+### **Bullion Portfolio Management**
+- Live precious metal pricing
+- Weight and purity tracking
+- Automatic value calculations
+- Multi-currency support
+
+### **Improved Organization**
+- Reorganized sidebar navigation
+- Better data management tools
+- Enhanced user interface
+- Logical feature grouping
 
 ---
 
@@ -44,23 +87,19 @@ https://mycoinshelf.com
 ![image](https://github.com/user-attachments/assets/2df655f9-124f-49ed-8622-e5df48ac09ff)
 ![image](https://github.com/user-attachments/assets/046f9880-c3ea-4dc4-84b1-dec8199f6d60)
 
+---
 
+## 📝 **Technical Notes**
 
-
-
-
-
-## 📝 Notes
-
-- ⚠️ **Demo Account** – user/pass = demo@demo/DEMO
-- ⚠️ **Local images aren't available yet** – placeholder images are shown for now.
-- ⚠️ **No real login system** – username/password are just for your local session.  
-  If you forget your password… tough luck 😅  
-  But you can always just start fresh with a new login!
+- ✅ **Full Authentication System** - Secure user accounts with password recovery
+- ✅ **Professional Email Integration** - Resend-powered email system
+- ✅ **Live Market Data** - Real-time precious metal prices
+- ✅ **Responsive Design** - Works on all devices
+- ⚠️ **Local images aren't available yet** – placeholder images are shown for now
 
 ---
 
-## 📥 Mass Import Format
+## 📥 **Mass Import Format**
 
 When using mass import, use the following format:
 
@@ -75,6 +114,7 @@ When using mass import, use the following format:
     "denomination": "R10",
     "isHistorical": false,
     "value": 0.56,
+    "quantity": 1,
     "notes": "New R10",
     "referenceUrl": "https://www.ebay.com/itm/374489892395?...",
     "localImagePath": "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"
@@ -82,17 +122,47 @@ When using mass import, use the following format:
   {
     "id": 2,
     "region": "Africa",
-    "type": "Coin",
-    "country": "Eswatini",
-    "year": 2005,
-    "denomination": "10 cents",
+    "type": "Gold Bullion",
+    "country": "South Africa",
+    "year": 2023,
+    "denomination": "1 oz Gold Bar",
     "isHistorical": false,
-    "value": 1,
-    "notes": "",
-    "referenceUrl": "https://www.ebay.com/itm/277133143998?...",
+    "value": 2300.00,
+    "quantity": 1,
+    "weight_grams": 31.1035,
+    "purity_percent": 99.9,
+    "notes": "Krugerrand Gold Bar",
+    "referenceUrl": "https://example.com",
     "localImagePath": "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"
   }
 ]
-To continue adding more items, place a comma , after each object.
+```
 
-To end the list, close it with a ].
+**New Fields for Bullion:**
+- `weight_grams` - Weight in grams
+- `purity_percent` - Purity percentage (e.g., 99.9 for 99.9% pure)
+- `quantity` - Number of items (defaults to 1)
+
+---
+
+## 👨‍💻 **About the Creator**
+
+**Oscar Brimelow** - A passionate developer and collector who understands the unique needs of the numismatic community. CoinShelf was born from a desire to create a modern, user-friendly platform that combines traditional collection management with cutting-edge technology.
+
+**Follow on Instagram:** [@oscarbrimelow](https://www.instagram.com/oscarbrimelow/)
+
+---
+
+## 🛠️ **Technology Stack**
+
+- **Frontend:** HTML5, CSS3, JavaScript, Tailwind CSS
+- **Backend:** Python Flask, SQLAlchemy
+- **Database:** PostgreSQL (Supabase)
+- **Email:** Resend API
+- **Authentication:** JWT tokens
+- **Charts:** Chart.js, Google Charts
+- **Deployment:** Render (Backend), Netlify (Frontend)
+
+---
+
+*CoinShelf - Where passion meets technology in the world of numismatics* 🪙✨
