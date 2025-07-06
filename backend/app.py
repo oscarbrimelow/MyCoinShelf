@@ -437,6 +437,52 @@ def generate_password_reset_email(user_email, reset_token, reset_url):
 def index():
     return 'CoinShelf backend is running!', 200
 
+@app.route('/api/test_email', methods=['POST'])
+def test_email():
+    """Test endpoint to verify email setup"""
+    try:
+        test_email_address = request.json.get('email')
+        if not test_email_address:
+            return jsonify({'message': 'Email address required'}), 400
+        
+        # Test email content
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>CoinShelf Email Test</title>
+        </head>
+        <body>
+            <h1>🎉 Email Test Successful!</h1>
+            <p>Your CoinShelf email setup is working correctly.</p>
+            <p>This email was sent from: noreply@mycoinshelf.com</p>
+            <p>Timestamp: """ + datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC") + """</p>
+        </body>
+        </html>
+        """
+        
+        text_content = """
+        CoinShelf Email Test
+        
+        Your CoinShelf email setup is working correctly.
+        This email was sent from: noreply@mycoinshelf.com
+        Timestamp: """ + datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        
+        success = send_email(
+            to_email=test_email_address,
+            subject="CoinShelf Email Test",
+            html_content=html_content,
+            text_content=text_content
+        )
+        
+        if success:
+            return jsonify({'message': 'Test email sent successfully!'}), 200
+        else:
+            return jsonify({'message': 'Failed to send test email'}), 500
+            
+    except Exception as e:
+        return jsonify({'message': f'Error: {str(e)}'}), 500
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
