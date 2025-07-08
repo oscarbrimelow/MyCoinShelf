@@ -2392,18 +2392,19 @@
                 dataTable.addRow([country, itemCount, tooltipContent]);
             });
 
+            // Only color countries with count > 0, others stay white
             const maxItems = Math.max(1, ...Object.values(countryCounts));
 
             const options = {
                 colorAxis: {
                     colors: ['#d9f99d', '#65a30d', '#facc15', '#f97316', '#dc2626'],
-                    minValue: 1,
+                    minValue: 0,
                     maxValue: maxItems,
                 },
                 backgroundColor: {
                     fill: '#1f2937',
                 },
-                defaultColor: '#4b5563',
+                defaultColor: '#ffffff', // White for missing countries
                 tooltip: {
                     isHtml: true,
                     trigger: 'focus',
