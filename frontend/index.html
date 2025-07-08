@@ -2374,31 +2374,28 @@
             dataTable.addColumn('number', 'Items');
             dataTable.addColumn({ type: 'string', role: 'tooltip', 'p': {'html': true} });
 
-            // Add all countries, showing tooltip for all, and highlight collected
-            ALL_COUNTRIES.forEach(country => {
-                const itemCount = countryCounts[country] || 0;
-                let tooltipContent = `<div class="p-2 font-semibold">${country}</div>`;
-                if (itemCount > 0) {
-                    tooltipContent += `<div class="px-2 pb-1">Items: ${itemCount}</div>`;
-                    const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === country);
-                    tooltipContent += `<div class="px-2 text-sm text-gray-400 tooltip-scroll-content">`;
-                    itemsInCountry.forEach(item => {
-                        const quantity = item.quantity || 1;
-                        const value = getItemValueInCurrency(item, currencySetting) * quantity;
-                        tooltipContent += `<div>${item.denomination} (${item.year || 'N/A'}) - ${quantity > 1 ? `${quantity}x ` : ''}${formatCurrency(value, currencySetting)}</div>`;
-                    });
-                    tooltipContent += `</div>`;
-                }
+            // Only add collected countries (and Greenland if Denmark is collected)
+            Object.keys(countryCounts).forEach(country => {
+                const itemCount = countryCounts[country];
+                let tooltipContent = `<div class=\"p-2 font-semibold\">${country}</div>`;
+                tooltipContent += `<div class=\"px-2 pb-1\">Items: ${itemCount}</div>`;
+                const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === country);
+                tooltipContent += `<div class=\"px-2 text-sm text-gray-400 tooltip-scroll-content\">`;
+                itemsInCountry.forEach(item => {
+                    const quantity = item.quantity || 1;
+                    const value = getItemValueInCurrency(item, currencySetting) * quantity;
+                    tooltipContent += `<div>${item.denomination} (${item.year || 'N/A'}) - ${quantity > 1 ? `${quantity}x ` : ''}${formatCurrency(value, currencySetting)}</div>`;
+                });
+                tooltipContent += `</div>`;
                 dataTable.addRow([country, itemCount, tooltipContent]);
             });
 
-            // Only color countries with count > 0, others stay white
             const maxItems = Math.max(1, ...Object.values(countryCounts));
 
             const options = {
                 colorAxis: {
                     colors: ['#d9f99d', '#65a30d', '#facc15', '#f97316', '#dc2626'],
-                    minValue: 0,
+                    minValue: 1,
                     maxValue: maxItems,
                 },
                 backgroundColor: {
