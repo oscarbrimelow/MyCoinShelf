@@ -467,6 +467,10 @@
                     <form id="login-form" class="space-y-3">
                         <input type="email" id="login-email" placeholder="Email" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
                         <input type="password" id="login-password" placeholder="Password" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <div class="flex items-center">
+                          <input type="checkbox" id="remember-me" class="mr-2">
+                          <label for="remember-me" class="text-gray-400 text-xs">Remember Me</label>
+                        </div>
                         <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors">Sign In</button>
                         <button type="button" id="signup-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors">Sign Up</button>
                         <button type="button" id="forgot-password-btn" class="w-full text-blue-400 hover:text-blue-300 text-xs underline transition-colors">Forgot Password?</button>
@@ -1382,7 +1386,7 @@
 
     // --- Data Operations (interacting with Flask Backend) ---
     function getAuthToken() {
-        return sessionStorage.getItem('jwt_token');
+        return localStorage.getItem('jwt_token') || sessionStorage.getItem('jwt_token');
     }
 
     function isAuthenticated() {
@@ -3651,6 +3655,7 @@
                 console.log('Login form submitted');
                 const email = document.getElementById('login-email').value;
                 const password = document.getElementById('login-password').value;
+                const rememberMe = document.getElementById('remember-me').checked;
                 try {
                     const response = await fetch(`${API_BASE_URL}/login`, {
                         method: 'POST',
@@ -3664,7 +3669,13 @@
                     }
 
                     const result = await response.json();
-                    sessionStorage.setItem('jwt_token', result.token); // Store JWT
+                    if (rememberMe) {
+                      localStorage.setItem('jwt_token', result.token);
+                      sessionStorage.removeItem('jwt_token');
+                    } else {
+                      sessionStorage.setItem('jwt_token', result.token);
+                      localStorage.removeItem('jwt_token');
+                    }
                     showCustomConfirm('Signed in successfully!', () => {});
                     updateAuthUI(true);
                     loadCollectionFromBackend(); // Load data after successful login
@@ -3716,7 +3727,8 @@
             console.log('Found logout-btn');
             logoutBtn.addEventListener('click', () => {
                 console.log('Logout button clicked');
-                sessionStorage.removeItem('jwt_token'); // Clear JWT
+                localStorage.removeItem('jwt_token');
+                sessionStorage.removeItem('jwt_token');
                 updateAuthUI(false);
                 collectionData = []; // Clear data when logged out
                 history.replaceState(null, '', window.location.pathname); // Clear public URL param on logout
