@@ -420,25 +420,25 @@
             <!-- Wrapped navigation links in a separate div with overflow-y-auto and flex-grow -->
             <div class="flex-grow overflow-y-auto">
                 <nav class="p-4">
-                    <a href="#" id="nav-home" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
+                    <a href="#home" id="nav-home" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
                         <i class="ph-bold ph-house-simple mr-3"></i> Home
                     </a>
-                    <a href="#" id="nav-about" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                    <a href="#about" id="nav-about" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-info mr-3"></i> About CoinShelf
                     </a>
-                    <a href="#" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                    <a href="#dashboard" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
                     </a>
-                    <a href="#" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                    <a href="#collection" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-list-dashes mr-3"></i> Collection
                     </a>
-                    <a href="#" id="nav-map" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                    <a href="#map" id="nav-map" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-map-trifold mr-3"></i> World Map
                     </a>
-                    <a href="#" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                    <a href="#missing" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-flag mr-3"></i> Missing Countries
                     </a>
-                    <a href="#" id="nav-settings" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                    <a href="#settings" id="nav-settings" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-gear mr-3"></i> Account Settings
                     </a>
                 </nav>
@@ -4724,6 +4724,20 @@
           img.src = url;
         });
       }
+    });
+
+    // 2. Add hashchange and initial hash handling in JS (after DOMContentLoaded)
+    window.addEventListener('hashchange', handleHashNavigation);
+    function handleHashNavigation() {
+      const hash = window.location.hash.replace('#', '');
+      const validSections = ['home', 'about', 'dashboard', 'collection', 'map', 'missing', 'settings'];
+      const section = validSections.includes(hash) ? hash : 'home';
+      showView('content-' + section);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      // ... existing code ...
+      // On initial load, handle hash
+      handleHashNavigation();
     });
 </script>
 
