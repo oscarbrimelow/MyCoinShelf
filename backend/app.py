@@ -1,7 +1,7 @@
 # backend/app.py
 
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -622,9 +622,13 @@ def generate_password_reset_email(user_email, reset_token, reset_url):
 
 # --- Routes ---
 
-@app.route('/')
-def index():
-    return 'CoinShelf backend is running!', 200
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_spa(path):
+    if path != "" and os.path.exists(os.path.join("frontend", path)):
+        return send_from_directory('frontend', path)
+    else:
+        return send_from_directory('frontend', 'index.html')
 
 @app.route('/api/test_email', methods=['POST'])
 def test_email():
