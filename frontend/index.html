@@ -1228,9 +1228,152 @@
                 </div>
             </div>
 
+            <!-- Support CoinShelf Section -->
+            <div class="mt-8 pt-6 border-t border-gray-700">
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold text-gray-300 mb-2">💝 Support CoinShelf</h3>
+                    <p class="text-sm text-gray-400 mb-4">If you find CoinShelf helpful, consider a small tip to keep it free and ad-free!</p>
+                    <button id="show-donate-modal" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4 py-2 rounded-md transition-colors">
+                        <i class="ph-bold ph-heart mr-2"></i>Say Thanks
+                    </button>
+                </div>
+            </div>
             <div class="flex justify-end mt-6">
                 <button type="button" id="import-cancel-btn" class="mr-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
                 <button type="button" id="import-submit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition-colors">Upload & Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Donation Modal -->
+    <div id="donate-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">💝 Support CoinShelf</h2>
+                <button id="close-donate-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            
+            <div class="text-center mb-6">
+                <p class="text-gray-300 mb-4">Thank you for considering a small tip! CoinShelf is completely free and ad-free, and your support helps keep it that way.</p>
+                <p class="text-sm text-gray-400">Choose your preferred payment method:</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- Cash App -->
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-700 hover:border-emerald-500 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white">Cash App</h3>
+                            <p class="text-sm text-gray-400">$OscarBrimelow</p>
+                        </div>
+                        <button onclick="copyToClipboard('$OscarBrimelow', 'Cash App')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Venmo -->
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-700 hover:border-emerald-500 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white">Venmo</h3>
+                            <p class="text-sm text-gray-400">@oscarbrimelow</p>
+                        </div>
+                        <button onclick="copyToClipboard('@oscarbrimelow', 'Venmo')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PayPal -->
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-700 hover:border-emerald-500 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white">PayPal</h3>
+                            <p class="text-sm text-gray-400">@OBrimelow</p>
+                        </div>
+                        <button onclick="copyToClipboard('@OBrimelow', 'PayPal')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Crypto Section -->
+                <div class="bg-gray-900 p-4 rounded-lg border border-gray-700 hover:border-emerald-500 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white">Crypto</h3>
+                            <p class="text-sm text-gray-400">Multiple options</p>
+                        </div>
+                        <button onclick="showCryptoAddresses()" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                            View
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <p class="text-xs text-gray-500 mb-4">Your support helps keep CoinShelf free and ad-free for everyone! 💙</p>
+                <button id="close-donate-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crypto Addresses Modal -->
+    <div id="crypto-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-lg border border-gray-700 transform transition-all scale-95 opacity-0">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-white">🪙 Crypto Addresses</h2>
+                <button id="close-crypto-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Bitcoin -->
+                <div class="bg-gray-900 p-3 rounded-lg border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white text-sm">Bitcoin (BTC)</h3>
+                            <p class="text-xs text-gray-400 font-mono break-all">bc1p493h7rq49nhj0ahffythwyup7qmv6hw3rv77q6c78r508zjydmts4lmj2c</p>
+                        </div>
+                        <button onclick="copyToClipboard('bc1p493h7rq49nhj0ahffythwyup7qmv6hw3rv77q6c78r508zjydmts4lmj2c', 'Bitcoin')" class="bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded text-xs transition-colors">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Ethereum -->
+                <div class="bg-gray-900 p-3 rounded-lg border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white text-sm">Ethereum (ETH)</h3>
+                            <p class="text-xs text-gray-400 font-mono break-all">0x9638AdbfaD918220f46492db6135E04a0aE1f76A</p>
+                        </div>
+                        <button onclick="copyToClipboard('0x9638AdbfaD918220f46492db6135E04a0aE1f76A', 'Ethereum')" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Solana -->
+                <div class="bg-gray-900 p-3 rounded-lg border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-white text-sm">Solana (SOL)</h3>
+                            <p class="text-xs text-gray-400 font-mono break-all">BAqSgGwNMYR6FJomcVuLgMES8zPvbxHRBmzGRCCLNkkt</p>
+                        </div>
+                        <button onclick="copyToClipboard('BAqSgGwNMYR6FJomcVuLgMES8zPvbxHRBmzGRCCLNkkt', 'Solana')" class="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs transition-colors">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 text-center">
+                <button id="close-crypto-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">
+                    Close
+                </button>
             </div>
         </div>
     </div>
@@ -3543,6 +3686,42 @@
         setupFileUploads();
         setupTemplateDownloads();
 
+        // Donation Modal Buttons
+        const showDonateBtn = document.getElementById('show-donate-modal');
+        if (showDonateBtn) {
+            showDonateBtn.addEventListener('click', () => {
+                openModal('donate-modal');
+            });
+        }
+
+        const closeDonateBtn = document.getElementById('close-donate-modal');
+        if (closeDonateBtn) {
+            closeDonateBtn.addEventListener('click', () => {
+                closeModal(document.getElementById('donate-modal'), document.getElementById('donate-modal').querySelector('div'));
+            });
+        }
+
+        const closeDonateBtn2 = document.getElementById('close-donate-btn');
+        if (closeDonateBtn2) {
+            closeDonateBtn2.addEventListener('click', () => {
+                closeModal(document.getElementById('donate-modal'), document.getElementById('donate-modal').querySelector('div'));
+            });
+        }
+
+        const closeCryptoBtn = document.getElementById('close-crypto-modal');
+        if (closeCryptoBtn) {
+            closeCryptoBtn.addEventListener('click', () => {
+                closeModal(document.getElementById('crypto-modal'), document.getElementById('crypto-modal').querySelector('div'));
+            });
+        }
+
+        const closeCryptoBtn2 = document.getElementById('close-crypto-btn');
+        if (closeCryptoBtn2) {
+            closeCryptoBtn2.addEventListener('click', () => {
+                closeModal(document.getElementById('crypto-modal'), document.getElementById('crypto-modal').querySelector('div'));
+            });
+        }
+
         // Export Modal Buttons
         const exportJsonBtn = document.getElementById('export-json-btn');
         if (exportJsonBtn) {
@@ -5251,6 +5430,34 @@ Need help? Check the templates tab for examples!
         } finally {
             closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
         }
+    }
+
+    // --- Donation Functions ---
+    
+    function copyToClipboard(text, method) {
+        navigator.clipboard.writeText(text).then(() => {
+            showCustomConfirm(`${method} address copied to clipboard!`, () => {});
+        }).catch(() => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showCustomConfirm(`${method} address copied to clipboard!`, () => {});
+            } catch (err) {
+                showCustomConfirm(`Failed to copy ${method} address. Please copy manually: ${text}`, () => {});
+            }
+            document.body.removeChild(textArea);
+        });
+    }
+    
+    function showCryptoAddresses() {
+        closeModal(document.getElementById('donate-modal'), document.getElementById('donate-modal').querySelector('div'));
+        setTimeout(() => {
+            openModal('crypto-modal');
+        }, 300);
     }
 </script>
 
