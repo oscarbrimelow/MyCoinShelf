@@ -4726,47 +4726,7 @@
       }
     });
 
-    // 2. Add hashchange and initial hash handling in JS (after DOMContentLoaded)
-    window.addEventListener('hashchange', handleHashNavigation);
-    function handleHashNavigation() {
-      const hash = window.location.hash.replace('#', '');
-      const validSections = ['home', 'about', 'dashboard', 'collection', 'map', 'missing', 'settings'];
-      const section = validSections.includes(hash) ? hash : 'home';
-      showView('content-' + section);
-    }
-    document.addEventListener('DOMContentLoaded', () => {
-      // ... existing code ...
-      // On initial load, handle hash
-      handleHashNavigation();
-    });
-
-    // 1. Update sidebar navigation links to use pretty URLs
-    // ... existing code ...
-    <a href="/" id="nav-home" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
-      <i class="ph-bold ph-house-simple mr-3"></i> Home
-    </a>
-    <a href="/about" id="nav-about" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-      <i class="ph-bold ph-info mr-3"></i> About CoinShelf
-    </a>
-    <a href="/dashboard" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-      <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
-    </a>
-    <a href="/collection" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-      <i class="ph-bold ph-list-dashes mr-3"></i> Collection
-    </a>
-    <a href="/map" id="nav-map" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-      <i class="ph-bold ph-map-trifold mr-3"></i> World Map
-    </a>
-    <a href="/missing" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-      <i class="ph-bold ph-flag mr-3"></i> Missing Countries
-    </a>
-    <a href="/settings" id="nav-settings" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-      <i class="ph-bold ph-gear mr-3"></i> Account Settings
-    </a>
-    // ... existing code ...
-
-    // 2. Add JS for history mode routing
-    // Place this after DOMContentLoaded
+    // --- SPA Routing for Pretty URLs ---
     const pathToSection = {
       '/': 'content-home',
       '/about': 'content-about',
@@ -4783,7 +4743,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      // Intercept nav link clicks
+      // Intercept nav link clicks for SPA routing
       document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', function(e) {
           const href = this.getAttribute('href');
@@ -4794,7 +4754,7 @@
           }
         });
       });
-      // On initial load
+      // On initial load, show correct section
       handleHistoryNavigation(window.location.pathname);
     });
 
@@ -4802,6 +4762,17 @@
     window.addEventListener('popstate', () => {
       handleHistoryNavigation(window.location.pathname);
     });
+
+    // --- After successful login, redirect to dashboard ---
+    // In the login form submit event listener, after successful login:
+    // ... existing code ...
+    // Instead of just showCustomConfirm and updateAuthUI, do:
+    // window.history.pushState({}, '', '/dashboard');
+    // handleHistoryNavigation('/dashboard');
+    // ... existing code ...
+
+    // Remove all hash-based navigation logic and ensure showView is only called via handleHistoryNavigation.
+    // ... existing code ...
 </script>
 
 </body>
