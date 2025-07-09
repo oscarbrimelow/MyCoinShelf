@@ -540,6 +540,11 @@
                         <!-- Google GeoChart will be rendered here -->
                         <div id="geochart-canvas"></div>
                     </div>
+                    <div class="flex justify-end mt-4">
+                      <button id="export-map-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
+                        <i class="ph-bold ph-download-simple mr-2"></i> Export Map as Image
+                      </button>
+                    </div>
                 </div>
             </div>
 
@@ -4675,6 +4680,51 @@
 
     // Check for reset token on page load
     checkForResetToken();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const exportMapBtn = document.getElementById('export-map-btn');
+      if (exportMapBtn) {
+        exportMapBtn.addEventListener('click', () => {
+          // Find the SVG inside the map
+          const svg = document.querySelector('#geochart-canvas svg');
+          if (!svg) {
+            showCustomConfirm('Map image not found. Please make sure the map is visible.', () => {});
+            return;
+          }
+          // Serialize SVG
+          const serializer = new XMLSerializer();
+          const svgString = serializer.serializeToString(svg);
+          // Create image
+          const img = new Image();
+          const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+          const url = URL.createObjectURL(svgBlob);
+          img.onload = function() {
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = svg.width.baseVal.value || 1200;
+            canvas.height = svg.height.baseVal.value || 600;
+            const ctx = canvas.getContext('2d');
+            // Fill background (optional, white)
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            // Download PNG
+            const pngUrl = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = pngUrl;
+            a.download = 'coinshelf_map.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          };
+          img.onerror = function() {
+            showCustomConfirm('Failed to export map image.', () => {});
+          };
+          img.src = url;
+        });
+      }
+    });
 </script>
 
 </body>
