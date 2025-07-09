@@ -1080,10 +1080,154 @@
 
     <!-- Import Data Modal -->
     <div id="import-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
-        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-2xl border border-gray-700 transform transition-all scale-95 opacity-0">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-6xl border border-gray-700 transform transition-all scale-95 opacity-0">
             <h2 class="text-2xl font-bold mb-6">Import Collection Data</h2>
-            <p class="text-gray-400 mb-4">Paste your coin collection data as a JSON array below.</p>
-            <textarea id="import-json-data" rows="15" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-white p-3 font-mono text-sm"></textarea>
+            
+            <!-- Import Method Tabs -->
+            <div class="mb-6">
+                <div class="border-b border-gray-600">
+                    <nav class="-mb-px flex space-x-8">
+                        <button id="tab-json" class="import-tab py-2 px-1 border-b-2 border-indigo-500 text-indigo-400 font-medium">
+                            JSON Data
+                        </button>
+                        <button id="tab-csv" class="import-tab py-2 px-1 border-b-2 border-transparent text-gray-400 hover:text-gray-300 font-medium">
+                            CSV File
+                        </button>
+                        <button id="tab-excel" class="import-tab py-2 px-1 border-b-2 border-transparent text-gray-400 hover:text-gray-300 font-medium">
+                            Excel File
+                        </button>
+                        <button id="tab-template" class="import-tab py-2 px-1 border-b-2 border-transparent text-gray-400 hover:text-gray-300 font-medium">
+                            Templates
+                        </button>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- JSON Import Tab -->
+            <div id="json-tab" class="import-content">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-2">JSON Import</h3>
+                    <p class="text-gray-400 mb-4">Paste your coin collection data as a JSON array. Each item should have the required fields.</p>
+                    <div class="bg-gray-900 p-4 rounded-md mb-4">
+                        <h4 class="text-sm font-semibold text-gray-300 mb-2">Required Fields:</h4>
+                        <ul class="text-xs text-gray-400 space-y-1">
+                            <li><code>type</code> - "Coin", "Banknote", "Gold Bullion", or "Silver Bullion"</li>
+                            <li><code>country</code> - Country name</li>
+                            <li><code>denomination</code> - Value/description (e.g., "1 Dollar", "1 oz Gold")</li>
+                        </ul>
+                        <h4 class="text-sm font-semibold text-gray-300 mt-3 mb-2">Optional Fields:</h4>
+                        <ul class="text-xs text-gray-400 space-y-1">
+                            <li><code>year</code> - Year minted/issued</li>
+                            <li><code>value</code> - Estimated value in USD</li>
+                            <li><code>quantity</code> - Number of items (default: 1)</li>
+                            <li><code>notes</code> - Additional notes</li>
+                            <li><code>referenceUrl</code> - Reference link</li>
+                            <li><code>weight_grams</code> - Weight for bullion</li>
+                            <li><code>purity_percent</code> - Purity for bullion</li>
+                        </ul>
+                    </div>
+                    <button id="load-example-json" class="text-indigo-400 hover:text-indigo-300 text-sm mb-2">📋 Load Example JSON</button>
+                </div>
+                <textarea id="import-json-data" rows="15" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-white p-3 font-mono text-sm" placeholder='[{"type": "Coin", "country": "United States", "denomination": "1 Dollar", "year": 2020, "value": 1.00, "notes": "Sacagawea dollar"}]'></textarea>
+            </div>
+
+            <!-- CSV Import Tab -->
+            <div id="csv-tab" class="import-content hidden">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-2">CSV File Import</h3>
+                    <p class="text-gray-400 mb-4">Upload a CSV file with your collection data. The first row should contain column headers.</p>
+                    <div class="bg-gray-900 p-4 rounded-md mb-4">
+                        <h4 class="text-sm font-semibold text-gray-300 mb-2">Required CSV Columns:</h4>
+                        <ul class="text-xs text-gray-400 space-y-1">
+                            <li><code>type</code> - Item type (Coin, Banknote, Gold Bullion, Silver Bullion)</li>
+                            <li><code>country</code> - Country name</li>
+                            <li><code>denomination</code> - Value/description</li>
+                        </ul>
+                        <h4 class="text-sm font-semibold text-gray-300 mt-3 mb-2">Optional Columns:</h4>
+                        <ul class="text-xs text-gray-400 space-y-1">
+                            <li><code>year</code>, <code>value</code>, <code>quantity</code>, <code>notes</code>, <code>referenceUrl</code></li>
+                            <li><code>weight_grams</code>, <code>purity_percent</code> (for bullion)</li>
+                        </ul>
+                    </div>
+                    <button id="download-csv-template" class="text-indigo-400 hover:text-indigo-300 text-sm mb-4">📥 Download CSV Template</button>
+                </div>
+                <div class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
+                    <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+                    <label for="csv-file-input" class="cursor-pointer">
+                        <i class="ph-bold ph-upload-simple text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-400">Click to select CSV file or drag and drop</p>
+                        <p class="text-gray-500 text-sm mt-1">Supports .csv files</p>
+                    </label>
+                </div>
+                <div id="csv-preview" class="mt-4 hidden">
+                    <h4 class="text-sm font-semibold text-gray-300 mb-2">Preview:</h4>
+                    <div class="bg-gray-900 p-4 rounded-md max-h-40 overflow-y-auto">
+                        <pre id="csv-preview-content" class="text-xs text-gray-400"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Excel Import Tab -->
+            <div id="excel-tab" class="import-content hidden">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-2">Excel File Import</h3>
+                    <p class="text-gray-400 mb-4">Upload an Excel file (.xlsx or .xls) with your collection data. The first row should contain column headers.</p>
+                    <div class="bg-gray-900 p-4 rounded-md mb-4">
+                        <h4 class="text-sm font-semibold text-gray-300 mb-2">Required Excel Columns:</h4>
+                        <ul class="text-xs text-gray-400 space-y-1">
+                            <li><code>type</code> - Item type (Coin, Banknote, Gold Bullion, Silver Bullion)</li>
+                            <li><code>country</code> - Country name</li>
+                            <li><code>denomination</code> - Value/description</li>
+                        </ul>
+                    </div>
+                    <button id="download-excel-template" class="text-indigo-400 hover:text-indigo-300 text-sm mb-4">📥 Download Excel Template</button>
+                </div>
+                <div class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
+                    <input type="file" id="excel-file-input" accept=".xlsx,.xls" class="hidden">
+                    <label for="excel-file-input" class="cursor-pointer">
+                        <i class="ph-bold ph-upload-simple text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-400">Click to select Excel file or drag and drop</p>
+                        <p class="text-gray-500 text-sm mt-1">Supports .xlsx and .xls files</p>
+                    </label>
+                </div>
+                <div id="excel-preview" class="mt-4 hidden">
+                    <h4 class="text-sm font-semibold text-gray-300 mb-2">Preview:</h4>
+                    <div class="bg-gray-900 p-4 rounded-md max-h-40 overflow-y-auto">
+                        <pre id="excel-preview-content" class="text-xs text-gray-400"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Templates Tab -->
+            <div id="template-tab" class="import-content hidden">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-2">Import Templates</h3>
+                    <p class="text-gray-400 mb-4">Download templates to help you format your data correctly.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-900 p-4 rounded-md">
+                        <h4 class="text-sm font-semibold text-gray-300 mb-2">CSV Template</h4>
+                        <p class="text-xs text-gray-400 mb-3">Template with sample data and all required columns</p>
+                        <button id="download-csv-template-2" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded">Download CSV</button>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded-md">
+                        <h4 class="text-sm font-semibold text-gray-300 mb-2">Excel Template</h4>
+                        <p class="text-xs text-gray-400 mb-3">Template with sample data and all required columns</p>
+                        <button id="download-excel-template-2" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded">Download Excel</button>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded-md">
+                        <h4 class="text-sm font-semibold text-gray-300 mb-2">JSON Example</h4>
+                        <p class="text-xs text-gray-400 mb-3">Sample JSON data with various item types</p>
+                        <button id="copy-json-example" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded">Copy Example</button>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded-md">
+                        <h4 class="text-sm font-semibold text-gray-300 mb-2">Import Guide</h4>
+                        <p class="text-xs text-gray-400 mb-3">Step-by-step instructions for importing data</p>
+                        <button id="show-import-guide" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded">View Guide</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="flex justify-end mt-6">
                 <button type="button" id="import-cancel-btn" class="mr-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
                 <button type="button" id="import-submit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition-colors">Upload & Import</button>
@@ -3394,6 +3538,11 @@
             });
         } else { console.error('import-cancel-btn not found!'); }
 
+        // Enhanced Import Functionality
+        setupImportTabs();
+        setupFileUploads();
+        setupTemplateDownloads();
+
         // Export Modal Buttons
         const exportJsonBtn = document.getElementById('export-json-btn');
         if (exportJsonBtn) {
@@ -4784,6 +4933,325 @@
 
     // Remove all hash-based navigation logic and ensure showView is only called via handleHistoryNavigation.
     // ... existing code ...
+
+    // --- Enhanced Import Functions ---
+    
+    function setupImportTabs() {
+        const tabs = ['json', 'csv', 'excel', 'template'];
+        
+        tabs.forEach(tabId => {
+            const tabBtn = document.getElementById(`tab-${tabId}`);
+            const tabContent = document.getElementById(`${tabId}-tab`);
+            
+            if (tabBtn && tabContent) {
+                tabBtn.addEventListener('click', () => {
+                    // Hide all tabs
+                    tabs.forEach(id => {
+                        const btn = document.getElementById(`tab-${id}`);
+                        const content = document.getElementById(`${id}-tab`);
+                        if (btn) {
+                            btn.classList.remove('border-indigo-500', 'text-indigo-400');
+                            btn.classList.add('border-transparent', 'text-gray-400');
+                        }
+                        if (content) content.classList.add('hidden');
+                    });
+                    
+                    // Show selected tab
+                    tabBtn.classList.remove('border-transparent', 'text-gray-400');
+                    tabBtn.classList.add('border-indigo-500', 'text-indigo-400');
+                    tabContent.classList.remove('hidden');
+                });
+            }
+        });
+    }
+    
+    function setupFileUploads() {
+        // CSV file upload
+        const csvFileInput = document.getElementById('csv-file-input');
+        if (csvFileInput) {
+            csvFileInput.addEventListener('change', handleCsvFileUpload);
+        }
+        
+        // Excel file upload
+        const excelFileInput = document.getElementById('excel-file-input');
+        if (excelFileInput) {
+            excelFileInput.addEventListener('change', handleExcelFileUpload);
+        }
+        
+        // Load example JSON
+        const loadExampleBtn = document.getElementById('load-example-json');
+        if (loadExampleBtn) {
+            loadExampleBtn.addEventListener('click', loadExampleJson);
+        }
+    }
+    
+    function setupTemplateDownloads() {
+        // CSV template downloads
+        const csvTemplateBtns = ['download-csv-template', 'download-csv-template-2'];
+        csvTemplateBtns.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.addEventListener('click', downloadCsvTemplate);
+            }
+        });
+        
+        // Excel template downloads
+        const excelTemplateBtns = ['download-excel-template', 'download-excel-template-2'];
+        excelTemplateBtns.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.addEventListener('click', downloadExcelTemplate);
+            }
+        });
+        
+        // JSON example copy
+        const copyJsonBtn = document.getElementById('copy-json-example');
+        if (copyJsonBtn) {
+            copyJsonBtn.addEventListener('click', copyJsonExample);
+        }
+        
+        // Import guide
+        const importGuideBtn = document.getElementById('show-import-guide');
+        if (importGuideBtn) {
+            importGuideBtn.addEventListener('click', showImportGuide);
+        }
+    }
+    
+    function handleCsvFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const csvContent = e.target.result;
+            const preview = document.getElementById('csv-preview');
+            const previewContent = document.getElementById('csv-preview-content');
+            
+            if (preview && previewContent) {
+                previewContent.textContent = csvContent.substring(0, 500) + (csvContent.length > 500 ? '...' : '');
+                preview.classList.remove('hidden');
+            }
+            
+            // Parse CSV and prepare for import
+            const items = parseCsvToJson(csvContent);
+            if (items && items.length > 0) {
+                showCustomConfirm(`CSV file loaded with ${items.length} items. Ready to import?`, async () => {
+                    await importItems(items);
+                });
+            }
+        };
+        reader.readAsText(file);
+    }
+    
+    function handleExcelFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // For Excel files, we'll show a message that this feature requires additional processing
+        showCustomConfirm('Excel file import requires additional processing. For now, please convert your Excel file to CSV format or use the JSON import method.', () => {});
+    }
+    
+    function parseCsvToJson(csvContent) {
+        try {
+            const lines = csvContent.split('\n').filter(line => line.trim());
+            if (lines.length < 2) {
+                throw new Error('CSV file must have at least a header row and one data row');
+            }
+            
+            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            const items = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+                if (values.length === headers.length && values.some(v => v)) {
+                    const item = {};
+                    headers.forEach((header, index) => {
+                        let value = values[index];
+                        
+                        // Convert numeric values
+                        if (['year', 'value', 'quantity', 'weight_grams', 'purity_percent'].includes(header)) {
+                            value = value ? parseFloat(value) || null : null;
+                        }
+                        
+                        item[header] = value;
+                    });
+                    
+                    // Validate required fields
+                    if (item.type && item.country && item.denomination) {
+                        items.push(item);
+                    }
+                }
+            }
+            
+            return items;
+        } catch (error) {
+            showCustomConfirm(`Error parsing CSV: ${error.message}`, () => {});
+            return null;
+        }
+    }
+    
+    function loadExampleJson() {
+        const exampleJson = [
+            {
+                "type": "Coin",
+                "country": "United States",
+                "denomination": "1 Dollar",
+                "year": 2020,
+                "value": 1.00,
+                "notes": "Sacagawea dollar"
+            },
+            {
+                "type": "Banknote",
+                "country": "Canada",
+                "denomination": "5 Dollars",
+                "year": 2018,
+                "value": 3.75,
+                "notes": "Polymer banknote"
+            },
+            {
+                "type": "Gold Bullion",
+                "country": "United States",
+                "denomination": "Gold Bullion",
+                "value": 1950.00,
+                "weight_grams": 31.1,
+                "purity_percent": 99.9,
+                "notes": "1 oz American Eagle"
+            }
+        ];
+        
+        document.getElementById('import-json-data').value = JSON.stringify(exampleJson, null, 2);
+    }
+    
+    function downloadCsvTemplate() {
+        const csvContent = `type,country,denomination,year,value,quantity,notes,referenceUrl,weight_grams,purity_percent
+Coin,United States,1 Dollar,2020,1.00,1,Sacagawea dollar,,,
+Banknote,Canada,5 Dollars,2018,3.75,1,Polymer banknote,,,
+Gold Bullion,United States,Gold Bullion,,1950.00,1,1 oz American Eagle,,31.1,99.9
+Silver Bullion,Canada,Silver Bullion,,25.00,1,1 oz Maple Leaf,,31.1,99.9`;
+        
+        downloadFile(csvContent, 'coinshelf_template.csv', 'text/csv');
+    }
+    
+    function downloadExcelTemplate() {
+        // For now, we'll create a CSV file that can be opened in Excel
+        downloadCsvTemplate();
+    }
+    
+    function copyJsonExample() {
+        const exampleJson = `[
+  {
+    "type": "Coin",
+    "country": "United States",
+    "denomination": "1 Dollar",
+    "year": 2020,
+    "value": 1.00,
+    "notes": "Sacagawea dollar"
+  },
+  {
+    "type": "Gold Bullion",
+    "country": "United States",
+    "denomination": "Gold Bullion",
+    "value": 1950.00,
+    "weight_grams": 31.1,
+    "purity_percent": 99.9,
+    "notes": "1 oz American Eagle"
+  }
+]`;
+        
+        navigator.clipboard.writeText(exampleJson).then(() => {
+            showCustomConfirm('JSON example copied to clipboard!', () => {});
+        }).catch(() => {
+            showCustomConfirm('Failed to copy to clipboard. Please copy manually.', () => {});
+        });
+    }
+    
+    function showImportGuide() {
+        const guide = `
+📋 CoinShelf Import Guide
+
+1. CHOOSE YOUR METHOD:
+   • JSON: Paste formatted data directly
+   • CSV: Upload a spreadsheet file
+   • Excel: Upload Excel files (coming soon)
+   • Templates: Download ready-to-use templates
+
+2. REQUIRED FIELDS:
+   • type: "Coin", "Banknote", "Gold Bullion", or "Silver Bullion"
+   • country: Country name
+   • denomination: Value/description
+
+3. OPTIONAL FIELDS:
+   • year: Year minted/issued
+   • value: Estimated value in USD
+   • quantity: Number of items
+   • notes: Additional notes
+   • referenceUrl: Reference link
+   • weight_grams: Weight for bullion
+   • purity_percent: Purity for bullion
+
+4. TIPS:
+   • Use templates for correct formatting
+   • Validate your data before importing
+   • Start with a small test import
+   • Backup your data before large imports
+
+Need help? Check the templates tab for examples!
+        `;
+        
+        showCustomConfirm(guide, () => {});
+    }
+    
+    function downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+    
+    async function importItems(items) {
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to import data.', () => {});
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/coins/bulk_upload`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                },
+                body: JSON.stringify(items)
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    handleUnauthorized();
+                    return;
+                }
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            let message = result.message || 'Import completed successfully!';
+            if (result.errors && result.errors.length > 0) {
+                message += ` Some items had errors: ${result.errors.map(err => err.substring(0, 50) + "...").join('; ')}`;
+            }
+            showCustomConfirm(message, () => {});
+            loadCollectionFromBackend();
+        } catch (error) {
+            console.error("Error during import:", error);
+            showCustomConfirm(`Failed to import data: ${error.message}`, () => {});
+        } finally {
+            closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
+        }
+    }
 </script>
 
 </body>
