@@ -981,6 +981,17 @@
                         </div>
                     </div>
 
+                    <!-- Support CoinShelf Section (About Page) -->
+                    <div class="mt-8 pt-6 border-t border-gray-700">
+                        <div class="text-center">
+                            <h3 class="text-lg font-semibold text-gray-300 mb-2">💝 Support CoinShelf</h3>
+                            <p class="text-sm text-gray-400 mb-4">If you find CoinShelf helpful, consider a small tip to keep it free and ad-free!</p>
+                            <button id="show-donate-modal-about" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4 py-2 rounded-md transition-colors">
+                                <i class="ph-bold ph-heart mr-2"></i>Say Thanks
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Call to Action -->
                     <div class="text-center bg-gradient-to-r from-emerald-600 to-blue-600 p-8 rounded-lg shadow-md">
                         <h2 class="text-2xl font-bold text-white mb-4">Ready to Start Your Collection Journey?</h2>
@@ -3690,6 +3701,13 @@
         const showDonateBtn = document.getElementById('show-donate-modal');
         if (showDonateBtn) {
             showDonateBtn.addEventListener('click', () => {
+                openModal('donate-modal');
+            });
+        }
+        // About page donation button
+        const showDonateBtnAbout = document.getElementById('show-donate-modal-about');
+        if (showDonateBtnAbout) {
+            showDonateBtnAbout.addEventListener('click', () => {
                 openModal('donate-modal');
             });
         }
