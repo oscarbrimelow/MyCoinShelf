@@ -2750,12 +2750,8 @@
                 <td class="p-4">${item.quantity || 1}</td>
                 <td class="p-4">${formatCurrency(getItemValueInCurrency(item, currencySetting) * (item.quantity || 1), currencySetting)}</td>
                 <td class="p-4">
-                    <div class="flex flex-col">
-                        <p class="text-xs text-gray-400 max-w-xs truncate" title="${item.notes ? item.notes.replace(/&/g, '&amp;').replace(/\"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A'}">
-                            ${item.notes || 'N/A'}
-                        </p>
-                        ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
-                    </div>
+                    <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
+                    ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
                 </td>
                 <td class="p-4">
                      <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
@@ -5669,16 +5665,6 @@
 Coin,United States,1 Dollar,2020,1.00,1,Sacagawea dollar,,,
 Banknote,Canada,5 Dollars,2018,3.75,1,Polymer banknote,,,
 Gold Bullion,United States,Gold Bullion,,1950.00,1,1 oz American Eagle,,31.1,99.9
-Silver Bullion,Canada,Silver Bullion,,25.00,1,1 oz Maple Leaf,,31.1,99.9`;
-        
-        downloadFile(csvContent, 'coinshelf_template.csv', 'text/csv');
-    }
-
-    // ... (rest of the code remains unchanged)
-
-</script>
- </body>
-</html>
 Silver Bullion,Canada,Silver Bullion,,25.00,1,1 oz Maple Leaf,,31.1,99.9`;
         
         downloadFile(csvContent, 'coinshelf_template.csv', 'text/csv');
