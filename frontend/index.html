@@ -801,7 +801,7 @@
                     <!-- Key Features -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                         <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-                            <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <h3 class="text-xl font-semibold text-white mb-4 flex items-center">
                                 <i class="ph-bold ph-chart-line text-emerald-400 mr-3"></i>
                                 Live Precious Metal Prices
                             </h3>
@@ -812,7 +812,7 @@
                         </div>
 
                         <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-                            <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <h3 class="text-xl font-semibold text-white mb-4 flex items-center">
                                 <i class="ph-bold ph-globe text-emerald-400 mr-3"></i>
                                 World Map Visualization
                             </h3>
@@ -823,7 +823,7 @@
                         </div>
 
                         <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-                            <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <h3 class="text-xl font-semibold text-white mb-4 flex items-center">
                                 <i class="ph-bold ph-chart-pie-slice text-emerald-400 mr-3"></i>
                                 Advanced Analytics
                             </h3>
@@ -834,7 +834,7 @@
                         </div>
 
                         <div class="bg-gray-800 p-6 rounded-lg shadow-md border border-gray-700">
-                            <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                            <h3 class="text-xl font-semibold text-white mb-4 flex items-center">
                                 <i class="ph-bold ph-share-network text-emerald-400 mr-3"></i>
                                 Collection Sharing
                             </h3>
@@ -1299,8 +1299,8 @@
                 </div>
             </div>
 
-            <!-- Sticky Action Buttons (moved inside modal content) -->
-            <div class="sticky bottom-0 bg-gray-800 border-t border-gray-700 p-4 mt-6">
+            <!-- Sticky Action Buttons -->
+            <div class="sticky bottom-0 bg-gray-900 border-t border-gray-700 p-4 mt-6">
                 <div class="flex justify-end">
                     <button type="button" id="import-cancel-btn" class="mr-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
                     <button type="button" id="import-submit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition-colors">Upload & Import</button>
@@ -5666,10 +5666,552 @@ Coin,United States,1 Dollar,2020,1.00,1,Sacagawea dollar,,,
 Banknote,Canada,5 Dollars,2018,3.75,1,Polymer banknote,,,
 Gold Bullion,United States,Gold Bullion,,1950.00,1,1 oz American Eagle,,31.1,99.9
 Silver Bullion,Canada,Silver Bullion,,25.00,1,1 oz Maple Leaf,,31.1,99.9`;
+        downloadFile(csvContent, 'coinshelf_template.csv', 'text/csv');
+    }
+
+    // --- Loading States ---
+    function showLoading() {
+        const loadingSpinner = document.getElementById('loading-spinner');
+        if (loadingSpinner) {
+            loadingSpinner.classList.remove('hidden');
+        }
+    }
+
+    function hideLoading() {
+        const loadingSpinner = document.getElementById('loading-spinner');
+        if (loadingSpinner) {
+            loadingSpinner.classList.add('hidden');
+        }
+    }
+
+    // --- Swipe Gestures for Mobile ---
+    function setupSwipeGestures() {
+        // Only setup swipe gestures on mobile devices
+        if (window.innerWidth < 768) {
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) {
+                const hammer = new Hammer(mainContent);
+                hammer.on('swipeleft', () => {
+                    navigateToNextSection();
+                });
+                hammer.on('swiperight', () => {
+                    navigateToPrevSection();
+                });
+            }
+        }
+    }
+
+    // --- EVENT LISTENERS ---
+    function attachGlobalEventListeners() {
+        console.log('Attaching global event listeners...');
+ 
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            console.log('Found login-form');
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                try {
+                    const response = await fetch(`${API_BASE_URL}/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        showCustomConfirm('Login successful!', () => {
+                            updateAuthUI(result.token);
+                            window.history.pushState({}, '', '/dashboard');
+                            handleHistoryNavigation('/dashboard');
+                        });
+                    } else {
+                        showCustomConfirm(result.message || 'Login failed. Please try again.', () => {});
+                    }
+                } catch (error) {
+                    console.error('Error during login:', error);
+                    showCustomConfirm('Network error. Please check your connection and try again.', () => {});
+                }
+            });
+        } else { console.error('login-form not found during attachGlobalEventListeners!'); }
+ 
+        const signupBtn = document.getElementById('signup-btn');
+        if (signupBtn) {
+            console.log('Found signup-btn');
+            signupBtn.addEventListener('click', async () => {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                try {
+                    const response = await fetch(`${API_BASE_URL}/signup`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        showCustomConfirm('Signup successful! Please log in.', () => {
+                            updateAuthUI(result.token);
+                            window.history.pushState({}, '', '/dashboard');
+                            handleHistoryNavigation('/dashboard');
+                        });
+                    } else {
+                        showCustomConfirm(result.message || 'Signup failed. Please try again.', () => {});
+                    }
+                } catch (error) {
+                    console.error('Error during signup:', error);
+                    showCustomConfirm('Network error. Please check your connection and try again.', () => {});
+                }
+            });
+        } else { console.error('signup-btn not found during attachGlobalEventListeners!'); }
+ 
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            console.log('Found logout-btn');
+            logoutBtn.addEventListener('click', () => {
+                showCustomConfirm('Are you sure you want to log out?', () => {
+                    updateAuthUI(null);
+                    window.history.pushState({}, '', '/');
+                    handleHistoryNavigation('/');
+                });
+            });
+        } else { console.error('logout-btn not found during attachGlobalEventListeners!'); }
+ 
+        const addItemBtn = document.getElementById('add-item-btn');
+        if (addItemBtn) {
+            console.log('Found add-item-btn');
+            addItemBtn.addEventListener('click', () => {
+                openModal(document.getElementById('item-modal'), document.getElementById('item-modal').querySelector('div'));
+            });
+        } else { console.error('add-item-btn not found during attachGlobalEventListeners!'); }
+ 
+        const closeModalBtns = document.querySelectorAll('.close-modal');
+        closeModalBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                closeModal(document.getElementById('item-modal'), document.getElementById('item-modal').querySelector('div'));
+            });
+        });
+ 
+        const itemForm = document.getElementById('item-form');
+        if (itemForm) {
+            console.log('Found item-form');
+            itemForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(itemForm);
+                const item = {};
+                formData.forEach((value, key) => {
+                    item[key] = value;
+                });
+                try {
+                    const response = await fetch(`${API_BASE_URL}/coins`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        },
+                        body: JSON.stringify(item)
+                    });
+
+                    const result = await response.json();
+                    if (response.ok) {
+                        showCustomConfirm('Item added successfully!', () => {
+                            closeModal(document.getElementById('item-modal'), document.getElementById('item-modal').querySelector('div'));
+                            loadCollectionFromBackend();
+                        });
+                    } else {
+                        showCustomConfirm(result.message || 'Failed to add item. Please try again.', () => {});
+                    }
+                } catch (error) {
+                    console.error('Error adding item:', error);
+                    showCustomConfirm('Network error. Please check your connection and try again.', () => {});
+                }
+            });
+        } else { console.error('item-form not found during attachGlobalEventListeners!'); }
+ 
+        const typeSelect = document.getElementById('type');
+        if (typeSelect) {
+            console.log('Found type select');
+            typeSelect.addEventListener('change', () => {
+                toggleBullionFields();
+            });
+        } else { console.error('type select not found during attachGlobalEventListeners!'); }
+ 
+        const importBtn = document.getElementById('import-btn');
+        if (importBtn) {
+            console.log('Found import-btn');
+            importBtn.addEventListener('click', () => {
+                openModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
+            });
+        } else { console.error('import-btn not found during attachGlobalEventListeners!'); }
+ 
+        const closeImportModalBtns = document.querySelectorAll('.close-import-modal');
+        closeImportModalBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
+            });
+        });
+ 
+        const importJsonBtn = document.getElementById('import-json-btn');
+        if (importJsonBtn) {
+            console.log('Found import-json-btn');
+            importJsonBtn.addEventListener('click', async () => {
+                const jsonData = document.getElementById('import-json-data').value;
+                try {
+                    const items = JSON.parse(jsonData);
+                    if (Array.isArray(items) && items.length > 0) {
+                        await importItems(items);
+                    } else {
+                        showCustomConfirm('Invalid JSON data. Please enter a valid JSON array.', () => {});
+                    }
+                } catch (error) {
+                    showCustomConfirm(`Error parsing JSON: ${error.message}`, () => {});
+                }
+            });
+        } else { console.error('import-json-btn not found during attachGlobalEventListeners!'); }
+ 
+        const exportBtn = document.getElementById('export-btn');
+        if (exportBtn) {
+            console.log('Found export-btn');
+            exportBtn.addEventListener('click', () => {
+                openModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+            });
+        } else { console.error('export-btn not found during attachGlobalEventListeners!'); }
+ 
+        const closeExportModalBtns = document.querySelectorAll('.close-export-modal');
+        closeExportModalBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+            });
+        });
+ 
+        const exportJsonBtn = document.getElementById('export-json-btn');
+        if (exportJsonBtn) {
+            console.log('Found export-json-btn');
+            exportJsonBtn.addEventListener('click', () => {
+                exportCollection('json');
+            });
+        } else { console.error('export-json-btn not found during attachGlobalEventListeners!'); }
+ 
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        if (exportCsvBtn) {
+            console.log('Found export-csv-btn');
+            exportCsvBtn.addEventListener('click', () => {
+                exportCollection('csv');
+            });
+        } else { console.error('export-csv-btn not found during attachGlobalEventListeners!'); }
+ 
+        const exportExcelBtn = document.getElementById('export-excel-btn');
+        if (exportExcelBtn) {
+            console.log('Found export-excel-btn');
+            exportExcelBtn.addEventListener('click', () => {
+                exportCollection('excel');
+            });
+        } else { console.error('export-excel-btn not found during attachGlobalEventListeners!'); }
+ 
+        const exportPdfBtn = document.getElementById('export-pdf-btn');
+        if (exportPdfBtn) {
+            console.log('Found export-pdf-btn');
+            exportPdfBtn.addEventListener('click', () => {
+                exportCollection('pdf');
+            });
+        } else { console.error('export-pdf-btn not found during attachGlobalEventListeners!'); }
+ 
+        const exportMapBtn = document.getElementById('export-map-btn');
+        if (exportMapBtn) {
+            console.log('Found export-map-btn');
+            exportMapBtn.addEventListener('click', () => {
+                // Find the SVG inside the map
+                const svg = document.querySelector('#geochart-canvas svg');
+                if (!svg) {
+                    showCustomConfirm('Map image not found. Please make sure the map is visible.', () => {});
+                    return;
+                }
+                // Serialize SVG
+                const serializer = new XMLSerializer();
+                const svgString = serializer.serializeToString(svg);
+                // Create image
+                const img = new Image();
+                const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+                const url = URL.createObjectURL(svgBlob);
+                img.onload = function() {
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = svg.width.baseVal.value || 1200;
+                    canvas.height = svg.height.baseVal.value || 600;
+                    const ctx = canvas.getContext('2d');
+                    // Fill background (optional, white)
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    // Download PNG
+                    const pngUrl = canvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    a.href = pngUrl;
+                    a.download = 'coinshelf_map.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                };
+                img.onerror = function() {
+                    showCustomConfirm('Failed to export map image.', () => {});
+                };
+                img.src = url;
+            });
+        } else { console.error('export-map-btn not found during attachGlobalEventListeners!'); }
+ 
+        const currencySelect = document.getElementById('currency-select');
+        if (currencySelect) {
+            console.log('Found currency-select');
+            currencySelect.addEventListener('change', () => {
+                applySitewideCurrency();
+            });
+        } else { console.error('currency-select not found during attachGlobalEventListeners!'); }
+ 
+        const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+        if (forgotPasswordBtn) {
+            console.log('Found forgot-password-btn');
+            forgotPasswordBtn.addEventListener('click', () => {
+                forgotPasswordModal.classList.remove('hidden');
+                document.getElementById('forgot-password-step1').classList.remove('hidden');
+                document.getElementById('forgot-password-step2').classList.add('hidden');
+                document.getElementById('forgot-email').value = '';
+            });
+        } else { console.error('forgot-password-btn not found during attachGlobalEventListeners!'); }
+ 
+        const closeForgotModalBtns = document.querySelectorAll('.close-forgot-modal');
+        closeForgotModalBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                forgotPasswordModal.classList.add('hidden');
+            });
+        });
+ 
+        const forgotPasswordForm = document.getElementById('forgot-password-form');
+        if (forgotPasswordForm) {
+            console.log('Found forgot-password-form');
+            forgotPasswordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('forgot-email').value;
+                const sendResetBtn = document.getElementById('send-reset-btn');
+                
+                if (!email) {
+                    showCustomConfirm('Please enter your email address.', () => {});
+                    return;
+                }
+
+                // Disable button and show loading
+                sendResetBtn.disabled = true;
+                sendResetBtn.textContent = 'Sending...';
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/forgot_password`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ email: email })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        // Show success step
+                        document.getElementById('forgot-password-step1').classList.add('hidden');
+                        document.getElementById('forgot-password-step2').classList.remove('hidden');
+                    } else {
+                        showCustomConfirm(result.message || 'Failed to send reset email. Please try again.', () => {});
+                    }
+                } catch (error) {
+                    console.error('Error sending reset email:', error);
+                    showCustomConfirm('Network error. Please check your connection and try again.', () => {});
+                } finally {
+                    // Re-enable button
+                    sendResetBtn.disabled = false;
+                    sendResetBtn.textContent = 'Send Reset Link';
+                }
+            });
+        } else { console.error('forgot-password-form not found during attachGlobalEventListeners!'); }
+ 
+        const closeForgotSuccessBtns = document.querySelectorAll('.close-forgot-success');
+        closeForgotSuccessBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                forgotPasswordModal.classList.add('hidden');
+            });
+        });
+ 
+        // Close modal when clicking outside
+        forgotPasswordModal.addEventListener('click', (e) => {
+            if (e.target === forgotPasswordModal) {
+                forgotPasswordModal.classList.add('hidden');
+            }
+        });
+ 
+        // Check for reset token in URL (for password reset page)
+        function checkForResetToken() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            
+            if (token) {
+                // Show reset password form
+                showResetPasswordForm(token);
+            }
+        }
+
+        function showResetPasswordForm(token) {
+            // Create reset password modal
+            const resetModal = document.createElement('div');
+            resetModal.id = 'reset-password-modal';
+            resetModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            resetModal.innerHTML = `
+                <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-white">Set New Password</h3>
+                        <button id="close-reset-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <form id="reset-password-form" class="space-y-4">
+                        <input type="hidden" id="reset-token" value="${token}">
+                        <div>
+                            <label for="new-password-reset" class="block text-sm font-medium text-gray-400">New Password</label>
+                            <input type="password" id="new-password-reset" placeholder="Enter new password" 
+                                   class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500" 
+                                   minlength="6" required>
+                        </div>
+                        <div>
+                            <label for="confirm-password-reset" class="block text-sm font-medium text-gray-400">Confirm New Password</label>
+                            <input type="password" id="confirm-password-reset" placeholder="Confirm new password" 
+                                   class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500" 
+                                   minlength="6" required>
+                        </div>
+                        <button type="submit" id="reset-password-btn" 
+                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors">
+                            Reset Password
+                        </button>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(resetModal);
+
+            // Close button
+            document.getElementById('close-reset-modal').addEventListener('click', () => {
+                resetModal.remove();
+            });
+
+            // Handle form submission
+            document.getElementById('reset-password-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const newPassword = document.getElementById('new-password-reset').value;
+                const confirmPassword = document.getElementById('confirm-password-reset').value;
+                const resetBtn = document.getElementById('reset-password-btn');
+                
+                if (newPassword !== confirmPassword) {
+                    showCustomConfirm('Passwords do not match.', () => {});
+                    return;
+                }
+                
+                if (newPassword.length < 6) {
+                    showCustomConfirm('Password must be at least 6 characters long.', () => {});
+                    return;
+                }
+
+                // Disable button and show loading
+                resetBtn.disabled = true;
+                resetBtn.textContent = 'Resetting...';
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/reset_password`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            token: token,
+                            new_password: newPassword 
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        showCustomConfirm('✅ Password reset successfully! You can now log in with your new password.', () => {
+                            resetModal.remove();
+                            // Clear the token from URL
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        });
+                    } else {
+                        showCustomConfirm(result.message || 'Failed to reset password. Please try again.', () => {});
+                    }
+                } catch (error) {
+                    console.error('Error resetting password:', error);
+                    showCustomConfirm('Network error. Please check your connection and try again.', () => {});
+                } finally {
+                    // Re-enable button
+                    resetBtn.disabled = false;
+                    resetBtn.textContent = 'Reset Password';
+                }
+            });
+        }
+
+        // Check for reset token on page load
+        checkForResetToken();
+ 
+        // Intercept nav link clicks for SPA routing
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                if (href.startsWith('/')) {
+                    e.preventDefault();
+                    window.history.pushState({}, '', href);
+                    handleHistoryNavigation(href);
+                }
+            });
+        });
+ 
+        // Listen for browser navigation (back/forward)
+        window.addEventListener('popstate', () => {
+            handleHistoryNavigation(window.location.pathname);
+        });
+ 
+        // On initial load, show correct section
+        handleHistoryNavigation(window.location.pathname);
+ 
+        // Setup import tabs
+        setupImportTabs();
+ 
+        // Setup file uploads
+        setupFileUploads();
+ 
+        // Setup template downloads
+        setupTemplateDownloads();
+ 
+        // Setup swipe gestures
+        setupSwipeGestures();
+    }
+
+    // --- INITIALIZATION ---
+    function initialize() {
+        console.log('Initializing...');
+        attachGlobalEventListeners();
+        checkAuthStatus();
+        loadCollectionFromBackend();
+        loadCurrencyRates();
+    }
+
+    // --- START ---
+    initialize();
+</script>
+</body>
+</html>
+Silver Bullion,Canada,Silver Bullion,,25.00,1,1 oz Maple Leaf,,31.1,99.9`;
         
         downloadFile(csvContent, 'coinshelf_template.csv', 'text/csv');
     }
-    
+
     function downloadExcelTemplate() {
         // For now, we'll create a CSV file that can be opened in Excel
         downloadCsvTemplate();
@@ -5759,11 +6301,11 @@ Need help? Check the templates tab for examples!
         
         try {
             const response = await fetch(`${API_BASE_URL}/coins/bulk_upload`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getAuthToken()}`
-                },
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        },
                 body: JSON.stringify(items)
             });
 
@@ -5783,7 +6325,7 @@ Need help? Check the templates tab for examples!
             }
             showCustomConfirm(message, () => {});
             loadCollectionFromBackend();
-        } catch (error) {
+                } catch (error) {
             console.error("Error during import:", error);
             showCustomConfirm(`Failed to import data: ${error.message}`, () => {});
         } finally {
