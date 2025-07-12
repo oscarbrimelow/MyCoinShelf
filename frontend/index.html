@@ -161,6 +161,16 @@
     <!-- Google Charts for GeoChart -->
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Hammer.js for touch gestures -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+
     <!-- Phosphor Icons for a clean icon set -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
@@ -830,7 +840,7 @@
                             </h3>
                             <p class="text-gray-300">
                                 Share your collection with friends, family, or fellow collectors through secure public links. 
-                                Perfect for insurance documentation or showcasing your treasures.
+                                Perfect for showcasing your treasures and tracking your collection growth.
                             </p>
                         </div>
                     </div>
@@ -1440,6 +1450,12 @@
                 <button id="export-csv-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
                     <i class="ph-bold ph-file-csv mr-2"></i> Export as CSV
                 </button>
+                <button id="export-excel-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-file-xls mr-2"></i> Export as Excel
+                </button>
+                <button id="export-pdf-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
+                    <i class="ph-bold ph-file-pdf mr-2"></i> Export as PDF
+                </button>
                 <button id="export-print-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-md flex items-center justify-center transition-colors">
                     <i class="ph-bold ph-printer mr-2"></i> Print Report
                 </button>
@@ -1503,6 +1519,16 @@
             <div class="flex justify-center space-x-4">
                 <button id="confirm-cancel" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors">Cancel</button>
                 <button id="confirm-ok" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner Modal -->
+    <div id="loading-modal" class="fixed inset-0 z-[200] flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-8 border border-gray-700 transform transition-all scale-95 opacity-0">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mb-4"></div>
+                <p id="loading-message" class="text-white text-lg font-semibold">Loading...</p>
             </div>
         </div>
     </div>
@@ -1755,6 +1781,7 @@
             return;
         }
         console.log('Authenticated, attempting to load collection data from backend...');
+        showLoading('Loading your collection...');
         try {
             const response = await fetch(`${API_BASE_URL}/coins`, {
                 method: 'GET',
@@ -1796,6 +1823,8 @@
             showCustomConfirm('Failed to load collection. Please try logging in again or check backend server.', () => {});
             collectionData = []; // Clear local data on load error
             renderAllViews();
+        } finally {
+            hideLoading();
         }
     }
 
@@ -3391,6 +3420,94 @@
         sidebar.classList.toggle('open'); // Add/remove 'open' class for media query targeting
     }
 
+    // --- Loading Functions ---
+    function showLoading(message = 'Loading...') {
+        const loadingModal = document.getElementById('loading-modal');
+        const loadingMessage = document.getElementById('loading-message');
+        if (loadingMessage) loadingMessage.textContent = message;
+        if (loadingModal) {
+            loadingModal.classList.remove('hidden');
+            loadingModal.classList.add('flex');
+            loadingModal.querySelector('div').classList.remove('scale-95', 'opacity-0');
+            loadingModal.querySelector('div').classList.add('scale-100', 'opacity-100');
+        }
+    }
+
+    function hideLoading() {
+        const loadingModal = document.getElementById('loading-modal');
+        if (loadingModal) {
+            loadingModal.querySelector('div').classList.remove('scale-100', 'opacity-100');
+            loadingModal.querySelector('div').classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                loadingModal.classList.add('hidden');
+                loadingModal.classList.remove('flex');
+            }, 200);
+        }
+    }
+
+    // --- Swipe Gesture Functions ---
+    function setupSwipeGestures() {
+        // Only setup swipe gestures on mobile devices
+        if (window.innerWidth < 768) {
+            const appContent = document.getElementById('app-content');
+            if (appContent && typeof Hammer !== 'undefined') {
+                const hammer = new Hammer(appContent);
+                
+                // Configure recognizers
+                hammer.get('swipe').set({ direction: Hammer.DIRECTION_HORIZONTAL });
+                
+                // Handle swipe left (next section)
+                hammer.on('swipeleft', () => {
+                    const currentView = getCurrentView();
+                    const nextView = getNextView(currentView);
+                    if (nextView) {
+                        showView(nextView);
+                    }
+                });
+                
+                // Handle swipe right (previous section)
+                hammer.on('swiperight', () => {
+                    const currentView = getCurrentView();
+                    const prevView = getPreviousView(currentView);
+                    if (prevView) {
+                        showView(prevView);
+                    }
+                });
+                
+                console.log('Swipe gestures enabled for mobile');
+            }
+        }
+    }
+
+    function getCurrentView() {
+        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-missing', 'content-settings', 'content-about'];
+        for (const view of views) {
+            const element = document.getElementById(view);
+            if (element && !element.classList.contains('hidden')) {
+                return view;
+            }
+        }
+        return 'content-home';
+    }
+
+    function getNextView(currentView) {
+        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-missing', 'content-settings', 'content-about'];
+        const currentIndex = views.indexOf(currentView);
+        if (currentIndex === -1 || currentIndex === views.length - 1) {
+            return null; // Already at the end
+        }
+        return views[currentIndex + 1];
+    }
+
+    function getPreviousView(currentView) {
+        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-missing', 'content-settings', 'content-about'];
+        const currentIndex = views.indexOf(currentView);
+        if (currentIndex <= 0) {
+            return null; // Already at the beginning
+        }
+        return views[currentIndex - 1];
+    }
+
     // --- Export Functions ---
     function exportCollectionAsJson() {
         const jsonString = JSON.stringify(collectionData, null, 2);
@@ -3496,6 +3613,137 @@
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
+        closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+    }
+
+    function exportCollectionAsExcel() {
+        if (collectionData.length === 0) {
+            showCustomConfirm('No data to export.', () => {});
+            return;
+        }
+
+        // Prepare data for Excel
+        const excelData = collectionData.map(item => ({
+            'ID': item.id,
+            'Type': item.type,
+            'Country': item.country,
+            'Year': item.year || 'N/A',
+            'Denomination': item.denomination,
+            'Quantity': item.quantity || 1,
+            'Value (USD)': item.value || 0,
+            'Notes': item.notes || '',
+            'Reference URL': item.referenceUrl || '',
+            'Region': item.region || '',
+            'Historical': item.isHistorical ? 'Yes' : 'No',
+            'Weight (g)': item.weight_grams || '',
+            'Purity (%)': item.purity_percent || ''
+        }));
+
+        // Create workbook and worksheet
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(excelData);
+
+        // Add summary information
+        const totalItems = collectionData.length;
+        const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
+
+        // Add summary to the top of the sheet
+        XLSX.utils.sheet_add_aoa(ws, [
+            ['CoinShelf Collection Report'],
+            [''],
+            [`Total Items: ${totalItems}`],
+            [`Total Value: $${totalValue.toFixed(2)}`],
+            [`Unique Countries: ${uniqueCountries}`],
+            [''],
+            ['Collection Details:']
+        ], { origin: 'A1' });
+
+        // Adjust column widths
+        const colWidths = [
+            { wch: 5 },  // ID
+            { wch: 12 }, // Type
+            { wch: 15 }, // Country
+            { wch: 8 },  // Year
+            { wch: 15 }, // Denomination
+            { wch: 10 }, // Quantity
+            { wch: 12 }, // Value
+            { wch: 30 }, // Notes
+            { wch: 40 }, // Reference URL
+            { wch: 12 }, // Region
+            { wch: 10 }, // Historical
+            { wch: 12 }, // Weight
+            { wch: 12 }  // Purity
+        ];
+        ws['!cols'] = colWidths;
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Collection');
+
+        // Generate and download file
+        XLSX.writeFile(wb, 'coinshelf_collection.xlsx');
+        showCustomConfirm('Collection exported as Excel!', () => {});
+        closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
+    }
+
+    function exportCollectionAsPdf() {
+        if (collectionData.length === 0) {
+            showCustomConfirm('No data to export.', () => {});
+            return;
+        }
+
+        // Create new PDF document
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Add title
+        doc.setFontSize(20);
+        doc.text('CoinShelf Collection Report', 20, 20);
+
+        // Add summary
+        doc.setFontSize(12);
+        const totalItems = collectionData.length;
+        const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
+
+        doc.text(`Total Items: ${totalItems}`, 20, 35);
+        doc.text(`Total Value: $${totalValue.toFixed(2)}`, 20, 45);
+        doc.text(`Unique Countries: ${uniqueCountries}`, 20, 55);
+
+        // Prepare table data
+        const tableData = collectionData.map(item => [
+            item.id,
+            item.type,
+            item.country,
+            item.year || 'N/A',
+            item.denomination,
+            item.quantity || 1,
+            `$${(item.value || 0).toFixed(2)}`,
+            item.notes || ''
+        ]);
+
+        // Add table
+        doc.autoTable({
+            startY: 70,
+            head: [['ID', 'Type', 'Country', 'Year', 'Denomination', 'Qty', 'Value', 'Notes']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [16, 185, 129] }, // emerald color
+            styles: { fontSize: 8 },
+            columnStyles: {
+                0: { cellWidth: 10 }, // ID
+                1: { cellWidth: 20 }, // Type
+                2: { cellWidth: 25 }, // Country
+                3: { cellWidth: 15 }, // Year
+                4: { cellWidth: 25 }, // Denomination
+                5: { cellWidth: 10 }, // Qty
+                6: { cellWidth: 15 }, // Value
+                7: { cellWidth: 'auto' } // Notes
+            }
+        });
+
+        // Save the PDF
+        doc.save('coinshelf_collection.pdf');
+        showCustomConfirm('Collection exported as PDF!', () => {});
         closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
     }
 
@@ -3834,6 +4082,18 @@
             console.log('Found export-print-btn');
             exportPrintBtn.addEventListener('click', printCollectionReport);
         } else { console.error('export-print-btn not found!'); }
+
+        const exportExcelBtn = document.getElementById('export-excel-btn');
+        if (exportExcelBtn) {
+            console.log('Found export-excel-btn');
+            exportExcelBtn.addEventListener('click', exportCollectionAsExcel);
+        } else { console.error('export-excel-btn not found!'); }
+
+        const exportPdfBtn = document.getElementById('export-pdf-btn');
+        if (exportPdfBtn) {
+            console.log('Found export-pdf-btn');
+            exportPdfBtn.addEventListener('click', exportCollectionAsPdf);
+        } else { console.error('export-pdf-btn not found!'); }
 
         const exportCancelBtn = document.getElementById('export-cancel-btn');
         if (exportCancelBtn) {
@@ -4188,6 +4448,7 @@
         applySavedTheme(); // Apply theme immediately on load
         loadSavedPrices(); // Load saved metal prices
         attachGlobalEventListeners();
+        setupSwipeGestures(); // Setup mobile swipe gestures
 
         const urlParams = new URLSearchParams(window.location.search);
         const publicId = urlParams.get('public');
