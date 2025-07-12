@@ -2753,10 +2753,10 @@
                     <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
                     ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
                 </td>
-                <td class="p-4">
-                     <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
-                     <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
-                </td>
+                <td class="p-4 max-w-xs truncate align-top" title="${item.notes || ''}">
+    <span class="text-xs text-gray-400">${item.notes || 'N/A'}</span>
+    ${item.referenceUrl ? `<div><a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a></div>` : ''}
+</td>
             </tr>
         `).join('');
         tableBody.innerHTML = tableRows;
