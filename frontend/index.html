@@ -1766,7 +1766,7 @@
             if (!response.ok) {
                 if (response.status === 401) { // Unauthorized, token expired or invalid
                     console.warn('Authentication failed during collection load (401 Unauthorized).');
-                    handleUnauthorized();
+                    handleUnauthorized(true); // Silent mode for initial load
                     return;
                 }
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -3307,10 +3307,12 @@
         applySitewideCurrency();
     }
 
-    function handleUnauthorized() {
+    function handleUnauthorized(silent = false) {
         console.warn('Handling unauthorized state: session expired or invalid.');
         sessionStorage.removeItem('jwt_token');
-        showCustomConfirm('Your session has expired or is invalid. Please log in again.', () => {});
+        if (!silent) {
+            showCustomConfirm('Your session has expired or is invalid. Please log in again.', () => {});
+        }
         updateAuthUI(false);
         collectionData = []; // Clear data on logout/unauthorized
         history.replaceState(null, '', window.location.pathname); // Clear public URL param
