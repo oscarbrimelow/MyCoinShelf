@@ -2921,13 +2921,16 @@
                     geoChart.draw(dataTable, options);
                 }
             }, 250));
+
+            // Record the set of countries actually rendered
+            lastGeoChartCountrySet = new Set(Object.keys(countryCounts));
         }
 
         // After rendering the map, render the unrecognized places panel
-        renderUnrecognizedPlacesPanel();
+        renderUnrecognizedPlacesPanel(lastGeoChartCountrySet);
     }
 
-    function renderUnrecognizedPlacesPanel() {
+    function renderUnrecognizedPlacesPanel(renderedCountries) {
         const panel = document.getElementById('unrecognized-places-panel');
         const listDiv = document.getElementById('unrecognized-places-list');
         const statusDiv = document.getElementById('unrecognized-places-status');
@@ -2939,12 +2942,10 @@
         }
         // Get all unique countries in the collection
         const uniqueCollectionCountries = Array.from(new Set(collectionData.map(item => item.country).filter(Boolean)));
-        // Get all recognized countries (after alias mapping)
-        const recognizedCountriesSet = new Set(ALL_COUNTRIES.map(c => getGeoChartCountryName(c)));
-        // List of unrecognized countries: not in recognizedCountriesSet after alias mapping
+        // List of unrecognized countries: not in renderedCountries after alias mapping
         const unrecognized = uniqueCollectionCountries.filter(country => {
             const mapped = getGeoChartCountryName(country);
-            return !recognizedCountriesSet.has(mapped);
+            return !renderedCountries.has(mapped);
         });
         if (unrecognized.length === 0) {
             listDiv.innerHTML = '<div class="text-emerald-400">All your collection countries are recognized and shown on the map!</div>';
@@ -3463,8 +3464,6 @@
     const sidebar = document.getElementById('sidebar');
     const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
     const mobileSidebarOverlay = document.getElementById('mobile-sidebar-overlay');
-    // We target document.body for overflow-hidden to prevent background scroll when sidebar is open
-    // const appContent = document.getElementById('app-content'); // No longer directly used for overflow control
 
     // Function to toggle sidebar visibility
     function toggleSidebar() {
@@ -5716,6 +5715,10 @@
 Coin,United States,1 Dollar,2020,1.00,1,Sacagawea dollar,,,
 Banknote,Canada,5 Dollars,2018,3.75,1,Polymer banknote,,,
 Gold Bullion,United States,Gold Bullion,,1950.00,1,1 oz American Eagle,,31.1,99.9
+```
+</script>
+</body>
+</html>
 Silver Bullion,Canada,Silver Bullion,,25.00,1,1 oz Maple Leaf,,31.1,99.9`;
         
         downloadFile(csvContent, 'coinshelf_template.csv', 'text/csv');
@@ -5869,6 +5872,8 @@ Need help? Check the templates tab for examples!
             openModal('crypto-modal');
         }, 300);
     }
+}
+
 </script>
 
 </body>
