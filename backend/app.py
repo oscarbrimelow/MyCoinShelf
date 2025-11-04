@@ -662,21 +662,23 @@ def generate_password_reset_email(user_email, reset_token, reset_url):
 # --- Error Handlers ---
 @app.errorhandler(404)
 def not_found(error):
-    """Return JSON for 404 errors on API routes"""
+    """Return JSON for 404 errors"""
     if request.path.startswith('/api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
-    # For non-API routes, serve the SPA
-    return send_from_directory('frontend', 'index.html')
+    # For non-API routes (frontend is served by Netlify, not this backend)
+    return jsonify({'error': 'Not found', 'message': 'This is the API backend. Frontend is served separately.'}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    """Return JSON for 500 errors on API routes"""
+    """Return JSON for 500 errors"""
     if request.path.startswith('/api/'):
         print(f"Internal server error on {request.path}: {error}")
         traceback.print_exc()
         return jsonify({'error': 'Internal server error', 'message': str(error)}), 500
-    # For non-API routes, serve the SPA
-    return send_from_directory('frontend', 'index.html')
+    # For non-API routes (frontend is served by Netlify, not this backend)
+    print(f"Internal server error on {request.path}: {error}")
+    traceback.print_exc()
+    return jsonify({'error': 'Internal server error', 'message': 'This is the API backend. Frontend is served separately.'}), 500
 
 # --- Routes ---
 # NOTE: All API routes must be defined BEFORE the catch-all route
@@ -1864,19 +1866,25 @@ def migrate_database():
         print(f"Migration error: {e}")
         return jsonify({'message': f'Migration failed: {str(e)}'}), 500
 
-# --- Catch-all route for SPA (MUST BE LAST) ---
+# --- Catch-all route (MUST BE LAST) ---
 # This route must come after all API routes because Flask matches routes in order
-# If placed before API routes, it will intercept all requests including /api/*
+# Note: Frontend is served by Netlify, not this backend, so we don't serve HTML files
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_spa(path):
     # Don't intercept API routes - let them be handled by their specific routes
     if path.startswith('api/'):
         return jsonify({'error': 'API endpoint not found'}), 404
-    if path != "" and os.path.exists(os.path.join("frontend", path)):
-        return send_from_directory('frontend', path)
-    else:
-        return send_from_directory('frontend', 'index.html')
+    # Frontend is on Netlify, not served by this backend
+    # Return a simple JSON response indicating this is the API backend
+    return jsonify({
+        'message': 'CoinShelf API Backend',
+        'info': 'This is the API backend service. The frontend is served separately.',
+        'endpoints': {
+            'api': '/api/*',
+            'health': 'Check /api/ endpoint for available routes'
+        }
+    }), 200
 
 # --- Response Middleware ---
 @app.after_request
