@@ -1776,6 +1776,24 @@
     // This will be updated later with your actual Render backend URL
     const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
 
+    // --- SPA Routing for Pretty URLs ---
+    const pathToSection = {
+      '/': 'content-home',
+      '/auth': 'content-auth',
+      '/about': 'content-about',
+      '/dashboard': 'content-dashboard',
+      '/collection': 'content-collection',
+      '/map': 'content-map',
+      '/members': 'content-members',
+      '/missing': 'content-missing',
+      '/settings': 'content-settings',
+    };
+
+    function handleHistoryNavigation(path) {
+      const sectionId = pathToSection[path] || 'content-home';
+      showView(sectionId);
+    }
+
     // --- Data Store ---
     let collectionData = []; // This will be populated from the backend
     let publicCollectionData = []; // New: To store data for public view
@@ -7320,24 +7338,6 @@
         });
       }
     });
-
-    // --- SPA Routing for Pretty URLs ---
-    const pathToSection = {
-      '/': 'content-home',
-      '/auth': 'content-auth',
-      '/about': 'content-about',
-      '/dashboard': 'content-dashboard',
-      '/collection': 'content-collection',
-      '/map': 'content-map',
-      '/members': 'content-members',
-      '/missing': 'content-missing',
-      '/settings': 'content-settings',
-    };
-
-    function handleHistoryNavigation(path) {
-      const sectionId = pathToSection[path] || 'content-home';
-      showView(sectionId);
-    }
 
     document.addEventListener('DOMContentLoaded', () => {
       // Intercept nav link clicks for SPA routing
