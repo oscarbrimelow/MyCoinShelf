@@ -5533,10 +5533,6 @@
         if (!document.getElementById('content-catalogue').classList.contains('hidden')) {
             if (isAuthenticated()) {
                 setupCatalogueSearch();
-            }
-            
-            if (!document.getElementById('content-wishlist').classList.contains('hidden')) {
-                loadWishlist();
             } else {
                 // Show message if not authenticated
                 const catalogueContent = document.getElementById('content-catalogue');
@@ -5544,6 +5540,21 @@
                     const wrapper = catalogueContent.querySelector('.max-w-7xl');
                     if (wrapper) {
                         wrapper.innerHTML = '<div class="text-center py-12"><p class="text-xl text-red-400">Please sign in to search the catalogue.</p></div>';
+                    }
+                }
+            }
+        }
+        
+        // Wishlist page requires authentication
+        if (!document.getElementById('content-wishlist').classList.contains('hidden')) {
+            if (isAuthenticated()) {
+                loadWishlist();
+            } else {
+                const wishlistContent = document.getElementById('content-wishlist');
+                if (wishlistContent) {
+                    const wrapper = wishlistContent.querySelector('.max-w-7xl');
+                    if (wrapper) {
+                        wrapper.innerHTML = '<div class="text-center py-12"><p class="text-xl text-red-400">Please sign in to view your wishlist.</p></div>';
                     }
                 }
             }
@@ -5775,6 +5786,210 @@
         
         // Show success message
         showCustomConfirm(`Item "${result.title || result.denomination || 'Item'}" has been added to the form. Please review and save.`, () => {});
+    }
+    
+    async function addCatalogueItemToWishlist(result) {
+        try {
+            const token = getAuthToken();
+            if (!token) {
+                showCustomConfirm('Please sign in to add items to your wishlist.', () => {});
+                return;
+            }
+            
+            const wishlistData = {
+                type: result.type || 'Coin',
+                country: result.country || '',
+                year: result.year || null,
+                denomination: result.denomination || result.title || '',
+                notes: result.description || '',
+                referenceUrl: result.url || '',
+                numista_id: result.id || null,
+                description: result.description || '',
+                composition: result.composition || '',
+                weight: result.weight || '',
+                diameter: result.diameter || ''
+            };
+            
+            const response = await fetch(`${API_BASE_URL}/wishlist`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(wishlistData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showCustomConfirm(data.message || 'Item added to wishlist successfully!', () => {});
+            } else {
+                showCustomConfirm(data.message || 'Failed to add item to wishlist.', () => {});
+            }
+        } catch (error) {
+            console.error('Error adding to wishlist:', error);
+            showCustomConfirm('An error occurred while adding to wishlist. Please try again.', () => {});
+        }
+    }
+    
+    async function loadWishlist() {
+        const loadingDiv = document.getElementById('wishlist-loading');
+        const errorDiv = document.getElementById('wishlist-error');
+        const errorMessage = document.getElementById('wishlist-error-message');
+        const itemsDiv = document.getElementById('wishlist-items');
+        const emptyDiv = document.getElementById('wishlist-empty');
+        
+        loadingDiv.classList.remove('hidden');
+        errorDiv.classList.add('hidden');
+        itemsDiv.innerHTML = '';
+        emptyDiv.classList.add('hidden');
+        
+        try {
+            const token = getAuthToken();
+            if (!token) {
+                loadingDiv.classList.add('hidden');
+                errorMessage.textContent = 'Please sign in to view your wishlist.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            const response = await fetch(`${API_BASE_URL}/wishlist`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to load wishlist');
+            }
+            
+            const items = await response.json();
+            loadingDiv.classList.add('hidden');
+            
+            if (!items || items.length === 0) {
+                emptyDiv.classList.remove('hidden');
+                return;
+            }
+            
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-emerald-500 transition-colors';
+                card.innerHTML = `
+                    <div class="flex flex-col h-full">
+                        <h4 class="font-bold text-white text-lg mb-2">${escapeHtml(item.denomination || 'Untitled')}</h4>
+                        ${item.country ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Country:</span> ${escapeHtml(item.country)}</p>` : ''}
+                        ${item.year ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Year:</span> ${item.year}</p>` : ''}
+                        ${item.type ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Type:</span> ${escapeHtml(item.type)}</p>` : ''}
+                        ${item.composition ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Composition:</span> ${escapeHtml(item.composition)}</p>` : ''}
+                        ${item.weight ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Weight:</span> ${escapeHtml(item.weight)}</p>` : ''}
+                        ${item.description ? `<p class="text-xs text-gray-500 mt-2 line-clamp-2">${escapeHtml(item.description.substring(0, 100))}${item.description.length > 100 ? '...' : ''}</p>` : ''}
+                        <div class="mt-4 flex flex-col gap-2">
+                            <button class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm move-to-collection-btn" data-id="${item.id}">
+                                <i class="ph-bold ph-arrow-right mr-2"></i> Move to Collection
+                            </button>
+                            <div class="flex gap-2">
+                                <button class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm remove-from-wishlist-btn" data-id="${item.id}">
+                                    <i class="ph-bold ph-trash mr-2"></i> Remove
+                                </button>
+                                ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center" title="View on Numista">
+                                    <i class="ph-bold ph-arrow-square-out mr-2"></i> View
+                                </a>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                itemsDiv.appendChild(card);
+            });
+            
+            // Add event listeners
+            itemsDiv.querySelectorAll('.move-to-collection-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const itemId = parseInt(btn.dataset.id);
+                    await moveWishlistItemToCollection(itemId);
+                });
+            });
+            
+            itemsDiv.querySelectorAll('.remove-from-wishlist-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const itemId = parseInt(btn.dataset.id);
+                    await removeFromWishlist(itemId);
+                });
+            });
+            
+        } catch (error) {
+            console.error('Error loading wishlist:', error);
+            loadingDiv.classList.add('hidden');
+            errorMessage.textContent = 'Failed to load wishlist. Please try again.';
+            errorDiv.classList.remove('hidden');
+        }
+    }
+    
+    async function moveWishlistItemToCollection(itemId) {
+        try {
+            const token = getAuthToken();
+            if (!token) {
+                showCustomConfirm('Please sign in to move items.', () => {});
+                return;
+            }
+            
+            const response = await fetch(`${API_BASE_URL}/wishlist/${itemId}/move-to-collection`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showCustomConfirm(data.message || 'Item moved to collection successfully!', () => {
+                    loadWishlist(); // Reload wishlist
+                    // Reload collection if collection page is visible
+                    if (!document.getElementById('content-collection').classList.contains('hidden')) {
+                        loadCollectionFromBackend();
+                    }
+                });
+            } else {
+                showCustomConfirm(data.message || 'Failed to move item to collection.', () => {});
+            }
+        } catch (error) {
+            console.error('Error moving to collection:', error);
+            showCustomConfirm('An error occurred. Please try again.', () => {});
+        }
+    }
+    
+    async function removeFromWishlist(itemId) {
+        if (!confirm('Are you sure you want to remove this item from your wishlist?')) {
+            return;
+        }
+        
+        try {
+            const token = getAuthToken();
+            if (!token) {
+                showCustomConfirm('Please sign in to remove items.', () => {});
+                return;
+            }
+            
+            const response = await fetch(`${API_BASE_URL}/wishlist/${itemId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showCustomConfirm(data.message || 'Item removed from wishlist successfully!', () => {
+                    loadWishlist(); // Reload wishlist
+                });
+            } else {
+                showCustomConfirm(data.message || 'Failed to remove item from wishlist.', () => {});
+            }
+        } catch (error) {
+            console.error('Error removing from wishlist:', error);
+            showCustomConfirm('An error occurred. Please try again.', () => {});
+        }
     }
 
     function handleUnauthorized(silent = false) {
@@ -6234,6 +6449,12 @@
             console.log('Found nav-catalogue');
             navCatalogue.addEventListener('click', (e) => { e.preventDefault(); showView('content-catalogue'); });
         } else { console.error('nav-catalogue not found!'); }
+
+        const navWishlist = document.getElementById('nav-wishlist');
+        if (navWishlist) {
+            console.log('Found nav-wishlist');
+            navWishlist.addEventListener('click', (e) => { e.preventDefault(); showView('content-wishlist'); });
+        } else { console.error('nav-wishlist not found!'); }
 
         const navMissing = document.getElementById('nav-missing');
         if (navMissing) {
