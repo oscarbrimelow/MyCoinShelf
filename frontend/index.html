@@ -543,6 +543,66 @@
                 </div>
             </div>
 
+            <!-- Authentication Page -->
+            <div id="content-auth" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
+                <div class="max-w-md mx-auto h-full flex flex-col items-center justify-center py-12 px-4">
+                    <div class="w-full bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-8">
+                        <!-- Logo and Title -->
+                        <div class="text-center mb-8">
+                            <i class="ph-bold ph-coins text-5xl text-emerald-400 mb-4"></i>
+                            <h2 class="text-3xl font-bold text-white mb-2" id="auth-page-title">Sign In</h2>
+                            <p class="text-gray-400">Access your CoinShelf collection</p>
+                        </div>
+
+                        <!-- Email/Password Form -->
+                        <form id="auth-form" class="space-y-4">
+                            <div>
+                                <label for="auth-email" class="block text-sm font-medium text-gray-400 mb-1">Email</label>
+                                <input type="email" id="auth-email" placeholder="your@email.com" 
+                                    class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-3 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                            <div id="auth-password-container">
+                                <label for="auth-password" class="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                                <input type="password" id="auth-password" placeholder="••••••••" 
+                                    class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-3 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                            <div id="auth-remember-container" class="flex items-center">
+                                <input type="checkbox" id="auth-remember-me" class="mr-2">
+                                <label for="auth-remember-me" class="text-gray-400 text-sm">Remember Me</label>
+                            </div>
+                            <button type="submit" id="auth-submit-btn" 
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition-colors">
+                                Sign In
+                            </button>
+                        </form>
+
+                        <!-- Toggle between Sign In and Sign Up -->
+                        <div class="mt-6 text-center">
+                            <p class="text-gray-400 text-sm">
+                                <span id="auth-toggle-text">Don't have an account?</span>
+                                <button type="button" id="auth-toggle-btn" class="text-blue-400 hover:text-blue-300 ml-1 font-medium">
+                                    Sign Up
+                                </button>
+                            </p>
+                        </div>
+
+                        <!-- Forgot Password Link -->
+                        <div id="auth-forgot-password-container" class="mt-4 text-center">
+                            <button type="button" id="auth-forgot-password-btn" class="text-blue-400 hover:text-blue-300 text-sm underline">
+                                Forgot Password?
+                            </button>
+                        </div>
+
+                        <!-- Back to Home -->
+                        <div class="mt-6 text-center">
+                            <button type="button" id="auth-back-to-home" class="text-gray-400 hover:text-gray-300 text-sm">
+                                <i class="ph-bold ph-arrow-left mr-1"></i> Back to Home
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="content-dashboard" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
                 <!-- Dashboard Content Here -->
                 <div class="max-w-7xl mx-auto">
@@ -5095,7 +5155,7 @@
     }
 
     function getCurrentView() {
-        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
         for (const view of views) {
             const element = document.getElementById(view);
             if (element && !element.classList.contains('hidden')) {
@@ -5106,7 +5166,7 @@
     }
 
     function getNextView(currentView) {
-        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
         const currentIndex = views.indexOf(currentView);
         if (currentIndex === -1 || currentIndex === views.length - 1) {
             return null; // Already at the end
@@ -5115,7 +5175,7 @@
     }
 
     function getPreviousView(currentView) {
-        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
         const currentIndex = views.indexOf(currentView);
         if (currentIndex <= 0) {
             return null; // Already at the beginning
@@ -5431,11 +5491,9 @@
             console.log('Found home-signup-btn');
             homeSignupBtn.addEventListener('click', () => {
                 console.log('home-signup-btn clicked');
-                if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
-                    toggleSidebar(); // Open sidebar if closed
-                }
-                const loginEmailInput = document.getElementById('login-email');
-                if (loginEmailInput) loginEmailInput.focus();
+                // Navigate to auth page
+                window.history.pushState({}, '', '/auth');
+                handleHistoryNavigation('/auth');
             });
         } else {
             console.error('home-signup-btn not found!');
@@ -5446,10 +5504,9 @@
             console.log('Found home-learn-more-btn');
             homeLearnMoreBtn.addEventListener('click', () => {
                 console.log('home-learn-more-btn clicked');
-                showView('content-about'); // Redirects to About page
-                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
-                    toggleSidebar();
-                }
+                // Navigate to about page
+                window.history.pushState({}, '', '/about');
+                handleHistoryNavigation('/about');
             });
         } else {
             console.error('home-learn-more-btn not found!');
@@ -6104,8 +6161,161 @@
 
         attachFormEventListeners(); // Attach event listeners for the item form
 
+        // --- AUTH PAGE FUNCTIONALITY ---
+        // Function to setup authentication page
+        function setupAuthPage() {
+            let isSignUpMode = false;
 
-        // --- AUTHENTICATION EVENT LISTENERS ---
+            // Toggle between Sign In and Sign Up
+            const authToggleBtn = document.getElementById('auth-toggle-btn');
+            const authForm = document.getElementById('auth-form');
+            const authSubmitBtn = document.getElementById('auth-submit-btn');
+            const authPageTitle = document.getElementById('auth-page-title');
+            const authToggleText = document.getElementById('auth-toggle-text');
+            const authPasswordContainer = document.getElementById('auth-password-container');
+            const authRememberContainer = document.getElementById('auth-remember-container');
+            const authForgotPasswordContainer = document.getElementById('auth-forgot-password-container');
+
+            if (authToggleBtn) {
+                authToggleBtn.addEventListener('click', () => {
+                    isSignUpMode = !isSignUpMode;
+                    
+                    if (isSignUpMode) {
+                        authPageTitle.textContent = 'Sign Up';
+                        authSubmitBtn.textContent = 'Sign Up';
+                        authToggleText.textContent = 'Already have an account?';
+                        authToggleBtn.textContent = 'Sign In';
+                        authPasswordContainer.style.display = 'block';
+                        authRememberContainer.style.display = 'none';
+                        authForgotPasswordContainer.style.display = 'none';
+                    } else {
+                        authPageTitle.textContent = 'Sign In';
+                        authSubmitBtn.textContent = 'Sign In';
+                        authToggleText.textContent = 'Don\'t have an account?';
+                        authToggleBtn.textContent = 'Sign Up';
+                        authPasswordContainer.style.display = 'block';
+                        authRememberContainer.style.display = 'flex';
+                        authForgotPasswordContainer.style.display = 'block';
+                    }
+                });
+            }
+
+            // Auth form submission
+            if (authForm) {
+                authForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('auth-email').value.trim();
+                    const password = document.getElementById('auth-password').value;
+                    const rememberMe = document.getElementById('auth-remember-me')?.checked || false;
+
+                    // Validation
+                    if (!email) {
+                        showCustomConfirm('Please enter your email address.', () => {});
+                        return;
+                    }
+
+                    if (!validateEmail(email)) {
+                        showCustomConfirm('Please enter a valid email address.', () => {});
+                        return;
+                    }
+
+                    if (!password) {
+                        showCustomConfirm('Please enter your password.', () => {});
+                        return;
+                    }
+
+                    if (isSignUpMode) {
+                        const passwordValidation = validatePassword(password);
+                        if (!passwordValidation.valid) {
+                            showCustomConfirm(passwordValidation.message, () => {});
+                            return;
+                        }
+                    }
+
+                    // Set loading state
+                    if (authSubmitBtn) setLoadingState('auth-submit-btn', true, isSignUpMode ? 'Creating account...' : 'Signing in...');
+
+                    try {
+                        const endpoint = isSignUpMode ? '/register' : '/login';
+                        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, password })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({}));
+                            throw new Error(errorData.message || (isSignUpMode ? 'Sign-up failed' : 'Login failed'));
+                        }
+
+                        const result = await response.json();
+
+                        if (isSignUpMode) {
+                            showCustomConfirm('Account created successfully! Please sign in.', () => {
+                                // Switch to sign in mode
+                                isSignUpMode = false;
+                                authPageTitle.textContent = 'Sign In';
+                                authSubmitBtn.textContent = 'Sign In';
+                                authToggleText.textContent = 'Don\'t have an account?';
+                                authToggleBtn.textContent = 'Sign Up';
+                                authRememberContainer.style.display = 'flex';
+                                authForgotPasswordContainer.style.display = 'block';
+                                document.getElementById('auth-password').value = '';
+                            });
+                        } else {
+                            // Store token
+                            if (rememberMe) {
+                                localStorage.setItem('jwt_token', result.token);
+                                sessionStorage.removeItem('jwt_token');
+                            } else {
+                                sessionStorage.setItem('jwt_token', result.token);
+                                localStorage.removeItem('jwt_token');
+                            }
+
+                            // Check if user needs to set username
+                            if (result.needs_username) {
+                                showUsernameModal();
+                            } else {
+                                showCustomConfirm('Signed in successfully!', () => {});
+                            }
+
+                            updateAuthUI(true);
+                            loadCollectionFromBackend();
+                            window.history.pushState({}, '', '/dashboard');
+                            handleHistoryNavigation('/dashboard');
+                        }
+
+                    } catch (error) {
+                        console.error(`${isSignUpMode ? 'Sign-up' : 'Login'} error:`, error.message);
+                        showCustomConfirm(escapeHtml(error.message || `${isSignUpMode ? 'Sign-up' : 'Login'} failed. Please try again.`), () => {});
+                    } finally {
+                        if (authSubmitBtn) setLoadingState('auth-submit-btn', false);
+                    }
+                });
+            }
+
+            // Back to home button
+            const authBackToHome = document.getElementById('auth-back-to-home');
+            if (authBackToHome) {
+                authBackToHome.addEventListener('click', () => {
+                    window.history.pushState({}, '', '/');
+                    handleHistoryNavigation('/');
+                });
+            }
+
+            // Forgot password button
+            const authForgotPasswordBtn = document.getElementById('auth-forgot-password-btn');
+            if (authForgotPasswordBtn) {
+                authForgotPasswordBtn.addEventListener('click', () => {
+                    // You can implement password reset functionality here later
+                    showCustomConfirm('Password reset functionality coming soon!', () => {});
+                });
+            }
+        }
+
+        setupAuthPage();
+
+        // --- AUTHENTICATION EVENT LISTENERS (OLD SIDEBAR FORM - KEEPING FOR BACKWARDS COMPATIBILITY) ---
         const loginForm = document.getElementById('login-form');
         if (loginForm) {
             console.log('Found login-form');
@@ -7252,6 +7462,7 @@
     // --- SPA Routing for Pretty URLs ---
     const pathToSection = {
       '/': 'content-home',
+      '/auth': 'content-auth',
       '/about': 'content-about',
       '/dashboard': 'content-dashboard',
       '/collection': 'content-collection',
