@@ -1170,13 +1170,11 @@ def search_numista(current_user):
         
         # Numista API endpoint - using official API with authentication
         # Documentation: https://en.numista.com/api/doc/index.php
-        # Try multiple parameter name formats as Numista API documentation can be unclear
+        # Try multiple authentication formats as Numista API documentation can be unclear
         search_url = "https://en.numista.com/api/v2/search.php"
         
-        # Try with 'key' parameter first
+        # Try with API key in Authorization header first (some APIs prefer this)
         params = {
-            'key': api_key,
-            'client_id': str(client_id),
             'q': query,
             'type': item_type,  # 'coin' or 'banknote'
             'lang': 'en',
@@ -1185,36 +1183,75 @@ def search_numista(current_user):
         
         headers = {
             'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'Authorization': f'Numista {api_key}',
+            'X-Client-ID': str(client_id)
         }
         
-        print(f"DEBUG: Making request to {search_url} with params: key={api_key[:10]}..., client_id={client_id}, q={query}")
+        print(f"DEBUG: Making request to {search_url} with header auth: Authorization=Numista {api_key[:10]}..., X-Client-ID={client_id}, q={query}")
         response = requests.get(search_url, params=params, headers=headers, timeout=10)
         print(f"DEBUG: Response status: {response.status_code}, content-type: {response.headers.get('content-type')}")
-        
-        # Check if we got HTML (error page) instead of JSON
         response_text = response.text if response.text else ""
-        is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
         
-        # If 401 or missing key error, try with 'api_key' parameter instead of 'key'
-        if response.status_code == 401 or 'Missing API Key' in response_text or 'missing' in response_text.lower():
-            print(f"DEBUG: Got 401 or missing key error, trying with 'api_key' parameter instead...")
-            params_alt = {
-                'api_key': api_key,  # Try 'api_key' instead of 'key'
+        # If that doesn't work, try with key in query params
+        if response.status_code == 401 or response.status_code == 403 or 'Missing API Key' in response_text or 'missing' in response_text.lower():
+            print(f"DEBUG: Header auth failed, trying with 'key' in query params...")
+            params = {
+                'key': api_key,
                 'client_id': str(client_id),
                 'q': query,
                 'type': item_type,
                 'lang': 'en',
                 'limit': 10
             }
-            response = requests.get(search_url, params=params_alt, headers=headers, timeout=10)
+            headers = {
+                'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
+                'Accept': 'application/json'
+            }
+            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+            response_text = response.text if response.text else ""
+            print(f"DEBUG: With key param - status: {response.status_code}, preview: {response_text[:200]}")
+        
+        # If still failing, try with 'api_key' parameter
+        if response.status_code == 401 or response.status_code == 403 or 'Missing API Key' in response_text or 'missing' in response_text.lower():
+            print(f"DEBUG: Still failing, trying with 'api_key' parameter...")
+            params = {
+                'api_key': api_key,
+                'client_id': str(client_id),
+                'q': query,
+                'type': item_type,
+                'lang': 'en',
+                'limit': 10
+            }
+            response = requests.get(search_url, params=params, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
             print(f"DEBUG: With api_key param - status: {response.status_code}, preview: {response_text[:200]}")
         
+        # Check if we got HTML (error page) instead of JSON
+        is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
+        
+        # If still not working, try the exact URL format from Numista docs
+        if is_html_response or response.status_code != 200:
+            print(f"DEBUG: Trying direct URL format with key and client_id...")
+            # Try building URL manually with key and client_id
+            search_url = f"https://en.numista.com/api/v2/search.php?key={api_key}&client_id={client_id}&q={query}&type={item_type}&lang=en&limit=10"
+            response = requests.get(search_url, headers={'User-Agent': 'CoinShelf/1.0', 'Accept': 'application/json'}, timeout=10)
+            response_text = response.text if response.text else ""
+            print(f"DEBUG: Direct URL - status: {response.status_code}, preview: {response_text[:200]}")
+            is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
+            
         # If PHP endpoint doesn't work, try without .php extension
         if is_html_response or response.status_code != 200:
             print(f"Trying endpoint without .php... (status={response.status_code}, preview={response_text[:100]})")
             search_url = "https://en.numista.com/api/v2/search"
+            params = {
+                'key': api_key,
+                'client_id': str(client_id),
+                'q': query,
+                'type': item_type,
+                'lang': 'en',
+                'limit': 10
+            }
             response = requests.get(search_url, params=params, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
             is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
