@@ -1,6 +1,7 @@
 # backend/app.py
 
 import os
+import re
 from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -121,6 +122,12 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    # Profile fields
+    username = db.Column(db.String(50), unique=True, nullable=True) # Nullable initially for migration
+    display_name = db.Column(db.String(100), nullable=True)
+    bio = db.Column(db.Text, nullable=True)
+    profile_public = db.Column(db.Boolean, default=False) # Whether profile is publicly viewable
+    collection_public = db.Column(db.Boolean, default=False) # Whether collection is publicly viewable
     coins = db.relationship('Coin', backref='owner', lazy=True) # One user has many coins
     # New: One user can have one public collection link
     public_collection = db.relationship('PublicCollection', backref='user', uselist=False, lazy=True)
@@ -736,8 +743,14 @@ def login():
         'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24) # Token expires in 24 hours
     }, app.config['JWT_SECRET_KEY'], algorithm="HS256")
 
+    # Check if user needs to set username (for existing users)
+    needs_username = not user.username or user.username.strip() == ''
+    
     print(f"DEBUG: User {email} logged in successfully. Token generated.")
-    return jsonify({'token': token}), 200
+    return jsonify({
+        'token': token,
+        'needs_username': needs_username
+    }), 200
 
 @app.route('/api/change_password', methods=['POST'])
 @jwt_required
@@ -762,6 +775,61 @@ def change_password(current_user):
     send_password_change_notification(current_user.email)
     
     return jsonify({'message': 'Password changed successfully!'}), 200
+
+def validate_username(username):
+    """Validate username format"""
+    if not username:
+        return False, 'Username is required'
+    
+    username = username.strip()
+    
+    if len(username) < 3:
+        return False, 'Username must be at least 3 characters long'
+    
+    if len(username) > 50:
+        return False, 'Username must be no more than 50 characters long'
+    
+    # Only allow alphanumeric characters, underscores, and hyphens
+    if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+        return False, 'Username can only contain letters, numbers, underscores, and hyphens'
+    
+    # Check if username starts with a letter or number
+    if not username[0].isalnum():
+        return False, 'Username must start with a letter or number'
+    
+    return True, None
+
+@app.route('/api/set_username', methods=['POST'])
+@jwt_required
+def set_username(current_user):
+    """Set username for first-time users or update existing username"""
+    data = request.get_json()
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({'message': 'Username is required'}), 400
+    
+    # Validate username format
+    is_valid, error_message = validate_username(username)
+    if not is_valid:
+        return jsonify({'message': error_message}), 400
+    
+    username = username.strip()
+    
+    # Check if username is already taken
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user and existing_user.id != current_user.id:
+        return jsonify({'message': 'Username is already taken'}), 409
+    
+    # Set username
+    current_user.username = username
+    db.session.commit()
+    
+    print(f"DEBUG: Username '{username}' set for user {current_user.email}")
+    return jsonify({
+        'message': 'Username set successfully!',
+        'username': username
+    }), 200
 
 @app.route('/api/forgot_password', methods=['POST'])
 def forgot_password():
@@ -1454,6 +1522,63 @@ def create_tables():
                 # Add quantity column with default value 1
                 db.session.execute(text("ALTER TABLE coin ADD COLUMN quantity INTEGER DEFAULT 1"))
                 print("Added quantity column to coin table")
+            
+            # Check and add user profile columns
+            # Check if username column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user' AND column_name = 'username'
+            """))
+            
+            if not result.fetchone():
+                # Add username column (nullable for migration)
+                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN username VARCHAR(50) UNIQUE"))
+                print("Added username column to user table")
+            
+            # Check if display_name column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user' AND column_name = 'display_name'
+            """))
+            
+            if not result.fetchone():
+                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN display_name VARCHAR(100)"))
+                print("Added display_name column to user table")
+            
+            # Check if bio column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user' AND column_name = 'bio'
+            """))
+            
+            if not result.fetchone():
+                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN bio TEXT"))
+                print("Added bio column to user table")
+            
+            # Check if profile_public column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user' AND column_name = 'profile_public'
+            """))
+            
+            if not result.fetchone():
+                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN profile_public BOOLEAN DEFAULT FALSE"))
+                print("Added profile_public column to user table")
+            
+            # Check if collection_public column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user' AND column_name = 'collection_public'
+            """))
+            
+            if not result.fetchone():
+                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN collection_public BOOLEAN DEFAULT FALSE"))
+                print("Added collection_public column to user table")
             
             db.session.commit()
         except Exception as e:
