@@ -231,6 +231,10 @@
         #map-container > div {
             width: 100% !important;
             height: 100% !important;
+            pointer-events: auto !important; /* Ensure interactions work */
+        }
+        #geochart-canvas svg {
+            pointer-events: auto !important; /* Ensure SVG is interactive */
         }
 
         /* --- Google Charts Tooltip Custom Styles --- */
@@ -3811,8 +3815,25 @@
             mapContainer.innerHTML = '';
         }
 
+        // Suppress Google Maps API key warnings in console
+        const originalError = console.error;
+        const suppressedPatterns = ['Geocoding Service', 'You must use an API key', 'maps-no-account'];
+        console.error = function(...args) {
+            const message = args.join(' ');
+            if (suppressedPatterns.some(pattern => message.includes(pattern))) {
+                return; // Suppress Google Maps API key warnings
+            }
+            originalError.apply(console, args);
+        };
+        
         google.charts.load('current', {'packages': ['geochart']});
-        google.charts.setOnLoadCallback(drawRegionsMap);
+        google.charts.setOnLoadCallback(() => {
+            drawRegionsMap();
+            // Restore original console.error after map loads (after a delay to catch all warnings)
+            setTimeout(() => {
+                console.error = originalError;
+            }, 2000);
+        });
 
         function drawRegionsMap() {
             const countryCounts = {};
@@ -3856,7 +3877,9 @@
                     tooltipContent += `<div class=\"px-2 pb-1 text-gray-400\">No items collected yet</div>`;
                 }
                 
-                dataTable.addRow([country, itemCount, tooltipContent]);
+                // Use a small value (0.1) instead of 0 for uncollected countries so tooltips still work
+                // This way they'll use defaultColor but still be interactive
+                dataTable.addRow([country, itemCount > 0 ? itemCount : 0.1, tooltipContent]);
             });
 
             const maxItems = Math.max(1, ...Object.values(countryCounts));
@@ -3864,7 +3887,7 @@
             const options = {
                 colorAxis: {
                     colors: ['#d9f99d', '#65a30d', '#facc15', '#f97316', '#dc2626'],
-                    minValue: 1, // Start from 1 so 0 values use defaultColor
+                    minValue: 0.1, // Start from 0.1 so values below 1 use defaultColor but are still interactive
                     maxValue: maxItems,
                 },
                 backgroundColor: {
@@ -3873,11 +3896,12 @@
                 defaultColor: '#374151', // Dark gray for missing countries (visible but distinct)
                 tooltip: {
                     isHtml: true,
-                    trigger: 'both', // Show on both hover and focus for better UX
+                    trigger: 'focus', // Show on hover/focus
                     textStyle: { color: '#d1d5db' },
                 },
                 keepAspectRatio: true,
                 legend: { textStyle: { color: '#d1d5db' } },
+                enableRegionInteractivity: true, // Enable hover interactions
             };
 
             if (!geoChart) {
@@ -3909,8 +3933,9 @@
         // Use setTimeout to ensure Google Charts has finished rendering
         setTimeout(() => {
             removeMapZoomControls(); // Remove old listeners if any
+            zoomControlsSetup = false; // Reset flag to allow re-setup
             setupMapZoomControls();
-        }, 500);
+        }, 1000); // Increased delay to ensure SVG is fully rendered
     }
     
     // Map zoom functionality
@@ -3930,9 +3955,6 @@
     let mouseDownHandler, mouseLeaveHandler, mouseUpHandler, mouseMoveHandler;
     
     function setupMapZoomControls() {
-        // Prevent multiple setups
-        if (zoomControlsSetup) return;
-        
         const zoomInBtn = document.getElementById('zoom-in-btn');
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         const zoomResetBtn = document.getElementById('zoom-reset-btn');
@@ -3944,27 +3966,43 @@
             return;
         }
         
+        // Remove old handlers first to prevent duplicates
+        if (zoomControlsSetup) {
+            removeMapZoomControls();
+        }
+        
         zoomControlsSetup = true;
         
+        console.log('Map zoom controls setup complete');
+        
         // Zoom in handler
-        zoomInHandler = () => {
+        zoomInHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             mapZoomLevel = Math.min(mapZoomLevel + ZOOM_STEP, MAX_ZOOM);
+            console.log('Zoom in:', mapZoomLevel);
             applyZoom();
         };
         zoomInBtn.addEventListener('click', zoomInHandler);
         
         // Zoom out handler
-        zoomOutHandler = () => {
+        zoomOutHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             mapZoomLevel = Math.max(mapZoomLevel - ZOOM_STEP, MIN_ZOOM);
+            console.log('Zoom out:', mapZoomLevel);
             applyZoom();
         };
         zoomOutBtn.addEventListener('click', zoomOutHandler);
         
         // Reset zoom handler
-        zoomResetHandler = () => {
+        zoomResetHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             mapZoomLevel = 1;
             panX = 0;
             panY = 0;
+            console.log('Zoom reset');
             applyZoom();
         };
         zoomResetBtn.addEventListener('click', zoomResetHandler);
@@ -3986,17 +4024,26 @@
         }
         
         // Pan functionality (drag to move when zoomed)
+        // Attach to the geochart-canvas div or the SVG directly to intercept events before Google Charts
+        const geochartCanvas = document.getElementById('geochart-canvas');
         mouseDownHandler = (e) => {
-            // Only pan if clicking on the map container itself, not on buttons or chart elements
+            // Only pan if clicking on the map, not on buttons
             if (mapZoomLevel > 1 && e.button === 0 && !e.target.closest('#zoom-in-btn, #zoom-out-btn, #zoom-reset-btn')) {
-                isPanning = true;
-                panStartX = e.clientX - panX;
-                panStartY = e.clientY - panY;
-                mapContainer.style.cursor = 'grabbing';
-                e.preventDefault();
+                // Check if we're clicking on the SVG or its children
+                const svg = geochartCanvas?.querySelector('svg');
+                if (svg && (e.target === svg || svg.contains(e.target))) {
+                    isPanning = true;
+                    panStartX = e.clientX - panX;
+                    panStartY = e.clientY - panY;
+                    mapContainer.style.cursor = 'grabbing';
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
             }
         };
-        mapContainer.addEventListener('mousedown', mouseDownHandler);
+        if (geochartCanvas) {
+            geochartCanvas.addEventListener('mousedown', mouseDownHandler, true); // Use capture phase
+        }
         
         mouseLeaveHandler = () => {
             isPanning = false;
@@ -4013,11 +4060,12 @@
         mouseMoveHandler = (e) => {
             if (!isPanning || mapZoomLevel <= 1) return;
             e.preventDefault();
+            e.stopPropagation();
             panX = e.clientX - panStartX;
             panY = e.clientY - panStartY;
             applyZoom();
         };
-        document.addEventListener('mousemove', mouseMoveHandler);
+        document.addEventListener('mousemove', mouseMoveHandler, true); // Use capture phase
     }
     
     function removeMapZoomControls() {
@@ -4033,10 +4081,11 @@
         if (zoomOutBtn && zoomOutHandler) zoomOutBtn.removeEventListener('click', zoomOutHandler);
         if (zoomResetBtn && zoomResetHandler) zoomResetBtn.removeEventListener('click', zoomResetHandler);
         if (mapWrapper && wheelHandler) mapWrapper.removeEventListener('wheel', wheelHandler);
-        if (mapContainer && mouseDownHandler) mapContainer.removeEventListener('mousedown', mouseDownHandler);
+        const geochartCanvas = document.getElementById('geochart-canvas');
+        if (geochartCanvas && mouseDownHandler) geochartCanvas.removeEventListener('mousedown', mouseDownHandler, true);
         if (mapContainer && mouseLeaveHandler) mapContainer.removeEventListener('mouseleave', mouseLeaveHandler);
-        if (mouseUpHandler) document.removeEventListener('mouseup', mouseUpHandler);
-        if (mouseMoveHandler) document.removeEventListener('mousemove', mouseMoveHandler);
+        if (mouseUpHandler) document.removeEventListener('mouseup', mouseUpHandler, true);
+        if (mouseMoveHandler) document.removeEventListener('mousemove', mouseMoveHandler, true);
         
         // Reset handlers
         zoomInHandler = zoomOutHandler = zoomResetHandler = wheelHandler = null;
@@ -4046,7 +4095,10 @@
     
     function applyZoom() {
         const mapContainer = document.getElementById('map-container');
-        if (!mapContainer) return;
+        if (!mapContainer) {
+            console.warn('Map container not found for zoom');
+            return;
+        }
         
         // Reset pan when zoom is 1 or less
         if (mapZoomLevel <= 1) {
@@ -4064,6 +4116,8 @@
         // Apply both zoom and pan transforms
         mapContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${mapZoomLevel})`;
         mapContainer.style.transformOrigin = 'center center';
+        
+        console.log('Zoom applied:', mapZoomLevel, 'Pan:', panX, panY);
     }
 
     function renderUnrecognizedPlacesPanel() {
