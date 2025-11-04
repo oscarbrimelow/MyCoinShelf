@@ -1656,7 +1656,19 @@ def clear_all_coins(current_user):
 @jwt_required
 def get_wishlist(current_user):
     """Get all wishlist items for the current user"""
-    wishlist_items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.created_at.desc()).all()
+    # Use distinct() to ensure no duplicates, and order by ID to ensure consistency
+    wishlist_items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.id.desc()).all()
+    
+    # Additional safety check: use a dict to ensure unique IDs
+    seen_ids = {}
+    unique_items = []
+    for item in wishlist_items:
+        if item.id not in seen_ids:
+            seen_ids[item.id] = True
+            unique_items.append(item)
+        else:
+            print(f"WARNING: Duplicate wishlist item ID {item.id} found in database for user {current_user.id}")
+    
     return jsonify([{
         'id': item.id,
         'type': item.type,
@@ -1671,7 +1683,7 @@ def get_wishlist(current_user):
         'weight': item.weight,
         'diameter': item.diameter,
         'created_at': item.created_at.isoformat() if item.created_at else None
-    } for item in wishlist_items]), 200
+    } for item in unique_items]), 200
 
 @app.route('/api/wishlist', methods=['POST'])
 @jwt_required

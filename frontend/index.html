@@ -5852,7 +5852,18 @@
         }
     }
     
+    // Track if wishlist is currently loading to prevent duplicate loads
+    let wishlistLoading = false;
+    
     async function loadWishlist() {
+        // Prevent multiple simultaneous loads
+        if (wishlistLoading) {
+            console.log('Wishlist already loading, skipping duplicate request');
+            return;
+        }
+        
+        wishlistLoading = true;
+        
         const loadingDiv = document.getElementById('wishlist-loading');
         const errorDiv = document.getElementById('wishlist-error');
         const errorMessage = document.getElementById('wishlist-error-message');
@@ -5861,6 +5872,7 @@
         
         loadingDiv.classList.remove('hidden');
         errorDiv.classList.add('hidden');
+        // Clear existing items completely
         itemsDiv.innerHTML = '';
         emptyDiv.classList.add('hidden');
         
@@ -5870,6 +5882,7 @@
                 loadingDiv.classList.add('hidden');
                 errorMessage.textContent = 'Please sign in to view your wishlist.';
                 errorDiv.classList.remove('hidden');
+                wishlistLoading = false;
                 return;
             }
             
@@ -5888,11 +5901,30 @@
             
             if (!items || items.length === 0) {
                 emptyDiv.classList.remove('hidden');
+                wishlistLoading = false;
                 return;
             }
             
-            items.forEach(item => {
+            // Use a Set to track unique IDs and prevent duplicate rendering
+            const seenIds = new Set();
+            const uniqueItems = [];
+            
+            for (const item of items) {
+                if (!seenIds.has(item.id)) {
+                    seenIds.add(item.id);
+                    uniqueItems.push(item);
+                } else {
+                    console.warn(`Duplicate item ID ${item.id} detected in wishlist response, skipping`);
+                }
+            }
+            
+            // Clear items div again before adding (defensive programming)
+            itemsDiv.innerHTML = '';
+            
+            uniqueItems.forEach(item => {
                 const card = document.createElement('div');
+                // Add unique data attribute for debugging
+                card.setAttribute('data-wishlist-item-id', item.id);
                 card.className = 'bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-emerald-500 transition-colors';
                 card.innerHTML = `
                     <div class="flex flex-col h-full">
@@ -5921,17 +5953,25 @@
                 itemsDiv.appendChild(card);
             });
             
-            // Add event listeners
+            // Add event listeners only once
             itemsDiv.querySelectorAll('.move-to-collection-btn').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    const itemId = parseInt(btn.dataset.id);
+                // Remove any existing listeners by cloning
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const itemId = parseInt(newBtn.dataset.id);
                     await moveWishlistItemToCollection(itemId);
                 });
             });
             
             itemsDiv.querySelectorAll('.remove-from-wishlist-btn').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    const itemId = parseInt(btn.dataset.id);
+                // Remove any existing listeners by cloning
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const itemId = parseInt(newBtn.dataset.id);
                     await removeFromWishlist(itemId);
                 });
             });
@@ -5941,6 +5981,8 @@
             loadingDiv.classList.add('hidden');
             errorMessage.textContent = 'Failed to load wishlist. Please try again.';
             errorDiv.classList.remove('hidden');
+        } finally {
+            wishlistLoading = false;
         }
     }
     
