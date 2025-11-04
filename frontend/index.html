@@ -2509,7 +2509,9 @@
     }, null);
 
             let highlightsHtml = '<ul class="space-y-2">';
-    highlightsHtml += `<li><strong>Total Items:</strong> ${collectionData.length}</li>`;
+    // Sum quantities for total items (not just count rows)
+    const totalItemsCount = collectionData.reduce((sum, item) => sum + (item.quantity || 1), 0);
+    highlightsHtml += `<li><strong>Total Items:</strong> ${totalItemsCount}</li>`;
     const totalValue = collectionData.reduce((sum, item) => {
         return sum + (getItemValueInCurrency(item, currencySetting) * (item.quantity || 1));
     }, 0);
@@ -4815,8 +4817,10 @@
         const ownerName = publicCollectionData[0] ? publicCollectionData[0].owner_email : 'Shared User'; // Placeholder
         publicTitle.innerText = `${ownerName}'s Public Collection`;
 
-        const totalItems = publicCollectionData.length;
-        const totalValue = publicCollectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        // Sum quantities for total items (not just count rows)
+        const totalItems = publicCollectionData.reduce((sum, item) => sum + (item.quantity || 1), 0);
+        // Multiply value by quantity for accurate total value
+        const totalValue = publicCollectionData.reduce((sum, item) => sum + ((item.value || 0) * (item.quantity || 1)), 0);
         const uniqueCountries = new Set(publicCollectionData.map(item => item.country)).size;
 
         publicTotalItems.innerText = totalItems;
@@ -4825,11 +4829,13 @@
 
         const tableRows = publicCollectionData.map(item => `
             <tr class="border-b border-gray-700">
+                <td class="p-4">${item.id}</td>
                 <td class="p-4">${item.type}</td>
                 <td class="p-4">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
                 <td class="p-4">${item.year || 'N/A'}</td>
                 <td class="p-4">${item.denomination}</td>
-                <td class="p-4">$${(item.value || 0).toFixed(2)}</td>
+                <td class="p-4">${item.quantity || 1}</td>
+                <td class="p-4">$${((item.value || 0) * (item.quantity || 1)).toFixed(2)}</td>
                 <td class="p-4">
                     <p class="text-xs text-gray-400">${item.notes || 'N/A'}</p>
                     ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
@@ -5130,7 +5136,9 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        const message = exportFiltered ? `Filtered collection (${dataToExport.length} items) exported as JSON!` : 'Collection exported as JSON!';
+        // Count total items including quantities
+        const totalItems = dataToExport.reduce((sum, item) => sum + (item.quantity || 1), 0);
+        const message = exportFiltered ? `Filtered collection (${totalItems} items) exported as JSON!` : `Collection (${totalItems} items) exported as JSON!`;
         showCustomConfirm(message, () => {});
         closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
     }
@@ -5168,7 +5176,9 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        const message = exportFiltered ? `Filtered collection (${dataToExport.length} items) exported as CSV!` : 'Collection exported as CSV!';
+        // Count total items including quantities
+        const totalItems = dataToExport.reduce((sum, item) => sum + (item.quantity || 1), 0);
+        const message = exportFiltered ? `Filtered collection (${totalItems} items) exported as CSV!` : `Collection (${totalItems} items) exported as CSV!`;
         showCustomConfirm(message, () => {});
         closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
     }
@@ -5192,9 +5202,9 @@
         if (collectionData.length === 0) {
             printWindow.document.write('<p>No items in your collection to print.</p>');
         } else {
-            // Summary
-            const totalItems = collectionData.length;
-            const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+            // Summary - sum quantities for total items, multiply value by quantity
+            const totalItems = collectionData.reduce((sum, item) => sum + (item.quantity || 1), 0);
+            const totalValue = collectionData.reduce((sum, item) => sum + ((item.value || 0) * (item.quantity || 1)), 0);
             const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
 
             printWindow.document.write('<h2>Summary</h2>');
@@ -5256,9 +5266,9 @@
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(excelData);
 
-        // Add summary information
-        const totalItems = collectionData.length;
-        const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        // Add summary information - sum quantities for total items, multiply value by quantity
+        const totalItems = collectionData.reduce((sum, item) => sum + (item.quantity || 1), 0);
+        const totalValue = collectionData.reduce((sum, item) => sum + ((item.value || 0) * (item.quantity || 1)), 0);
         const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
 
         // Add summary to the top of the sheet
@@ -5312,10 +5322,10 @@
         doc.setFontSize(20);
         doc.text('CoinShelf Collection Report', 20, 20);
 
-        // Add summary
+        // Add summary - sum quantities for total items, multiply value by quantity
         doc.setFontSize(12);
-        const totalItems = collectionData.length;
-        const totalValue = collectionData.reduce((sum, item) => sum + (item.value || 0), 0);
+        const totalItems = collectionData.reduce((sum, item) => sum + (item.quantity || 1), 0);
+        const totalValue = collectionData.reduce((sum, item) => sum + ((item.value || 0) * (item.quantity || 1)), 0);
         const uniqueCountries = new Set(collectionData.map(item => item.country)).size;
 
         doc.text(`Total Items: ${totalItems}`, 20, 35);
@@ -6912,13 +6922,14 @@
     // --- Patch Dashboard/Highlights ---
     const origRenderCollectionHighlights = renderCollectionHighlights;
     function renderCollectionHighlights() {
-        let highlightsHtml = `<li><strong>Total Items:</strong> ${collectionData.length}</li>`;
+        // Sum quantities for total items (not just count rows)
+        const totalItemsCount = collectionData.reduce((sum, item) => sum + (item.quantity || 1), 0);
+        let highlightsHtml = `<li><strong>Total Items:</strong> ${totalItemsCount}</li>`;
         highlightsHtml += `<li><strong>Total Estimated Value:</strong> $${collectionData.reduce((sum, item) => {
-            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
-                return sum + calculateBullionValue(item);
-            } else {
-                return sum + (item.value || 0);
-            }
+            const itemValue = item.type === 'Gold Bullion' || item.type === 'Silver Bullion' 
+                ? calculateBullionValue(item) 
+                : (item.value || 0);
+            return sum + (itemValue * (item.quantity || 1));
         }, 0).toFixed(2)}</li>`;
         highlightsHtml += `<li><strong>Unique Countries Represented:</strong> ${new Set(collectionData.map(item => item.country)).size}</li>`;
         document.getElementById('collection-highlights').innerHTML = highlightsHtml;
