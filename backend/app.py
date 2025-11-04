@@ -2398,6 +2398,17 @@ def create_tables():
                 db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN collection_public BOOLEAN DEFAULT FALSE"))
                 print("Added collection_public column to user table")
             
+            # Check if image_url column exists in wishlist_item table
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'wishlist_item' AND column_name = 'image_url'
+            """))
+            
+            if not result.fetchone():
+                db.session.execute(text("ALTER TABLE wishlist_item ADD COLUMN image_url VARCHAR(500)"))
+                print("Added image_url column to wishlist_item table")
+            
             db.session.commit()
         except Exception as e:
             print(f"Database migration check failed: {e}")
