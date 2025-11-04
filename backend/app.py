@@ -1156,6 +1156,12 @@ def search_numista(current_user):
         api_key = app.config.get('NUMISTA_API_KEY')
         client_id = app.config.get('NUMISTA_CLIENT_ID')
         
+        print(f"DEBUG: API key present: {bool(api_key)}, Client ID present: {bool(client_id)}")
+        if api_key:
+            print(f"DEBUG: API key length: {len(api_key)}, first 10 chars: {api_key[:10]}...")
+        if client_id:
+            print(f"DEBUG: Client ID: {client_id}")
+        
         if not api_key or not client_id:
             return jsonify({
                 'results': [],
@@ -1164,14 +1170,10 @@ def search_numista(current_user):
         
         # Numista API endpoint - using official API with authentication
         # Documentation: https://en.numista.com/api/doc/index.php
-        # Numista API v2 uses PHP endpoints with query parameters
-        # Based on Numista API documentation, the format is:
-        # https://en.numista.com/api/v2/search.php?key=API_KEY&client_id=CLIENT_ID&q=QUERY&type=TYPE
-        # Try the documented endpoint format first
+        # Try multiple parameter name formats as Numista API documentation can be unclear
         search_url = "https://en.numista.com/api/v2/search.php"
         
-        # Numista API uses query parameters for authentication
-        # Parameters: key (API key), client_id (Client ID), q (search query), type (coin/banknote), lang (language), limit (max results)
+        # Try with 'key' parameter first
         params = {
             'key': api_key,
             'client_id': str(client_id),
@@ -1186,14 +1188,31 @@ def search_numista(current_user):
             'Accept': 'application/json'
         }
         
+        print(f"DEBUG: Making request to {search_url} with params: key={api_key[:10]}..., client_id={client_id}, q={query}")
         response = requests.get(search_url, params=params, headers=headers, timeout=10)
+        print(f"DEBUG: Response status: {response.status_code}, content-type: {response.headers.get('content-type')}")
         
         # Check if we got HTML (error page) instead of JSON
         response_text = response.text if response.text else ""
         is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
         
+        # If 401 or missing key error, try with 'api_key' parameter instead of 'key'
+        if response.status_code == 401 or 'Missing API Key' in response_text or 'missing' in response_text.lower():
+            print(f"DEBUG: Got 401 or missing key error, trying with 'api_key' parameter instead...")
+            params_alt = {
+                'api_key': api_key,  # Try 'api_key' instead of 'key'
+                'client_id': str(client_id),
+                'q': query,
+                'type': item_type,
+                'lang': 'en',
+                'limit': 10
+            }
+            response = requests.get(search_url, params=params_alt, headers=headers, timeout=10)
+            response_text = response.text if response.text else ""
+            print(f"DEBUG: With api_key param - status: {response.status_code}, preview: {response_text[:200]}")
+        
         # If PHP endpoint doesn't work, try without .php extension
-        if is_html_response:
+        if is_html_response or response.status_code != 200:
             print(f"Trying endpoint without .php... (status={response.status_code}, preview={response_text[:100]})")
             search_url = "https://en.numista.com/api/v2/search"
             response = requests.get(search_url, params=params, headers=headers, timeout=10)
