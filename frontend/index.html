@@ -5863,6 +5863,10 @@
             // Mark as in progress
             wishlistAddInProgress.add(itemKey);
             
+            // Auto-populate image URL from Numista
+            // Prefer obverse_thumbnail, then reverse_thumbnail, then image_url
+            const imageUrl = result.obverse_thumbnail || result.reverse_thumbnail || result.image_url || '';
+            
             const wishlistData = {
                 type: result.type || 'Coin',
                 country: result.country || '',
@@ -5875,7 +5879,7 @@
                 composition: result.composition || '',
                 weight: result.weight || '',
                 diameter: result.diameter || '',
-                image_url: result.image_url || ''
+                image_url: imageUrl
             };
             
             const response = await fetch(`${API_BASE_URL}/wishlist`, {
