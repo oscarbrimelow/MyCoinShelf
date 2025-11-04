@@ -1113,36 +1113,90 @@ def search_numista(current_user):
         
         # Numista API endpoint - using official API with authentication
         # Documentation: https://en.numista.com/api/doc/index.php
-        search_url = "https://api.numista.com/api/v3/search"
+        # Numista API v2 uses PHP endpoints with query parameters
+        # Try the documented endpoint format first
+        search_url = "https://en.numista.com/api/v2/search.php"
         
-        # Numista API typically uses query parameters or headers for authentication
+        # Numista API uses query parameters for authentication
         params = {
             'q': query,
             'type': item_type,  # 'coin' or 'banknote'
             'lang': 'en',
-            'limit': 10  # Limit results
+            'limit': 10,  # Limit results
+            'key': api_key,
+            'client_id': str(client_id)
         }
         
         headers = {
             'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
-            'Authorization': f'Bearer {api_key}',
-            'X-Client-ID': client_id
+            'Accept': 'application/json'
         }
         
-        # Alternative: Some APIs use query parameters for auth
-        # Try both methods if one doesn't work
         response = requests.get(search_url, params=params, headers=headers, timeout=10)
         
-        # If Bearer token doesn't work, try with API key in params
-        if response.status_code == 401 or response.status_code == 403:
-            params['api_key'] = api_key
-            params['client_id'] = client_id
-            headers.pop('Authorization', None)
-            headers.pop('X-Client-ID', None)
-            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+        # Check if we got HTML (error page) instead of JSON
+        response_text = response.text if response.text else ""
+        is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
         
+        # If PHP endpoint doesn't work, try without .php extension
+        if is_html_response:
+            print(f"Trying endpoint without .php... (status={response.status_code}, preview={response_text[:100]})")
+            search_url = "https://en.numista.com/api/v2/search"
+            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+            response_text = response.text if response.text else ""
+            is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
+        
+        # If v2 doesn't work, try v3 endpoint
+        if is_html_response:
+            print(f"Trying v3 endpoint... (v2 returned: status={response.status_code})")
+            search_url = "https://api.numista.com/api/v3/search"
+            params_v3 = {
+                'q': query,
+                'type': item_type,
+                'lang': 'en',
+                'limit': 10,
+                'key': api_key,
+                'client_id': str(client_id)
+            }
+            response = requests.get(search_url, params=params_v3, headers=headers, timeout=10)
+            response_text = response.text if response.text else ""
+            is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
+            
+            # If still HTML, try with Bearer token in headers
+            if is_html_response:
+                print(f"Trying Bearer token auth... (v3 returned: status={response.status_code})")
+                headers_v3 = {
+                    'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
+                    'Accept': 'application/json',
+                    'Authorization': f'Bearer {api_key}',
+                    'X-Client-ID': str(client_id)
+                }
+                params_v3 = {
+                    'q': query,
+                    'type': item_type,
+                    'lang': 'en',
+                    'limit': 10
+                }
+                response = requests.get(search_url, params=params_v3, headers=headers_v3, timeout=10)
+                response_text = response.text if response.text else ""
+                is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower()
+                
+        # Debug: Log the final response if it's still HTML
+        if is_html_response and response.status_code == 200:
+            print(f"WARNING: Got HTML response despite 200 status. Response preview: {response_text[:200]}")
+        
+        # Check if response is JSON
         if response.status_code == 200:
-            data = response.json()
+            try:
+                data = response.json()
+            except ValueError:
+                # Response is not JSON, likely HTML error page
+                print(f"Numista API returned non-JSON response (HTML): {response.text[:500]}")
+                return jsonify({
+                    'results': [],
+                    'error': 'Numista API returned an unexpected response. The API endpoint may have changed or requires different authentication.'
+                }), 200
+            
             results = []
             
             # Parse Numista API response format
@@ -1195,17 +1249,29 @@ def search_numista(current_user):
         else:
             # Log error for debugging
             error_msg = f"Numista API error: {response.status_code}"
+            response_text = response.text[:500] if response.text else "No response text"
+            
+            # Check if response is HTML
+            if '<!DOCTYPE' in response_text or '<html' in response_text.lower():
+                error_msg += " - Received HTML instead of JSON (API endpoint may be incorrect or authentication failed)"
+                print(error_msg)
+                print(f"Response preview: {response_text}")
+                return jsonify({
+                    'results': [],
+                    'error': 'Numista API authentication failed or endpoint not found. Please check your API credentials and try again.'
+                }), 200
+            
             try:
                 error_data = response.json()
                 error_msg += f" - {error_data}"
             except:
-                error_msg += f" - {response.text[:200]}"
+                error_msg += f" - {response_text}"
             print(error_msg)
             
             # Return error message to frontend
             return jsonify({
                 'results': [],
-                'error': f'Numista API returned status {response.status_code}. Please try again or fill in manually.'
+                'error': f'Numista API returned status {response.status_code}. Response: {response_text[:100]}'
             }), 200
             
     except requests.RequestException as e:

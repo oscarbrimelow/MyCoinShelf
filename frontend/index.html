@@ -2428,7 +2428,23 @@
                 }
             });
             
-            const data = await response.json();
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Numista search error: Non-JSON response', text.substring(0, 200));
+                resultsDiv.innerHTML = '<div class="p-3 text-center text-yellow-400">Server returned an unexpected response. Please check your backend logs.</div>';
+                return;
+            }
+            
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                console.error('Numista search error: SyntaxError parsing JSON', e);
+                resultsDiv.innerHTML = '<div class="p-3 text-center text-yellow-400">Server returned invalid JSON. Please check your backend logs.</div>';
+                return;
+            }
             
             if (data.error) {
                 resultsDiv.innerHTML = `<div class="p-3 text-center text-yellow-400">${data.error}</div>`;
@@ -5557,7 +5573,27 @@
                 }
             });
             
-            const data = await response.json();
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Catalogue search error: Non-JSON response', text.substring(0, 200));
+                loadingDiv.classList.add('hidden');
+                errorMessage.textContent = 'Server returned an unexpected response. Please check your backend logs.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                console.error('Catalogue search error: SyntaxError parsing JSON', e);
+                loadingDiv.classList.add('hidden');
+                errorMessage.textContent = 'Server returned invalid JSON. This usually means the Numista API endpoint is incorrect or authentication failed. Please check your backend logs.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
             
             loadingDiv.classList.add('hidden');
             
