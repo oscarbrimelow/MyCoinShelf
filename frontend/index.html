@@ -471,6 +471,9 @@
                     <a href="/catalogue" id="nav-catalogue" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-magnifying-glass mr-3"></i> Search Catalogue
                     </a>
+                    <a href="/wishlist" id="nav-wishlist" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-heart mr-3"></i> Wishlist
+                    </a>
                     <a href="/missing" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-flag mr-3"></i> Missing Countries
                     </a>
@@ -733,6 +736,37 @@
                     <div id="catalogue-no-results" class="hidden text-center py-12">
                         <i class="ph-bold ph-magnifying-glass text-6xl text-gray-600 mb-4"></i>
                         <p class="text-gray-400 text-lg">No results found. Try a different search term.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wishlist Content -->
+            <div id="content-wishlist" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
+                <div class="max-w-7xl mx-auto">
+                    <h2 class="text-3xl font-bold text-white mb-6">My Wishlist</h2>
+                    <p class="text-gray-400 mb-6">Items you want to add to your collection. Click "Move to Collection" when you acquire an item.</p>
+                    
+                    <!-- Loading State -->
+                    <div id="wishlist-loading" class="hidden text-center py-8">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                        <p class="text-gray-400 mt-4">Loading wishlist...</p>
+                    </div>
+                    
+                    <!-- Error Message -->
+                    <div id="wishlist-error" class="hidden bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
+                        <p class="text-red-200" id="wishlist-error-message"></p>
+                    </div>
+                    
+                    <!-- Wishlist Items -->
+                    <div id="wishlist-items" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Items will be inserted here -->
+                    </div>
+                    
+                    <!-- Empty Wishlist Message -->
+                    <div id="wishlist-empty" class="hidden text-center py-12">
+                        <i class="ph-bold ph-heart text-6xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400 text-lg mb-4">Your wishlist is empty.</p>
+                        <p class="text-gray-500 text-sm">Search the catalogue and add items to your wishlist!</p>
                     </div>
                 </div>
             </div>
@@ -1879,6 +1913,7 @@
       '/map': 'content-map',
       '/members': 'content-members',
       '/catalogue': 'content-catalogue',
+      '/wishlist': 'content-wishlist',
       '/missing': 'content-missing',
       '/settings': 'content-settings',
     };
@@ -5498,6 +5533,10 @@
         if (!document.getElementById('content-catalogue').classList.contains('hidden')) {
             if (isAuthenticated()) {
                 setupCatalogueSearch();
+            }
+            
+            if (!document.getElementById('content-wishlist').classList.contains('hidden')) {
+                loadWishlist();
             } else {
                 // Show message if not authenticated
                 const catalogueContent = document.getElementById('content-catalogue');
@@ -5630,12 +5669,17 @@
                         ${result.composition ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Composition:</span> ${escapeHtml(result.composition)}</p>` : ''}
                         ${result.weight ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Weight:</span> ${escapeHtml(result.weight)}${result.weight.includes('g') ? '' : 'g'}</p>` : ''}
                         ${result.description ? `<p class="text-xs text-gray-500 mt-2 line-clamp-2">${escapeHtml(result.description.substring(0, 100))}${result.description.length > 100 ? '...' : ''}</p>` : ''}
-                        <div class="mt-4 flex gap-2">
-                            <button class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm add-to-collection-btn" data-index="${index}">
-                                <i class="ph-bold ph-plus-circle mr-2"></i> Add to Collection
-                            </button>
+                        <div class="mt-4 flex flex-col gap-2">
+                            <div class="flex gap-2">
+                                <button class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm add-to-collection-btn" data-index="${index}">
+                                    <i class="ph-bold ph-plus-circle mr-2"></i> Add to Collection
+                                </button>
+                                <button class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm add-to-wishlist-btn" data-index="${index}">
+                                    <i class="ph-bold ph-heart mr-2"></i> Add to Wishlist
+                                </button>
+                            </div>
                             ${result.url ? `<a href="${result.url}" target="_blank" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center" title="View on Numista">
-                                <i class="ph-bold ph-arrow-square-out"></i>
+                                <i class="ph-bold ph-arrow-square-out mr-2"></i> View on Numista
                             </a>` : ''}
                         </div>
                     </div>
@@ -5649,6 +5693,15 @@
                     const index = parseInt(btn.dataset.index);
                     const result = data.results[index];
                     addCatalogueItemToCollection(result);
+                });
+            });
+            
+            // Add click handlers to "Add to Wishlist" buttons
+            resultsList.querySelectorAll('.add-to-wishlist-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(btn.dataset.index);
+                    const result = data.results[index];
+                    addCatalogueItemToWishlist(result);
                 });
             });
             

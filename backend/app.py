@@ -145,6 +145,7 @@ class User(db.Model):
     profile_public = db.Column(db.Boolean, default=False) # Whether profile is publicly viewable
     collection_public = db.Column(db.Boolean, default=False) # Whether collection is publicly viewable
     coins = db.relationship('Coin', backref='owner', lazy=True) # One user has many coins
+    wishlist_items = db.relationship('WishlistItem', backref='owner', lazy=True) # One user has many wishlist items
     # New: One user can have one public collection link
     public_collection = db.relationship('PublicCollection', backref='user', uselist=False, lazy=True)
 
@@ -172,6 +173,27 @@ class Coin(db.Model):
 
     def __repr__(self):
         return f'<Coin {self.denomination} from {self.country} ({self.year})>'
+
+# Model for Wishlist Items
+class WishlistItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    type = db.Column(db.String(50), nullable=False) # e.g., Coin, Banknote, Gold Bullion, Silver Bullion
+    country = db.Column(db.String(100), nullable=False)
+    year = db.Column(db.Integer)
+    denomination = db.Column(db.String(100), nullable=False)
+    notes = db.Column(db.Text)
+    referenceUrl = db.Column(db.String(500)) # Link to Numista or other reference
+    # Additional fields from Numista API
+    numista_id = db.Column(db.Integer, nullable=True) # Numista catalogue ID
+    description = db.Column(db.Text) # Description from Numista
+    composition = db.Column(db.String(200)) # Metal composition
+    weight = db.Column(db.String(50)) # Weight information
+    diameter = db.Column(db.String(50)) # Diameter/size information
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<WishlistItem {self.denomination} from {self.country} ({self.year})>'
 
 # New: Model for Public Collection Links
 class PublicCollection(db.Model):
@@ -1628,6 +1650,115 @@ def clear_all_coins(current_user):
     num_deleted = Coin.query.filter_by(user_id=current_user.id).delete()
     db.session.commit()
     return jsonify({'message': f'{num_deleted} coins deleted successfully.'}), 200
+
+# --- Wishlist API Endpoints ---
+@app.route('/api/wishlist', methods=['GET'])
+@jwt_required
+def get_wishlist(current_user):
+    """Get all wishlist items for the current user"""
+    wishlist_items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.created_at.desc()).all()
+    return jsonify([{
+        'id': item.id,
+        'type': item.type,
+        'country': item.country,
+        'year': item.year,
+        'denomination': item.denomination,
+        'notes': item.notes,
+        'referenceUrl': item.referenceUrl,
+        'numista_id': item.numista_id,
+        'description': item.description,
+        'composition': item.composition,
+        'weight': item.weight,
+        'diameter': item.diameter,
+        'created_at': item.created_at.isoformat() if item.created_at else None
+    } for item in wishlist_items]), 200
+
+@app.route('/api/wishlist', methods=['POST'])
+@jwt_required
+def add_to_wishlist(current_user):
+    """Add an item to the wishlist"""
+    data = request.get_json()
+    
+    # Required fields validation
+    if not data.get('country') or not data.get('denomination'):
+        return jsonify({'message': 'Country and Denomination are required fields.'}), 400
+    
+    # Check if item already exists in wishlist (optional - could allow duplicates)
+    existing = WishlistItem.query.filter_by(
+        user_id=current_user.id,
+        country=data.get('country').strip(),
+        denomination=data.get('denomination').strip(),
+        year=data.get('year'),
+        numista_id=data.get('numista_id')
+    ).first()
+    
+    if existing:
+        return jsonify({'message': 'This item is already in your wishlist.', 'id': existing.id}), 200
+    
+    new_item = WishlistItem(
+        user_id=current_user.id,
+        type=data.get('type', 'Coin'),
+        country=data.get('country').strip(),
+        year=data.get('year'),
+        denomination=data.get('denomination').strip(),
+        notes=data.get('notes'),
+        referenceUrl=data.get('referenceUrl'),
+        numista_id=data.get('numista_id'),
+        description=data.get('description'),
+        composition=data.get('composition'),
+        weight=data.get('weight'),
+        diameter=data.get('diameter')
+    )
+    db.session.add(new_item)
+    db.session.commit()
+    return jsonify({'message': 'Item added to wishlist successfully!', 'id': new_item.id}), 201
+
+@app.route('/api/wishlist/<int:item_id>', methods=['DELETE'])
+@jwt_required
+def remove_from_wishlist(current_user, item_id):
+    """Remove an item from the wishlist"""
+    item = WishlistItem.query.filter_by(id=item_id, user_id=current_user.id).first()
+    if not item:
+        return jsonify({'message': 'Wishlist item not found'}), 404
+    
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': 'Item removed from wishlist successfully!'}), 200
+
+@app.route('/api/wishlist/<int:item_id>/move-to-collection', methods=['POST'])
+@jwt_required
+def move_wishlist_to_collection(current_user, item_id):
+    """Move a wishlist item to the collection"""
+    wishlist_item = WishlistItem.query.filter_by(id=item_id, user_id=current_user.id).first()
+    if not wishlist_item:
+        return jsonify({'message': 'Wishlist item not found'}), 404
+    
+    # Calculate region and isHistorical
+    country_name = wishlist_item.country.strip()
+    year_value = wishlist_item.year
+    region = get_region_for_country(country_name)
+    is_historical = is_historical_item(country_name, year_value)
+    
+    # Create a new coin from wishlist item
+    new_coin = Coin(
+        user_id=current_user.id,
+        type=wishlist_item.type,
+        country=country_name,
+        year=year_value,
+        denomination=wishlist_item.denomination.strip(),
+        value=None, # No value initially
+        quantity=1,
+        notes=wishlist_item.notes or (wishlist_item.description if wishlist_item.description else ''),
+        referenceUrl=wishlist_item.referenceUrl,
+        localImagePath=None,
+        region=region,
+        isHistorical=is_historical
+    )
+    
+    db.session.add(new_coin)
+    db.session.delete(wishlist_item) # Remove from wishlist
+    db.session.commit()
+    return jsonify({'message': 'Item moved to collection successfully!', 'id': new_coin.id}), 200
 
 @app.route('/api/coins/duplicates', methods=['GET'])
 @jwt_required
