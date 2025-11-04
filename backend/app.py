@@ -190,6 +190,7 @@ class WishlistItem(db.Model):
     composition = db.Column(db.String(200)) # Metal composition
     weight = db.Column(db.String(50)) # Weight information
     diameter = db.Column(db.String(50)) # Diameter/size information
+    image_url = db.Column(db.String(500), nullable=True) # Image URL from Numista
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     
     def __repr__(self):
@@ -1009,6 +1010,10 @@ def get_user_profile(username):
     # Get unique countries
     unique_countries = len(set(coin.country for coin in coins))
     
+    # Get wishlist stats
+    wishlist_items = WishlistItem.query.filter_by(user_id=user.id).all()
+    wishlist_count = len(wishlist_items)
+    
     # Get collection items (only if collection is public)
     collection_items = []
     if user.collection_public:
@@ -1036,7 +1041,8 @@ def get_user_profile(username):
         'stats': {
             'coin_count': coin_count,
             'total_value': total_value,
-            'unique_countries': unique_countries
+            'unique_countries': unique_countries,
+            'wishlist_count': wishlist_count
         },
         'collection': collection_items if user.collection_public else None
     }), 200
@@ -1440,6 +1446,12 @@ def search_numista(current_user):
                     # Use the official format from swagger.yaml
                     numista_url = f"https://en.numista.com/catalogue/pieces{item_id}.html"
                 
+                # Extract image URLs from Numista API
+                obverse_thumbnail = item.get('obverse_thumbnail', '')
+                reverse_thumbnail = item.get('reverse_thumbnail', '')
+                # Use obverse as primary image, fallback to reverse if obverse not available
+                image_url = obverse_thumbnail or reverse_thumbnail or ''
+                
                 scored_items.append({
                     'score': score,
                     'id': item_id,
@@ -1452,7 +1464,10 @@ def search_numista(current_user):
                     'description': item.get('description', ''),
                     'composition': item.get('composition', ''),
                     'weight': item.get('weight', ''),
-                    'diameter': item.get('size', '')  # Numista v3 uses 'size' for diameter
+                    'diameter': item.get('size', ''),  # Numista v3 uses 'size' for diameter
+                    'image_url': image_url,
+                    'obverse_thumbnail': obverse_thumbnail,
+                    'reverse_thumbnail': reverse_thumbnail
                 })
             
             # Sort by relevance score (highest first)
@@ -1535,7 +1550,7 @@ def add_coin(current_user):
         quantity=data.get('quantity', 1), # Set quantity, default to 1
         notes=data.get('notes'),
         referenceUrl=data.get('referenceUrl'),
-        localImagePath=data.get('localImagePath'),
+        localImagePath=data.get('localImagePath') or data.get('image_url'),  # Support Numista image_url field
         region=region, # Set calculated region
         isHistorical=is_historical, # Set calculated historical flag
         weight_grams=data.get('weight_grams'), # Set weight for bullion
@@ -1682,6 +1697,7 @@ def get_wishlist(current_user):
         'composition': item.composition,
         'weight': item.weight,
         'diameter': item.diameter,
+        'image_url': item.image_url,
         'created_at': item.created_at.isoformat() if item.created_at else None
     } for item in unique_items]), 200
 
@@ -1740,7 +1756,8 @@ def add_to_wishlist(current_user):
             description=data.get('description'),
             composition=data.get('composition'),
             weight=data.get('weight'),
-            diameter=data.get('diameter')
+            diameter=data.get('diameter'),
+            image_url=data.get('image_url') or data.get('localImagePath')  # Support both field names
         )
         db.session.add(new_item)
         db.session.commit()
@@ -1808,7 +1825,7 @@ def move_wishlist_to_collection(current_user, item_id):
         quantity=1,
         notes=wishlist_item.notes or (wishlist_item.description if wishlist_item.description else ''),
         referenceUrl=wishlist_item.referenceUrl,
-        localImagePath=None,
+        localImagePath=wishlist_item.image_url,  # Copy image from wishlist if available
         region=region,
         isHistorical=is_historical
     )
