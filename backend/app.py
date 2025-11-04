@@ -639,11 +639,33 @@ def generate_password_reset_email(user_email, reset_token, reset_url):
 
 
 
+# --- Error Handlers ---
+@app.errorhandler(404)
+def not_found(error):
+    """Return JSON for 404 errors on API routes"""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    # For non-API routes, serve the SPA
+    return send_from_directory('frontend', 'index.html')
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Return JSON for 500 errors on API routes"""
+    if request.path.startswith('/api/'):
+        print(f"Internal server error on {request.path}: {error}")
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error', 'message': str(error)}), 500
+    # For non-API routes, serve the SPA
+    return send_from_directory('frontend', 'index.html')
+
 # --- Routes ---
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_spa(path):
+    # Don't intercept API routes - let them be handled by their specific routes
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
     if path != "" and os.path.exists(os.path.join("frontend", path)):
         return send_from_directory('frontend', path)
     else:
@@ -1094,11 +1116,17 @@ def get_coins(current_user):
 @jwt_required
 def search_numista(current_user):
     """Search Numista for coins and banknotes using official API"""
-    query = request.args.get('q', '').strip()
-    item_type = request.args.get('type', 'coin').lower()  # 'coin' or 'banknote'
+    try:
+        query = request.args.get('q', '').strip()
+        item_type = request.args.get('type', 'coin').lower()  # 'coin' or 'banknote'
+        
+        if not query:
+            return jsonify({'results': [], 'error': 'Search query required'}), 200
     
-    if not query:
-        return jsonify({'message': 'Search query required'}), 400
+    except Exception as e:
+        print(f"Error in search_numista (early): {e}")
+        traceback.print_exc()
+        return jsonify({'results': [], 'error': f'Error processing request: {str(e)}'}), 200
     
     try:
         # Check if API key is configured
@@ -1114,17 +1142,20 @@ def search_numista(current_user):
         # Numista API endpoint - using official API with authentication
         # Documentation: https://en.numista.com/api/doc/index.php
         # Numista API v2 uses PHP endpoints with query parameters
+        # Based on Numista API documentation, the format is:
+        # https://en.numista.com/api/v2/search.php?key=API_KEY&client_id=CLIENT_ID&q=QUERY&type=TYPE
         # Try the documented endpoint format first
         search_url = "https://en.numista.com/api/v2/search.php"
         
         # Numista API uses query parameters for authentication
+        # Parameters: key (API key), client_id (Client ID), q (search query), type (coin/banknote), lang (language), limit (max results)
         params = {
+            'key': api_key,
+            'client_id': str(client_id),
             'q': query,
             'type': item_type,  # 'coin' or 'banknote'
             'lang': 'en',
-            'limit': 10,  # Limit results
-            'key': api_key,
-            'client_id': str(client_id)
+            'limit': 10  # Limit results
         }
         
         headers = {
@@ -1151,12 +1182,12 @@ def search_numista(current_user):
             print(f"Trying v3 endpoint... (v2 returned: status={response.status_code})")
             search_url = "https://api.numista.com/api/v3/search"
             params_v3 = {
+                'key': api_key,
+                'client_id': str(client_id),
                 'q': query,
                 'type': item_type,
                 'lang': 'en',
-                'limit': 10,
-                'key': api_key,
-                'client_id': str(client_id)
+                'limit': 10
             }
             response = requests.get(search_url, params=params_v3, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
