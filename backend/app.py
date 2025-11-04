@@ -1125,6 +1125,44 @@ def get_coins(current_user):
         output.append(coin_data)
     return jsonify(output), 200
 
+@app.route('/api/test-numista', methods=['GET'])
+@jwt_required
+def test_numista(current_user):
+    """Test endpoint to verify Numista API key works"""
+    try:
+        api_key = app.config.get('NUMISTA_API_KEY')
+        client_id = app.config.get('NUMISTA_CLIENT_ID')
+        
+        if not api_key or not client_id:
+            return jsonify({
+                'error': 'API credentials not configured',
+                'api_key_present': bool(api_key),
+                'client_id_present': bool(client_id)
+            }), 200
+        
+        # Test with a simple query
+        test_url = f"https://en.numista.com/api/v2/search.php?key={api_key}&client_id={client_id}&q=test&type=coin&lang=en&limit=1"
+        
+        print(f"TEST: Testing Numista API with URL: {test_url.replace(api_key, 'KEY_HIDDEN')}")
+        
+        response = requests.get(test_url, headers={'User-Agent': 'CoinShelf/1.0', 'Accept': 'application/json'}, timeout=10)
+        
+        return jsonify({
+            'status_code': response.status_code,
+            'response_preview': response.text[:500],
+            'headers': dict(response.headers),
+            'api_key_length': len(api_key),
+            'api_key_first_5': api_key[:5],
+            'api_key_last_5': api_key[-5:],
+            'client_id': str(client_id)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 200
+
 @app.route('/api/search-numista', methods=['GET'])
 @jwt_required
 def search_numista(current_user):
