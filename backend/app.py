@@ -1379,7 +1379,7 @@ def search_numista(current_user):
                             score += 2
                     
                     # For "1 Rand" type searches, prioritize South African results
-                    if 'rand' in query_lower and 'south' in country_lower or 'africa' in country_lower:
+                    if 'rand' in query_lower and ('south' in country_lower or 'africa' in country_lower):
                         score += 10  # Bonus for South Africa when searching Rand
                     elif 'rand' in query_lower and 'south' not in country_lower and 'africa' not in country_lower:
                         score -= 10  # Penalty for non-South African results when searching Rand
