@@ -3293,39 +3293,94 @@
     }
     
     function attachSortEventListeners() {
-        // Remove old listener if it exists
+        console.log('=== attachSortEventListeners CALLED ===');
+        
+        // Remove old listeners from all tables
         if (sortTableElement && sortHandler) {
             sortTableElement.removeEventListener('click', sortHandler);
         }
         
-        // Find the collection table (the one with collection-table-body)
-        const tableBody = document.getElementById('collection-table-body');
-        if (!tableBody) {
-            console.warn('Collection table body not found, cannot attach sort listeners');
+        // Find ALL tables with collection-table-body (there might be multiple)
+        const tableBodies = document.querySelectorAll('#collection-table-body');
+        console.log('Found', tableBodies.length, 'table body(ies)');
+        
+        if (tableBodies.length === 0) {
+            console.warn('No collection-table-body found, cannot attach sort listeners');
             return;
         }
         
-        const table = tableBody.closest('table');
-        if (!table) {
-            console.warn('Collection table not found, cannot attach sort listeners');
-            return;
-        }
+        // Process each table
+        tableBodies.forEach((tableBody, bodyIndex) => {
+            const table = tableBody.closest('table');
+            if (!table) {
+                console.warn('Table not found for body', bodyIndex);
+                return;
+            }
+            
+            // Find all sortable headers in this table
+            const headers = table.querySelectorAll('th[data-sort-column]');
+            if (headers.length === 0) {
+                console.warn('No sortable headers found in table', bodyIndex);
+                return;
+            }
+            
+            console.log(`Table ${bodyIndex}: Found ${headers.length} sortable headers`);
+            
+            // Use the first table for the delegation handler
+            if (bodyIndex === 0) {
+                sortTableElement = table;
+            }
+            
+            // Attach listeners directly to each header
+            headers.forEach((header, index) => {
+                const column = header.getAttribute('data-sort-column');
+                header.style.cursor = 'pointer';
+                header.style.userSelect = 'none';
+                header.title = `Click to sort by ${column}`;
+                
+                // Remove old handler if exists
+                if (header._sortHandler) {
+                    header.removeEventListener('click', header._sortHandler);
+                }
+                
+                // Simple click handler
+                const headerClickHandler = function(e) {
+                    const target = e.target;
+                    
+                    // Skip if clicking checkbox or button
+                    if (target.type === 'checkbox' || target.tagName === 'BUTTON' || target.closest('input[type="checkbox"]') || target.closest('button')) {
+                        return;
+                    }
+                    
+                    console.log('HEADER CLICKED:', column);
+                    
+                    let direction = 'asc';
+                    if (currentSort.column === column) {
+                        if (currentSort.direction === 'asc') {
+                            direction = 'desc';
+                        } else if (currentSort.direction === 'desc') {
+                            direction = null;
+                        } else {
+                            direction = 'asc';
+                        }
+                    }
+                    
+                    console.log('SORTING:', column, direction);
+                    sortCollection(column, direction);
+                    currentSort = { column, direction };
+                    // Update indicators after a brief delay to ensure DOM is updated
+                    setTimeout(() => {
+                        updateSortIndicators();
+                    }, 10);
+                };
+                
+                header._sortHandler = headerClickHandler;
+                header.addEventListener('click', headerClickHandler);
+                console.log(`  ✓ Attached handler to header ${index}: ${column}`);
+            });
+        });
         
-        // Find all sortable headers
-        const headers = table.querySelectorAll('th[data-sort-column]');
-        if (headers.length === 0) {
-            console.warn('No sortable headers found');
-            return;
-        }
-        
-        console.log('Found', headers.length, 'sortable headers');
-        
-        sortTableElement = table;
-        
-        // Update sort indicators
-        updateSortIndicators();
-        
-        // Create handler using event delegation on the table
+        // Create delegation handler for table-level backup
         sortHandler = function(event) {
             const clickedElement = event.target;
             
@@ -3339,11 +3394,6 @@
             // Find the clicked header
             let header = clickedElement.closest('th[data-sort-column]');
             
-            // If we clicked directly on a TH element, use it
-            if (!header && clickedElement.tagName === 'TH' && clickedElement.hasAttribute('data-sort-column')) {
-                header = clickedElement;
-            }
-            
             if (!header) {
                 return;
             }
@@ -3353,83 +3403,37 @@
                 return;
             }
             
-            console.log('✓ Click detected on sortable header:', column);
+            console.log('✓ Table delegation: Click detected on sortable header:', column);
             
             let direction = 'asc';
-
-            // Three-state toggle: asc -> desc -> original (null)
             if (currentSort.column === column) {
                 if (currentSort.direction === 'asc') {
                     direction = 'desc';
                 } else if (currentSort.direction === 'desc') {
-                    direction = null; // Original/unsorted
+                    direction = null;
                 } else {
-                    direction = 'asc'; // From null back to asc
+                    direction = 'asc';
                 }
             }
 
-            console.log('✓ Sorting by:', column, 'direction:', direction);
+            console.log('✓ Table delegation: Sorting by:', column, 'direction:', direction);
             
             sortCollection(column, direction);
             currentSort = { column, direction };
-            // Update indicators after a brief delay to ensure DOM is updated
             setTimeout(() => {
                 updateSortIndicators();
             }, 10);
         };
         
-        // Attach listeners directly to each header - SIMPLE APPROACH
-        headers.forEach((header, index) => {
-            const column = header.getAttribute('data-sort-column');
-            header.style.cursor = 'pointer';
-            header.style.userSelect = 'none';
-            header.title = `Click to sort by ${column}`;
-            
-            // Remove old handler if exists
-            if (header._sortHandler) {
-                header.removeEventListener('click', header._sortHandler);
-            }
-            
-            // Simple click handler
-            const headerClickHandler = function(e) {
-                const target = e.target;
-                
-                // Skip if clicking checkbox or button
-                if (target.type === 'checkbox' || target.tagName === 'BUTTON' || target.closest('input[type="checkbox"]') || target.closest('button')) {
-                    return;
-                }
-                
-                console.log('HEADER CLICKED:', column);
-                
-                let direction = 'asc';
-                if (currentSort.column === column) {
-                    if (currentSort.direction === 'asc') {
-                        direction = 'desc';
-                    } else if (currentSort.direction === 'desc') {
-                        direction = null;
-                    } else {
-                        direction = 'asc';
-                    }
-                }
-                
-                console.log('SORTING:', column, direction);
-                sortCollection(column, direction);
-                currentSort = { column, direction };
-                // Update indicators after a brief delay to ensure DOM is updated
-                setTimeout(() => {
-                    updateSortIndicators();
-                }, 10);
-            };
-            
-            header._sortHandler = headerClickHandler;
-            header.addEventListener('click', headerClickHandler);
-        });
+        // Attach table-level delegation to first table
+        if (sortTableElement) {
+            sortTableElement.addEventListener('click', sortHandler);
+        }
         
-        // Also attach table-level delegation as backup
-        table.addEventListener('click', sortHandler);
+        // Update sort indicators
+        updateSortIndicators();
         
-        console.log('✓ Sort listeners attached to', headers.length, 'headers');
-        console.log('✓ Headers:', Array.from(headers).map(h => h.getAttribute('data-sort-column')).join(', '));
+        console.log('=== attachSortEventListeners COMPLETE ===');
     }
 
     function sortCollection(column, direction) {
