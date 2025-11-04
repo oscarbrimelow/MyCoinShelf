@@ -629,8 +629,39 @@
                     </div>
 
                     <div id="settings-content" class="${isAuthenticated() ? '' : 'hidden'}">
-                        <!-- Password Change Form -->
+                        <!-- Profile Section -->
                         <div class="mb-8">
+                            <h3 class="text-xl font-semibold text-gray-300 mb-4">Profile</h3>
+                            <form id="profile-form" class="space-y-4">
+                                <div>
+                                    <label for="profile-username" class="block text-sm font-medium text-gray-400">Username</label>
+                                    <input type="text" id="profile-username" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500" readonly>
+                                    <p class="text-xs text-gray-500 mt-1">Your unique username (cannot be changed)</p>
+                                </div>
+                                <div>
+                                    <label for="profile-display-name" class="block text-sm font-medium text-gray-400">Display Name</label>
+                                    <input type="text" id="profile-display-name" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="Your display name (optional)">
+                                </div>
+                                <div>
+                                    <label for="profile-bio" class="block text-sm font-medium text-gray-400">Bio</label>
+                                    <textarea id="profile-bio" rows="4" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="Tell others about your collection..."></textarea>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="checkbox" id="profile-public" class="form-checkbox h-4 w-4 text-emerald-600">
+                                        <span class="ml-2 text-gray-300">Make my profile public</span>
+                                    </label>
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="checkbox" id="collection-public" class="form-checkbox h-4 w-4 text-emerald-600">
+                                        <span class="ml-2 text-gray-300">Make my collection public</span>
+                                    </label>
+                                </div>
+                                <button type="submit" id="update-profile-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Update Profile</button>
+                            </form>
+                        </div>
+
+                        <!-- Password Change Form -->
+                        <div class="mb-8 pt-8 border-t border-gray-700">
                             <h3 class="text-xl font-semibold text-gray-300 mb-4">Change Password</h3>
                             <form id="change-password-form" class="space-y-4">
                                 <div>
@@ -1598,6 +1629,34 @@
                 <button id="merge-cancel-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md transition-colors">Cancel</button>
                 <button id="merge-confirm-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-md transition-colors">
                     <i class="ph-bold ph-arrows-merge mr-2"></i>Merge Selected
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Username Setup Modal -->
+    <div id="username-modal" class="fixed inset-0 z-[100] flex items-center justify-center hidden modal-backdrop p-4">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-md transform transition-all scale-95 opacity-0">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-white mb-2">Set Your Username</h2>
+                <p class="text-gray-400 text-sm">Choose a unique username to complete your profile. This will be visible to other members.</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="username-input" class="block text-sm font-medium text-gray-400 mb-2">Username</label>
+                    <input type="text" id="username-input" 
+                           class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-3 text-white focus:ring-emerald-500 focus:border-emerald-500" 
+                           placeholder="Enter username (3-50 characters)"
+                           maxlength="50">
+                    <p id="username-error" class="text-red-400 text-sm mt-1 hidden"></p>
+                    <p class="text-gray-500 text-xs mt-1">Only letters, numbers, underscores, and hyphens allowed</p>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-4">
+                <button id="username-submit-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-md transition-colors">
+                    Set Username
                 </button>
             </div>
         </div>
@@ -3798,11 +3857,109 @@
         // Fetch and display public URL on settings load
         fetchPublicUrl();
 
+        // Load and display profile data
+        loadProfile();
+
         // Add event listener for find duplicates button
         const findDuplicatesBtn = document.getElementById('find-duplicates-btn');
         if (findDuplicatesBtn) {
             findDuplicatesBtn.removeEventListener('click', handleFindDuplicates);
             findDuplicatesBtn.addEventListener('click', handleFindDuplicates);
+        }
+
+        // Add event listener for profile form
+        const profileForm = document.getElementById('profile-form');
+        if (profileForm) {
+            profileForm.removeEventListener('submit', handleUpdateProfile);
+            profileForm.addEventListener('submit', handleUpdateProfile);
+        }
+    }
+
+    // --- PROFILE FUNCTIONS ---
+    async function loadProfile() {
+        if (!isAuthenticated()) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/profile`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    handleUnauthorized();
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const profile = await response.json();
+            
+            // Populate profile form fields
+            const usernameInput = document.getElementById('profile-username');
+            const displayNameInput = document.getElementById('profile-display-name');
+            const bioInput = document.getElementById('profile-bio');
+            const profilePublicCheckbox = document.getElementById('profile-public');
+            const collectionPublicCheckbox = document.getElementById('collection-public');
+
+            if (usernameInput) usernameInput.value = profile.username || '';
+            if (displayNameInput) displayNameInput.value = profile.display_name || '';
+            if (bioInput) bioInput.value = profile.bio || '';
+            if (profilePublicCheckbox) profilePublicCheckbox.checked = profile.profile_public || false;
+            if (collectionPublicCheckbox) collectionPublicCheckbox.checked = profile.collection_public || false;
+
+        } catch (error) {
+            console.error('Error loading profile:', error);
+            // Don't show error to user on initial load, just log it
+        }
+    }
+
+    async function handleUpdateProfile(e) {
+        e.preventDefault();
+
+        const updateBtn = document.getElementById('update-profile-btn');
+        setLoadingState('update-profile-btn', true, 'Updating...');
+
+        try {
+            const displayName = document.getElementById('profile-display-name').value;
+            const bio = document.getElementById('profile-bio').value;
+            const profilePublic = document.getElementById('profile-public').checked;
+            const collectionPublic = document.getElementById('collection-public').checked;
+
+            const response = await fetch(`${API_BASE_URL}/profile`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                },
+                body: JSON.stringify({
+                    display_name: displayName,
+                    bio: bio,
+                    profile_public: profilePublic,
+                    collection_public: collectionPublic
+                })
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    handleUnauthorized();
+                    return;
+                }
+                const errorData = await response.json();
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            showCustomConfirm(result.message || 'Profile updated successfully!', () => {});
+
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            showCustomConfirm(`Failed to update profile: ${error.message}`, () => {});
+        } finally {
+            setLoadingState('update-profile-btn', false);
         }
     }
 
@@ -4072,6 +4229,94 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // --- USERNAME MODAL FUNCTIONS ---
+    function showUsernameModal() {
+        const modal = document.getElementById('username-modal');
+        if (modal) {
+            openModal('username-modal');
+            const usernameInput = document.getElementById('username-input');
+            if (usernameInput) {
+                usernameInput.focus();
+            }
+        }
+    }
+
+    async function handleSetUsername() {
+        const usernameInput = document.getElementById('username-input');
+        const errorElement = document.getElementById('username-error');
+        const submitBtn = document.getElementById('username-submit-btn');
+        
+        if (!usernameInput) return;
+        
+        const username = usernameInput.value.trim();
+        
+        // Clear previous errors
+        if (errorElement) {
+            errorElement.classList.add('hidden');
+            errorElement.textContent = '';
+        }
+        
+        // Basic client-side validation
+        if (!username) {
+            if (errorElement) {
+                errorElement.textContent = 'Username is required';
+                errorElement.classList.remove('hidden');
+            }
+            return;
+        }
+        
+        if (username.length < 3) {
+            if (errorElement) {
+                errorElement.textContent = 'Username must be at least 3 characters';
+                errorElement.classList.remove('hidden');
+            }
+            return;
+        }
+        
+        setLoadingState('username-submit-btn', true, 'Setting username...');
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/set_username`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                },
+                body: JSON.stringify({ username })
+            });
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    handleUnauthorized();
+                    return;
+                }
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to set username');
+            }
+            
+            const result = await response.json();
+            showCustomConfirm(result.message || 'Username set successfully!', () => {});
+            
+            // Close modal
+            const modal = document.getElementById('username-modal');
+            if (modal) {
+                closeModal(modal, modal.querySelector('div'));
+            }
+            
+            // Clear input
+            usernameInput.value = '';
+            
+        } catch (error) {
+            console.error('Error setting username:', error);
+            if (errorElement) {
+                errorElement.textContent = error.message || 'Failed to set username';
+                errorElement.classList.remove('hidden');
+            }
+        } finally {
+            setLoadingState('username-submit-btn', false);
+        }
     }
 
     function handleThemeChange(event) {
@@ -5181,6 +5426,22 @@
             });
         }
 
+        // Username Modal Buttons
+        const usernameSubmitBtn = document.getElementById('username-submit-btn');
+        if (usernameSubmitBtn) {
+            usernameSubmitBtn.addEventListener('click', handleSetUsername);
+        }
+
+        // Allow Enter key to submit username
+        const usernameInput = document.getElementById('username-input');
+        if (usernameInput) {
+            usernameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSetUsername();
+                }
+            });
+        }
+
         // Export Modal Buttons
         const exportJsonBtn = document.getElementById('export-json-btn');
         if (exportJsonBtn) {
@@ -5558,7 +5819,14 @@
                       sessionStorage.setItem('jwt_token', result.token);
                       localStorage.removeItem('jwt_token');
                     }
-                    showCustomConfirm('Signed in successfully!', () => {});
+                    
+                    // Check if user needs to set username
+                    if (result.needs_username) {
+                        showUsernameModal();
+                    } else {
+                        showCustomConfirm('Signed in successfully!', () => {});
+                    }
+                    
                     updateAuthUI(true);
                     loadCollectionFromBackend(); // Load data after successful login
                     history.replaceState(null, '', window.location.pathname); // Clear public URL param

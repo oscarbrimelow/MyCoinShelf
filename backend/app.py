@@ -831,6 +831,51 @@ def set_username(current_user):
         'username': username
     }), 200
 
+@app.route('/api/profile', methods=['GET'])
+@jwt_required
+def get_profile(current_user):
+    """Get current user's profile information"""
+    return jsonify({
+        'username': current_user.username,
+        'display_name': current_user.display_name,
+        'bio': current_user.bio,
+        'profile_public': current_user.profile_public,
+        'collection_public': current_user.collection_public,
+        'email': current_user.email
+    }), 200
+
+@app.route('/api/profile', methods=['PUT'])
+@jwt_required
+def update_profile(current_user):
+    """Update current user's profile information"""
+    data = request.get_json()
+    
+    # Update display_name
+    if 'display_name' in data:
+        current_user.display_name = data.get('display_name', '').strip() or None
+    
+    # Update bio
+    if 'bio' in data:
+        current_user.bio = data.get('bio', '').strip() or None
+    
+    # Update privacy settings
+    if 'profile_public' in data:
+        current_user.profile_public = bool(data.get('profile_public'))
+    
+    if 'collection_public' in data:
+        current_user.collection_public = bool(data.get('collection_public'))
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Profile updated successfully!',
+        'username': current_user.username,
+        'display_name': current_user.display_name,
+        'bio': current_user.bio,
+        'profile_public': current_user.profile_public,
+        'collection_public': current_user.collection_public
+    }), 200
+
 @app.route('/api/forgot_password', methods=['POST'])
 def forgot_password():
     """Request a password reset email"""
