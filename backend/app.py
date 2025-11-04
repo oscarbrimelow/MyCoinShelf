@@ -1148,28 +1148,30 @@ def test_numista(current_user):
                 'client_id_present': bool(client_id)
             }), 200
         
-        # Test with a simple query
-        test_url = f"https://en.numista.com/api/v2/search.php?key={api_key}&client_id={client_id}&q=test&type=coin&lang=en&limit=1"
+        # Test with a simple query using correct API v3 format
+        test_url = "https://api.numista.com/v3/types"
+        test_params = {
+            'q': 'test',
+            'category': 'coin',
+            'lang': 'en',
+            'count': 1
+        }
+        test_headers = {
+            'Numista-API-Key': api_key,
+            'Accept': 'application/json'
+        }
         
-        print(f"TEST: Testing Numista API with URL: {test_url.replace(api_key, 'KEY_HIDDEN')}")
+        print(f"TEST: Testing Numista API v3 with endpoint: {test_url}")
+        print(f"TEST: Using header: Numista-API-Key (key: {api_key[:5]}...{api_key[-5:]})")
         
         # Use cloudscraper to bypass Cloudflare if available, otherwise use requests
         if CLOUDSCRAPER_AVAILABLE:
             print("TEST: Using cloudscraper to bypass Cloudflare")
             scraper = cloudscraper.create_scraper()
-            response = scraper.get(test_url, timeout=10)
+            response = scraper.get(test_url, params=test_params, headers=test_headers, timeout=10)
         else:
             print("TEST: Using requests (cloudscraper not available)")
-            browser_headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json, text/plain, */*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Referer': 'https://en.numista.com/',
-                'Origin': 'https://en.numista.com'
-            }
-            response = requests.get(test_url, headers=browser_headers, timeout=10)
+            response = requests.get(test_url, params=test_params, headers=test_headers, timeout=10)
         
         return jsonify({
             'status_code': response.status_code,
@@ -1231,22 +1233,12 @@ def search_numista(current_user):
                 'error': 'Numista API credentials not configured. Please set NUMISTA_API_KEY and NUMISTA_CLIENT_ID environment variables.'
             }), 200
         
-        # Test API key with a simple endpoint first (if available)
-        # Some APIs require a test/auth endpoint before search
-        print(f"DEBUG: Attempting Numista API search with key: {api_key[:5]}...{api_key[-5:]}")
-        
-        # Numista API endpoint - using official API with authentication
+        # Numista API v3 - using official API documentation from swagger.yaml
+        # Base URL: https://api.numista.com/v3
+        # Endpoint: /types (for search)
+        # Header: Numista-API-Key: YOUR_API_KEY
         # Documentation: https://en.numista.com/api/doc/index.php
-        # Try multiple authentication formats as Numista API documentation can be unclear
-        search_url = "https://en.numista.com/api/v2/search.php"
-        
-        # Try with API key in Authorization header first (some APIs prefer this)
-        params = {
-            'q': query,
-            'type': item_type,  # 'coin' or 'banknote'
-            'lang': 'en',
-            'limit': 10  # Limit results
-        }
+        print(f"DEBUG: Attempting Numista API search with key: {api_key[:5]}...{api_key[-5:]}")
         
         # Use cloudscraper to bypass Cloudflare if available
         if CLOUDSCRAPER_AVAILABLE:
@@ -1257,159 +1249,46 @@ def search_numista(current_user):
             print("DEBUG: Using requests (cloudscraper not available)")
             http_client = requests
         
-        # Numista is protected by Cloudflare - need browser-like headers to bypass challenge
-        # Use realistic browser headers to avoid Cloudflare bot detection
-        browser_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Referer': 'https://en.numista.com/',
-            'Origin': 'https://en.numista.com',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin'
+        # Correct API endpoint and parameters according to swagger.yaml
+        search_url = "https://api.numista.com/v3/types"
+        
+        # Map item_type to category (coin/banknote/exonumia)
+        category_map = {
+            'coin': 'coin',
+            'banknote': 'banknote',
+            'banknotes': 'banknote'
+        }
+        category = category_map.get(item_type.lower(), 'coin')
+        
+        params = {
+            'q': query,
+            'category': category,  # 'coin' or 'banknote' (not 'type')
+            'lang': 'en',
+            'count': 10  # 'count' not 'limit', max 50
         }
         
-        # Try multiple header formats - Numista API might be picky about the format
-        headers_variants = [
-            {
-                **browser_headers,
-                'Authorization': f'Numista {api_key}',
-                'X-Client-ID': str(client_id)
-            },
-            {
-                **browser_headers,
-                'Authorization': f'Bearer {api_key}',
-                'X-Client-ID': str(client_id)
-            },
-            {
-                **browser_headers,
-                'X-API-Key': api_key,
-                'X-Client-ID': str(client_id)
-            }
-        ]
+        # Correct header format: Numista-API-Key (not Authorization, X-API-Key, etc.)
+        headers = {
+            'Numista-API-Key': api_key,
+            'Accept': 'application/json'
+        }
         
-        response = None
-        response_text = ""
-        for i, headers in enumerate(headers_variants):
-            print(f"DEBUG: Trying header variant {i+1}: {list(headers.keys())}")
-            response = http_client.get(search_url, params=params, headers=headers, timeout=10)
-            response_text = response.text if response.text else ""
-            print(f"DEBUG: Variant {i+1} - status: {response.status_code}, preview: {response_text[:200]}")
-            # Check if we got Cloudflare challenge page
-            if '<!DOCTYPE html>' in response_text and 'Just a moment' in response_text:
-                print(f"DEBUG: Variant {i+1} - Got Cloudflare challenge page, trying next...")
-                continue
-            if response.status_code == 200:
-                print(f"DEBUG: Success with header variant {i+1}!")
-                break
-            if response.status_code != 401 and response.status_code != 403:
-                # If we get a different error, stop trying header variants
-                break
+        print(f"DEBUG: Making request to {search_url} with params: {params}")
+        print(f"DEBUG: Using header: Numista-API-Key")
         
-        # If that doesn't work, try with key in query params
-        if not response or response.status_code == 401 or response.status_code == 403 or 'Missing API Key' in response_text or 'missing' in response_text.lower() or ('<!DOCTYPE html>' in response_text and 'Just a moment' in response_text):
-            print(f"DEBUG: Header auth failed, trying with 'key' in query params...")
-            params = {
-                'key': api_key,
-                'client_id': str(client_id),
-                'q': query,
-                'type': item_type,
-                'lang': 'en',
-                'limit': 10
-            }
-            headers = {
-                'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
-                'Accept': 'application/json'
-            }
-            response = http_client.get(search_url, params=params, headers=headers, timeout=10)
-            response_text = response.text if response.text else ""
-            print(f"DEBUG: With key param - status: {response.status_code}, preview: {response_text[:200]}")
+        response = http_client.get(search_url, params=params, headers=headers, timeout=10)
+        response_text = response.text if response.text else ""
+        print(f"DEBUG: Response status: {response.status_code}, preview: {response_text[:200]}")
         
-        # If still failing, try with 'api_key' parameter
-        if response.status_code == 401 or response.status_code == 403 or 'Missing API Key' in response_text or 'missing' in response_text.lower():
-            print(f"DEBUG: Still failing, trying with 'api_key' parameter...")
-            params = {
-                'api_key': api_key,
-                'client_id': str(client_id),
-                'q': query,
-                'type': item_type,
-                'lang': 'en',
-                'limit': 10
-            }
-            response = http_client.get(search_url, params=params, headers=headers, timeout=10)
-            response_text = response.text if response.text else ""
-            print(f"DEBUG: With api_key param - status: {response.status_code}, preview: {response_text[:200]}")
+        # Check if we got HTML (Cloudflare challenge or error page)
+        is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower()
         
-        # Check if we got HTML (error page) instead of JSON
-        is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
-        
-        # If still not working, try the exact URL format from Numista docs
-        if is_html_response or response.status_code != 200:
-            print(f"DEBUG: Trying direct URL format with key and client_id...")
-            # Try building URL manually with key and client_id
-            search_url = f"https://en.numista.com/api/v2/search.php?key={api_key}&client_id={client_id}&q={query}&type={item_type}&lang=en&limit=10"
-            response = http_client.get(search_url, headers={'User-Agent': 'CoinShelf/1.0', 'Accept': 'application/json'}, timeout=10)
-            response_text = response.text if response.text else ""
-            print(f"DEBUG: Direct URL - status: {response.status_code}, preview: {response_text[:200]}")
-            is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
-            
-        # If PHP endpoint doesn't work, try without .php extension
-        if is_html_response or response.status_code != 200:
-            print(f"Trying endpoint without .php... (status={response.status_code}, preview={response_text[:100]})")
-            search_url = "https://en.numista.com/api/v2/search"
-            params = {
-                'key': api_key,
-                'client_id': str(client_id),
-                'q': query,
-                'type': item_type,
-                'lang': 'en',
-                'limit': 10
-            }
-            response = http_client.get(search_url, params=params, headers=headers, timeout=10)
-            response_text = response.text if response.text else ""
-            is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
-        
-        # If v2 doesn't work, try v3 endpoint
         if is_html_response:
-            print(f"Trying v3 endpoint... (v2 returned: status={response.status_code})")
-            search_url = "https://api.numista.com/api/v3/search"
-            params_v3 = {
-                'key': api_key,
-                'client_id': str(client_id),
-                'q': query,
-                'type': item_type,
-                'lang': 'en',
-                'limit': 10
-            }
-            response = http_client.get(search_url, params=params_v3, headers=headers, timeout=10)
-            response_text = response.text if response.text else ""
-            is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
-            
-            # If still HTML, try with Bearer token in headers
-            if is_html_response:
-                print(f"Trying Bearer token auth... (v3 returned: status={response.status_code})")
-                headers_v3 = {
-                    'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
-                    'Accept': 'application/json',
-                    'Authorization': f'Bearer {api_key}',
-                    'X-Client-ID': str(client_id)
-                }
-                params_v3 = {
-                    'q': query,
-                    'type': item_type,
-                    'lang': 'en',
-                    'limit': 10
-                }
-                response = http_client.get(search_url, params=params_v3, headers=headers_v3, timeout=10)
-                response_text = response.text if response.text else ""
-                is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower()
-                
-        # Debug: Log the final response if it's still HTML
-        if is_html_response and response.status_code == 200:
-            print(f"WARNING: Got HTML response despite 200 status. Response preview: {response_text[:200]}")
+            print(f"WARNING: Got HTML response. Response preview: {response_text[:200]}")
+            return jsonify({
+                'results': [],
+                'error': 'Numista API returned HTML instead of JSON. This may be a Cloudflare challenge. Please check backend logs.'
+            }), 200
         
         # Check if response is JSON
         if response.status_code == 200:
@@ -1417,7 +1296,7 @@ def search_numista(current_user):
                 data = response.json()
             except ValueError:
                 # Response is not JSON, likely HTML error page
-                print(f"Numista API returned non-JSON response (HTML): {response.text[:500]}")
+                print(f"Numista API returned non-JSON response: {response_text[:500]}")
                 return jsonify({
                     'results': [],
                     'error': 'Numista API returned an unexpected response. The API endpoint may have changed or requires different authentication.'
@@ -1425,11 +1304,13 @@ def search_numista(current_user):
             
             results = []
             
-            # Parse Numista API response format
-            # Numista API v3 typically returns: { "items": [...] } or { "results": [...] }
+            # Parse Numista API v3 response format
+            # According to swagger.yaml, response is: { "count": int, "types": [...] }
             items = []
             if isinstance(data, dict):
-                if 'items' in data:
+                if 'types' in data:
+                    items = data.get('types', [])
+                elif 'items' in data:
                     items = data.get('items', [])
                 elif 'results' in data:
                     items = data.get('results', [])
@@ -1439,36 +1320,41 @@ def search_numista(current_user):
                 items = data
             
             for item in items[:10]:  # Limit to 10 results
-                # Extract country name
+                # Extract issuer/country name
                 country_name = ''
-                if isinstance(item.get('country'), dict):
-                    country_name = item.get('country', {}).get('name', '') or item.get('country', {}).get('en_name', '')
-                elif isinstance(item.get('country'), str):
-                    country_name = item.get('country', '')
+                issuer = item.get('issuer', {})
+                if isinstance(issuer, dict):
+                    country_name = issuer.get('name', '') or issuer.get('en_name', '') or issuer.get('code', '')
+                elif isinstance(issuer, str):
+                    country_name = issuer
                 
-                # Extract year - could be in different fields
-                year = item.get('year') or item.get('date') or item.get('issue_date')
+                # Extract year from min_year/max_year or year field
+                year = item.get('year') or item.get('min_year') or item.get('max_year')
                 if year and isinstance(year, str):
                     # Try to extract year from date string
                     year_match = re.search(r'\d{4}', year)
                     if year_match:
                         year = int(year_match.group())
                 
-                # Extract denomination
-                denomination = item.get('denomination') or item.get('value') or item.get('title', '')
+                # Extract title (denomination is usually in title)
+                title = item.get('title', '')
+                denomination = title  # Numista v3 uses 'title' for the coin description
+                
+                # Extract category
+                item_category = item.get('category', category)
                 
                 results.append({
-                    'id': item.get('id') or item.get('numista_id'),
-                    'title': item.get('title') or item.get('name') or denomination,
+                    'id': item.get('id'),
+                    'title': title,
                     'country': country_name,
                     'year': year,
                     'denomination': denomination,
-                    'type': item.get('type', item_type),
-                    'url': item.get('url') or (f"https://en.numista.com/catalogue/{item.get('id') or item.get('numista_id')}.html" if item.get('id') or item.get('numista_id') else ''),
+                    'type': item_category,
+                    'url': f"https://en.numista.com/catalogue/{item.get('id')}.html" if item.get('id') else '',
                     'description': item.get('description', ''),
                     'composition': item.get('composition', ''),
                     'weight': item.get('weight', ''),
-                    'diameter': item.get('diameter', '')
+                    'diameter': item.get('size', '')  # Numista v3 uses 'size' for diameter
                 })
             
             return jsonify({'results': results}), 200
