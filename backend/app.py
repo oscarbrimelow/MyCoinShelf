@@ -1158,15 +1158,20 @@ def search_numista(current_user):
         
         print(f"DEBUG: API key present: {bool(api_key)}, Client ID present: {bool(client_id)}")
         if api_key:
-            print(f"DEBUG: API key length: {len(api_key)}, first 10 chars: {api_key[:10]}...")
+            print(f"DEBUG: API key length: {len(api_key)}, first 10 chars: {api_key[:10]}..., last 10 chars: ...{api_key[-10:]}")
+            print(f"DEBUG: Full API key (for verification): {api_key}")
         if client_id:
-            print(f"DEBUG: Client ID: {client_id}")
+            print(f"DEBUG: Client ID: {client_id}, type: {type(client_id)}")
         
         if not api_key or not client_id:
             return jsonify({
                 'results': [],
                 'error': 'Numista API credentials not configured. Please set NUMISTA_API_KEY and NUMISTA_CLIENT_ID environment variables.'
             }), 200
+        
+        # Test API key with a simple endpoint first (if available)
+        # Some APIs require a test/auth endpoint before search
+        print(f"DEBUG: Attempting Numista API search with key: {api_key[:5]}...{api_key[-5:]}")
         
         # Numista API endpoint - using official API with authentication
         # Documentation: https://en.numista.com/api/doc/index.php
@@ -1402,10 +1407,14 @@ def search_numista(current_user):
                 error_msg += f" - {response_text}"
             print(error_msg)
             
-            # Return error message to frontend
+            # Return error message to frontend with helpful troubleshooting info
+            error_msg = f'Numista API returned status {response.status_code}. Response: {response_text[:100]}'
+            if 'Missing API Key' in response_text:
+                error_msg += '\n\nTroubleshooting: Please verify your API key is active in your Numista account at https://en.numista.com/api/. The API key may need to be activated or there may be an issue with the authentication format.'
+            
             return jsonify({
                 'results': [],
-                'error': f'Numista API returned status {response.status_code}. Response: {response_text[:100]}'
+                'error': error_msg
             }), 200
             
     except requests.RequestException as e:
