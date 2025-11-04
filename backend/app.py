@@ -1671,35 +1671,51 @@ def clear_all_coins(current_user):
 @jwt_required
 def get_wishlist(current_user):
     """Get all wishlist items for the current user"""
-    # Use distinct() to ensure no duplicates, and order by ID to ensure consistency
-    wishlist_items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.id.desc()).all()
-    
-    # Additional safety check: use a dict to ensure unique IDs
-    seen_ids = {}
-    unique_items = []
-    for item in wishlist_items:
-        if item.id not in seen_ids:
-            seen_ids[item.id] = True
-            unique_items.append(item)
-        else:
-            print(f"WARNING: Duplicate wishlist item ID {item.id} found in database for user {current_user.id}")
-    
-    return jsonify([{
-        'id': item.id,
-        'type': item.type,
-        'country': item.country,
-        'year': item.year,
-        'denomination': item.denomination,
-        'notes': item.notes,
-        'referenceUrl': item.referenceUrl,
-        'numista_id': item.numista_id,
-        'description': item.description,
-        'composition': item.composition,
-        'weight': item.weight,
-        'diameter': item.diameter,
-        'image_url': item.image_url,
-        'created_at': item.created_at.isoformat() if item.created_at else None
-    } for item in unique_items]), 200
+    try:
+        # Use distinct() to ensure no duplicates, and order by ID to ensure consistency
+        wishlist_items = WishlistItem.query.filter_by(user_id=current_user.id).order_by(WishlistItem.id.desc()).all()
+        
+        # Additional safety check: use a dict to ensure unique IDs
+        seen_ids = {}
+        unique_items = []
+        for item in wishlist_items:
+            if item.id not in seen_ids:
+                seen_ids[item.id] = True
+                unique_items.append(item)
+            else:
+                print(f"WARNING: Duplicate wishlist item ID {item.id} found in database for user {current_user.id}")
+        
+        # Safely serialize items with error handling for each field
+        result = []
+        for item in unique_items:
+            try:
+                result.append({
+                    'id': item.id,
+                    'type': getattr(item, 'type', None),
+                    'country': getattr(item, 'country', None),
+                    'year': getattr(item, 'year', None),
+                    'denomination': getattr(item, 'denomination', None),
+                    'notes': getattr(item, 'notes', None),
+                    'referenceUrl': getattr(item, 'referenceUrl', None),
+                    'numista_id': getattr(item, 'numista_id', None),
+                    'description': getattr(item, 'description', None),
+                    'composition': getattr(item, 'composition', None),
+                    'weight': getattr(item, 'weight', None),
+                    'diameter': getattr(item, 'diameter', None),
+                    'image_url': getattr(item, 'image_url', None),
+                    'created_at': item.created_at.isoformat() if hasattr(item, 'created_at') and item.created_at else None
+                })
+            except Exception as item_error:
+                print(f"ERROR: Failed to serialize wishlist item {item.id}: {item_error}")
+                traceback.print_exc()
+                # Continue with other items even if one fails
+                continue
+        
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"ERROR: Failed to get wishlist for user {current_user.id}: {e}")
+        traceback.print_exc()
+        return jsonify({'message': 'Failed to load wishlist', 'error': str(e)}), 500
 
 @app.route('/api/wishlist', methods=['POST'])
 @jwt_required
