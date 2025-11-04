@@ -2791,6 +2791,7 @@
             currentSort = { column: null, direction: null }; // Reset sort when filters change
             updateResultCount(filtered.length, collectionData.length);
             renderCollectionTable(filtered);
+            attachSortEventListeners(); // Reattach sort listeners after rendering
         };
 
         const clearAllFilters = () => {
@@ -3024,6 +3025,10 @@
 
     function renderCollectionTable(dataToRender) {
         const tableBody = document.getElementById('collection-table-body');
+        if (!tableBody) {
+            console.error('collection-table-body not found');
+            return;
+        }
         const tableRows = dataToRender.map(item => `
             <tr class="border-b border-gray-700" data-item-id="${item.id}">
                 <td class="p-2" style="width: 110px;">
@@ -3055,6 +3060,11 @@
 
         initializeActionButtons();
         initializeBulkSelection();
+        
+        // Reattach sort listeners after table is updated
+        setTimeout(() => {
+            attachSortEventListeners();
+        }, 0);
     }
 
     // --- BULK SELECTION FUNCTIONALITY ---
@@ -3256,26 +3266,46 @@
             return;
         }
         
+        // Find all sortable headers
+        const headers = table.querySelectorAll('th[data-sort-column]');
+        if (headers.length === 0) {
+            console.warn('No sortable headers found');
+            return;
+        }
+        
+        console.log('Found', headers.length, 'sortable headers');
+        
         sortTableElement = table;
         
-        // Create new handler using event delegation
+        // Create handler using event delegation on the table
         sortHandler = function(event) {
-            // Don't trigger if clicking directly on checkbox
-            if (event.target.type === 'checkbox' || event.target.closest('input[type="checkbox"]')) {
+            const clickedElement = event.target;
+            
+            // Don't trigger if clicking directly on checkbox or its label
+            if (clickedElement.type === 'checkbox' || 
+                clickedElement.tagName === 'INPUT' || 
+                clickedElement.closest('input[type="checkbox"]')) {
                 return;
             }
             
             // Find the clicked header
-            const header = event.target.closest('th[data-sort-column]');
-            if (!header) return;
+            let header = clickedElement.closest('th[data-sort-column]');
             
-            const column = header.dataset.sortColumn;
-            if (!column) {
-                console.warn('No sort column found on clicked header');
+            // If we clicked directly on a TH element, use it
+            if (!header && clickedElement.tagName === 'TH' && clickedElement.hasAttribute('data-sort-column')) {
+                header = clickedElement;
+            }
+            
+            if (!header) {
                 return;
             }
             
-            console.log('Sorting by column:', column);
+            const column = header.getAttribute('data-sort-column');
+            if (!column) {
+                return;
+            }
+            
+            console.log('✓ Click detected on sortable header:', column);
             
             let direction = 'asc';
 
@@ -3290,14 +3320,56 @@
                 }
             }
 
-            console.log('Sort direction:', direction);
+            console.log('✓ Sorting by:', column, 'direction:', direction);
+            
             sortCollection(column, direction);
             currentSort = { column, direction };
         };
         
-        // Attach event listener to the table using event delegation
+        // Attach listeners directly to each header
+        headers.forEach((header, index) => {
+            const column = header.getAttribute('data-sort-column');
+            header.style.cursor = 'pointer';
+            header.title = `Click to sort by ${column}`;
+            
+            // Create a named function for this header so we can remove it later
+            const headerClickHandler = function(e) {
+                // Don't trigger if clicking on checkbox
+                if (e.target && (e.target.type === 'checkbox' || e.target.tagName === 'INPUT')) {
+                    return;
+                }
+                
+                // Don't trigger if clicking inside a checkbox
+                if (e.target && e.target.closest('input[type="checkbox"]')) {
+                    return;
+                }
+                
+                console.log('✓ Direct click on header:', column, 'index:', index);
+                
+                let direction = 'asc';
+                if (currentSort.column === column) {
+                    if (currentSort.direction === 'asc') {
+                        direction = 'desc';
+                    } else if (currentSort.direction === 'desc') {
+                        direction = null;
+                    } else {
+                        direction = 'asc';
+                    }
+                }
+                
+                console.log('✓ Sorting by:', column, 'direction:', direction);
+                sortCollection(column, direction);
+                currentSort = { column, direction };
+            };
+            
+            // Store handler on the element for potential removal later
+            header._sortHandler = headerClickHandler;
+            header.addEventListener('click', headerClickHandler);
+        });
+        
+        // Also attach to table as backup using event delegation
         table.addEventListener('click', sortHandler);
-        console.log('Sort event listeners attached to table');
+        console.log('✓ Sort event listeners attached: direct to', headers.length, 'headers + table delegation');
     }
 
     function sortCollection(column, direction) {
