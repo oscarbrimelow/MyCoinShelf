@@ -13,6 +13,14 @@ from functools import wraps
 import uuid # Import uuid for generating unique public IDs
 import requests # Import requests for metal price API calls
 from sqlalchemy import text # Import text for raw SQL queries
+# Cloudscraper for bypassing Cloudflare protection
+try:
+    import cloudscraper
+    CLOUDSCRAPER_AVAILABLE = True
+except ImportError:
+    print("Warning: cloudscraper not available, using requests (may fail on Cloudflare-protected sites)")
+    CLOUDSCRAPER_AVAILABLE = False
+    cloudscraper = None
 # Email functionality - using Resend for permanent free email delivery
 try:
     import resend
@@ -1145,18 +1153,23 @@ def test_numista(current_user):
         
         print(f"TEST: Testing Numista API with URL: {test_url.replace(api_key, 'KEY_HIDDEN')}")
         
-        # Use browser-like headers to bypass Cloudflare
-        browser_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Referer': 'https://en.numista.com/',
-            'Origin': 'https://en.numista.com'
-        }
-        
-        response = requests.get(test_url, headers=browser_headers, timeout=10)
+        # Use cloudscraper to bypass Cloudflare if available, otherwise use requests
+        if CLOUDSCRAPER_AVAILABLE:
+            print("TEST: Using cloudscraper to bypass Cloudflare")
+            scraper = cloudscraper.create_scraper()
+            response = scraper.get(test_url, timeout=10)
+        else:
+            print("TEST: Using requests (cloudscraper not available)")
+            browser_headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Referer': 'https://en.numista.com/',
+                'Origin': 'https://en.numista.com'
+            }
+            response = requests.get(test_url, headers=browser_headers, timeout=10)
         
         return jsonify({
             'status_code': response.status_code,
@@ -1235,6 +1248,15 @@ def search_numista(current_user):
             'limit': 10  # Limit results
         }
         
+        # Use cloudscraper to bypass Cloudflare if available
+        if CLOUDSCRAPER_AVAILABLE:
+            print("DEBUG: Using cloudscraper to bypass Cloudflare")
+            scraper = cloudscraper.create_scraper()
+            http_client = scraper
+        else:
+            print("DEBUG: Using requests (cloudscraper not available)")
+            http_client = requests
+        
         # Numista is protected by Cloudflare - need browser-like headers to bypass challenge
         # Use realistic browser headers to avoid Cloudflare bot detection
         browser_headers = {
@@ -1273,7 +1295,7 @@ def search_numista(current_user):
         response_text = ""
         for i, headers in enumerate(headers_variants):
             print(f"DEBUG: Trying header variant {i+1}: {list(headers.keys())}")
-            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+            response = http_client.get(search_url, params=params, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
             print(f"DEBUG: Variant {i+1} - status: {response.status_code}, preview: {response_text[:200]}")
             # Check if we got Cloudflare challenge page
@@ -1302,7 +1324,7 @@ def search_numista(current_user):
                 'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
                 'Accept': 'application/json'
             }
-            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+            response = http_client.get(search_url, params=params, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
             print(f"DEBUG: With key param - status: {response.status_code}, preview: {response_text[:200]}")
         
@@ -1317,7 +1339,7 @@ def search_numista(current_user):
                 'lang': 'en',
                 'limit': 10
             }
-            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+            response = http_client.get(search_url, params=params, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
             print(f"DEBUG: With api_key param - status: {response.status_code}, preview: {response_text[:200]}")
         
@@ -1329,7 +1351,7 @@ def search_numista(current_user):
             print(f"DEBUG: Trying direct URL format with key and client_id...")
             # Try building URL manually with key and client_id
             search_url = f"https://en.numista.com/api/v2/search.php?key={api_key}&client_id={client_id}&q={query}&type={item_type}&lang=en&limit=10"
-            response = requests.get(search_url, headers={'User-Agent': 'CoinShelf/1.0', 'Accept': 'application/json'}, timeout=10)
+            response = http_client.get(search_url, headers={'User-Agent': 'CoinShelf/1.0', 'Accept': 'application/json'}, timeout=10)
             response_text = response.text if response.text else ""
             print(f"DEBUG: Direct URL - status: {response.status_code}, preview: {response_text[:200]}")
             is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
@@ -1346,7 +1368,7 @@ def search_numista(current_user):
                 'lang': 'en',
                 'limit': 10
             }
-            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+            response = http_client.get(search_url, params=params, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
             is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
         
@@ -1362,7 +1384,7 @@ def search_numista(current_user):
                 'lang': 'en',
                 'limit': 10
             }
-            response = requests.get(search_url, params=params_v3, headers=headers, timeout=10)
+            response = http_client.get(search_url, params=params_v3, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
             is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower() or response.status_code != 200
             
@@ -1381,7 +1403,7 @@ def search_numista(current_user):
                     'lang': 'en',
                     'limit': 10
                 }
-                response = requests.get(search_url, params=params_v3, headers=headers_v3, timeout=10)
+                response = http_client.get(search_url, params=params_v3, headers=headers_v3, timeout=10)
                 response_text = response.text if response.text else ""
                 is_html_response = '<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower()
                 
