@@ -1018,6 +1018,137 @@ def clear_all_coins(current_user):
     db.session.commit()
     return jsonify({'message': f'{num_deleted} coins deleted successfully.'}), 200
 
+@app.route('/api/coins/duplicates', methods=['GET'])
+@jwt_required
+def find_duplicates(current_user):
+    """Find potential duplicate coins based on country, year, and denomination"""
+    coins = Coin.query.filter_by(user_id=current_user.id).all()
+    
+    # Group coins by country, year, and denomination
+    duplicates_map = {}
+    for coin in coins:
+        # Create a key from country, year, and denomination
+        # Handle None values for year
+        year_key = coin.year if coin.year else 'None'
+        key = (coin.country.lower().strip(), year_key, coin.denomination.lower().strip())
+        
+        if key not in duplicates_map:
+            duplicates_map[key] = []
+        
+        duplicates_map[key].append({
+            'id': coin.id,
+            'type': coin.type,
+            'country': coin.country,
+            'year': coin.year,
+            'denomination': coin.denomination,
+            'value': coin.value,
+            'quantity': coin.quantity,
+            'notes': coin.notes,
+            'referenceUrl': coin.referenceUrl,
+            'localImagePath': coin.localImagePath,
+            'region': coin.region,
+            'isHistorical': coin.isHistorical,
+            'weight_grams': coin.weight_grams,
+            'purity_percent': coin.purity_percent
+        })
+    
+    # Filter to only include groups with more than one coin (duplicates)
+    duplicates = []
+    for key, coin_list in duplicates_map.items():
+        if len(coin_list) > 1:
+            duplicates.append({
+                'key': {
+                    'country': coin_list[0]['country'],
+                    'year': coin_list[0]['year'],
+                    'denomination': coin_list[0]['denomination']
+                },
+                'coins': coin_list,
+                'count': len(coin_list)
+            })
+    
+    return jsonify({'duplicates': duplicates}), 200
+
+@app.route('/api/coins/merge', methods=['POST'])
+@jwt_required
+def merge_coins(current_user):
+    """Merge duplicate coins into one, combining quantities"""
+    data = request.get_json()
+    
+    if not data.get('coin_ids') or len(data.get('coin_ids', [])) < 2:
+        return jsonify({'message': 'At least two coin IDs are required to merge.'}), 400
+    
+    coin_ids = data.get('coin_ids')
+    
+    # Fetch all coins to merge
+    coins_to_merge = Coin.query.filter(
+        Coin.id.in_(coin_ids),
+        Coin.user_id == current_user.id
+    ).all()
+    
+    if len(coins_to_merge) != len(coin_ids):
+        return jsonify({'message': 'Some coins were not found or you do not have permission to merge them.'}), 404
+    
+    # Use the first coin as the base (keep its ID and most fields)
+    base_coin = coins_to_merge[0]
+    
+    # Calculate total quantity
+    total_quantity = sum(coin.quantity for coin in coins_to_merge)
+    
+    # Merge notes (combine unique notes)
+    all_notes = []
+    for coin in coins_to_merge:
+        if coin.notes and coin.notes.strip():
+            all_notes.append(coin.notes.strip())
+    
+    # Merge reference URLs (keep the first non-empty one, or combine)
+    reference_urls = []
+    for coin in coins_to_merge:
+        if coin.referenceUrl and coin.referenceUrl.strip():
+            reference_urls.append(coin.referenceUrl.strip())
+    
+    # Update base coin with merged data
+    base_coin.quantity = total_quantity
+    
+    # Merge notes (combine with line breaks if multiple, avoiding duplicates)
+    if all_notes:
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_notes = []
+        for note in all_notes:
+            if note not in seen:
+                seen.add(note)
+                unique_notes.append(note)
+        base_coin.notes = '\n\n'.join(unique_notes)
+    
+    # Keep the first reference URL, or combine them
+    if reference_urls:
+        base_coin.referenceUrl = reference_urls[0]  # Keep first, or could combine
+    
+    # Keep the highest value if different
+    values = [coin.value for coin in coins_to_merge if coin.value]
+    if values:
+        base_coin.value = max(values)
+    
+    # Keep image if base doesn't have one, take from others
+    if not base_coin.localImagePath or base_coin.localImagePath == "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image":
+        for coin in coins_to_merge[1:]:
+            if coin.localImagePath and coin.localImagePath != "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image":
+                base_coin.localImagePath = coin.localImagePath
+                break
+    
+    # Delete the other coins (keep base_coin)
+    coins_to_delete = coins_to_merge[1:]
+    for coin in coins_to_delete:
+        db.session.delete(coin)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': f'Successfully merged {len(coins_to_merge)} coins into one.',
+        'merged_coin_id': base_coin.id,
+        'total_quantity': total_quantity
+    }), 200
+
 # --- New Metal Prices API Endpoint ---
 @app.route('/api/prices/metals', methods=['GET'])
 def get_metal_prices():
