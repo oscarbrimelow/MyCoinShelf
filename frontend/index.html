@@ -174,9 +174,6 @@
     <!-- Phosphor Icons for a clean icon set -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    <!-- Google Identity Services for Sign-In -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-
     <style>
         /* Custom styles for a more polished look */
         body {
@@ -542,94 +539,6 @@
                         <button id="home-learn-more-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-md text-lg transition-colors shadow-lg">
                             Learn More
                         </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Authentication Page -->
-            <div id="content-auth" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
-                <div class="max-w-md mx-auto h-full flex flex-col items-center justify-center py-12 px-4">
-                    <div class="w-full bg-gray-800 rounded-lg shadow-xl border border-gray-700 p-8">
-                        <!-- Logo and Title -->
-                        <div class="text-center mb-8">
-                            <i class="ph-bold ph-coins text-5xl text-emerald-400 mb-4"></i>
-                            <h2 class="text-3xl font-bold text-white mb-2" id="auth-page-title">Sign In</h2>
-                            <p class="text-gray-400">Access your CoinShelf collection</p>
-                        </div>
-
-                        <!-- Google Sign-In Button -->
-                        <div id="google-signin-container" class="mb-6">
-                            <div id="g_id_onload"
-                                data-client_id=""
-                                data-callback="handleGoogleSignIn"
-                                data-auto_select="false"
-                                data-cancel_on_tap_outside="true">
-                            </div>
-                            <div class="g_id_signin w-full"
-                                data-type="standard"
-                                data-size="large"
-                                data-theme="filled_blue"
-                                data-text="signin_with"
-                                data-shape="rectangular"
-                                data-logo_alignment="left">
-                            </div>
-                        </div>
-
-                        <!-- Divider -->
-                        <div class="relative mb-6">
-                            <div class="absolute inset-0 flex items-center">
-                                <div class="w-full border-t border-gray-600"></div>
-                            </div>
-                            <div class="relative flex justify-center text-sm">
-                                <span class="px-4 bg-gray-800 text-gray-400">Or continue with email</span>
-                            </div>
-                        </div>
-
-                        <!-- Email/Password Form -->
-                        <form id="auth-form" class="space-y-4">
-                            <div>
-                                <label for="auth-email" class="block text-sm font-medium text-gray-400 mb-1">Email</label>
-                                <input type="email" id="auth-email" placeholder="your@email.com" 
-                                    class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-3 text-white focus:ring-emerald-500 focus:border-emerald-500">
-                            </div>
-                            <div id="auth-password-container">
-                                <label for="auth-password" class="block text-sm font-medium text-gray-400 mb-1">Password</label>
-                                <input type="password" id="auth-password" placeholder="••••••••" 
-                                    class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-3 text-white focus:ring-emerald-500 focus:border-emerald-500">
-                            </div>
-                            <div id="auth-remember-container" class="flex items-center">
-                                <input type="checkbox" id="auth-remember-me" class="mr-2">
-                                <label for="auth-remember-me" class="text-gray-400 text-sm">Remember Me</label>
-                            </div>
-                            <button type="submit" id="auth-submit-btn" 
-                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition-colors">
-                                Sign In
-                            </button>
-                        </form>
-
-                        <!-- Toggle between Sign In and Sign Up -->
-                        <div class="mt-6 text-center">
-                            <p class="text-gray-400 text-sm">
-                                <span id="auth-toggle-text">Don't have an account?</span>
-                                <button type="button" id="auth-toggle-btn" class="text-blue-400 hover:text-blue-300 ml-1 font-medium">
-                                    Sign Up
-                                </button>
-                            </p>
-                        </div>
-
-                        <!-- Forgot Password Link -->
-                        <div id="auth-forgot-password-container" class="mt-4 text-center">
-                            <button type="button" id="auth-forgot-password-btn" class="text-blue-400 hover:text-blue-300 text-sm underline">
-                                Forgot Password?
-                            </button>
-                        </div>
-
-                        <!-- Back to Home -->
-                        <div class="mt-6 text-center">
-                            <button type="button" id="auth-back-to-home" class="text-gray-400 hover:text-gray-300 text-sm">
-                                <i class="ph-bold ph-arrow-left mr-1"></i> Back to Home
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -5066,7 +4975,7 @@
         const shareCollectionBtn = document.getElementById('share-collection-btn'); // New
 
         if (loggedIn) {
-            if (authStatusDiv) authStatusDiv.innerHTML = `<span class="text-emerald-400 font-semibold">Logged in!</span>`;
+            authStatusDiv.innerHTML = `<span class="text-emerald-400 font-semibold">Logged in!</span>`;
             if (loginForm) loginForm.classList.add('hidden');
             if (logoutBtn) logoutBtn.classList.remove('hidden');
             if (quickAddBtn) quickAddBtn.classList.remove('hidden'); // Show Quick Add
@@ -5075,7 +4984,7 @@
             if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
             if (shareCollectionBtn) shareCollectionBtn.classList.remove('hidden'); // Show Share Collection
         } else {
-            if (authStatusDiv) authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
+            authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
             if (loginForm) loginForm.classList.remove('hidden');
             if (logoutBtn) logoutBtn.classList.add('hidden');
             if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
@@ -5522,9 +5431,11 @@
             console.log('Found home-signup-btn');
             homeSignupBtn.addEventListener('click', () => {
                 console.log('home-signup-btn clicked');
-                // Navigate to auth page
-                window.history.pushState({}, '', '/auth');
-                handleHistoryNavigation('/auth');
+                if (window.innerWidth < 768 && sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar(); // Open sidebar if closed
+                }
+                const loginEmailInput = document.getElementById('login-email');
+                if (loginEmailInput) loginEmailInput.focus();
             });
         } else {
             console.error('home-signup-btn not found!');
@@ -5535,9 +5446,10 @@
             console.log('Found home-learn-more-btn');
             homeLearnMoreBtn.addEventListener('click', () => {
                 console.log('home-learn-more-btn clicked');
-                // Navigate to about page
-                window.history.pushState({}, '', '/about');
-                handleHistoryNavigation('/about');
+                showView('content-about'); // Redirects to About page
+                if (window.innerWidth < 768 && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
             });
         } else {
             console.error('home-learn-more-btn not found!');
@@ -6192,226 +6104,6 @@
 
         attachFormEventListeners(); // Attach event listeners for the item form
 
-        // --- AUTH PAGE FUNCTIONALITY ---
-        // Function to setup authentication page
-        function setupAuthPage() {
-            let isSignUpMode = false;
-            const GOOGLE_CLIENT_ID = ''; // Will be set from environment or config
-            
-            // Initialize Google Sign-In
-            window.onload = function() {
-                if (typeof google !== 'undefined' && GOOGLE_CLIENT_ID) {
-                    google.accounts.id.initialize({
-                        client_id: GOOGLE_CLIENT_ID,
-                        callback: handleGoogleSignIn
-                    });
-                    
-                    // Update the g_id_onload element
-                    const gIdOnload = document.getElementById('g_id_onload');
-                    if (gIdOnload) {
-                        gIdOnload.setAttribute('data-client_id', GOOGLE_CLIENT_ID);
-                    }
-                }
-            };
-
-            // Google Sign-In callback
-            window.handleGoogleSignIn = async function(response) {
-                try {
-                    const submitBtn = document.getElementById('auth-submit-btn');
-                    if (submitBtn) setLoadingState('auth-submit-btn', true, 'Signing in...');
-
-                    const backendResponse = await fetch(`${API_BASE_URL}/auth/google`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token: response.credential })
-                    });
-
-                    if (!backendResponse.ok) {
-                        const errorData = await backendResponse.json().catch(() => ({}));
-                        throw new Error(errorData.message || 'Google Sign-In failed');
-                    }
-
-                    const result = await backendResponse.json();
-                    
-                    // Store token
-                    const rememberMe = document.getElementById('auth-remember-me')?.checked || false;
-                    if (rememberMe) {
-                        localStorage.setItem('jwt_token', result.token);
-                        sessionStorage.removeItem('jwt_token');
-                    } else {
-                        sessionStorage.setItem('jwt_token', result.token);
-                        localStorage.removeItem('jwt_token');
-                    }
-
-                    // Check if user needs to set username
-                    if (result.needs_username) {
-                        showUsernameModal();
-                    } else {
-                        showCustomConfirm('Signed in successfully!', () => {});
-                    }
-
-                    updateAuthUI(true);
-                    loadCollectionFromBackend();
-                    window.history.pushState({}, '', '/dashboard');
-                    handleHistoryNavigation('/dashboard');
-
-                } catch (error) {
-                    console.error("Google Sign-In error:", error.message);
-                    showCustomConfirm(escapeHtml(error.message || 'Google Sign-In failed. Please try again.'), () => {});
-                } finally {
-                    const submitBtn = document.getElementById('auth-submit-btn');
-                    if (submitBtn) setLoadingState('auth-submit-btn', false);
-                }
-            };
-
-            // Toggle between Sign In and Sign Up
-            const authToggleBtn = document.getElementById('auth-toggle-btn');
-            const authForm = document.getElementById('auth-form');
-            const authSubmitBtn = document.getElementById('auth-submit-btn');
-            const authPageTitle = document.getElementById('auth-page-title');
-            const authToggleText = document.getElementById('auth-toggle-text');
-            const authPasswordContainer = document.getElementById('auth-password-container');
-            const authRememberContainer = document.getElementById('auth-remember-container');
-            const authForgotPasswordContainer = document.getElementById('auth-forgot-password-container');
-
-            if (authToggleBtn) {
-                authToggleBtn.addEventListener('click', () => {
-                    isSignUpMode = !isSignUpMode;
-                    
-                    if (isSignUpMode) {
-                        authPageTitle.textContent = 'Sign Up';
-                        authSubmitBtn.textContent = 'Sign Up';
-                        authToggleText.textContent = 'Already have an account?';
-                        authToggleBtn.textContent = 'Sign In';
-                        authPasswordContainer.style.display = 'block';
-                        authRememberContainer.style.display = 'none';
-                        authForgotPasswordContainer.style.display = 'none';
-                    } else {
-                        authPageTitle.textContent = 'Sign In';
-                        authSubmitBtn.textContent = 'Sign In';
-                        authToggleText.textContent = 'Don\'t have an account?';
-                        authToggleBtn.textContent = 'Sign Up';
-                        authPasswordContainer.style.display = 'block';
-                        authRememberContainer.style.display = 'flex';
-                        authForgotPasswordContainer.style.display = 'block';
-                    }
-                });
-            }
-
-            // Auth form submission
-            if (authForm) {
-                authForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    const email = document.getElementById('auth-email').value.trim();
-                    const password = document.getElementById('auth-password').value;
-                    const rememberMe = document.getElementById('auth-remember-me')?.checked || false;
-
-                    // Validation
-                    if (!email) {
-                        showCustomConfirm('Please enter your email address.', () => {});
-                        return;
-                    }
-
-                    if (!validateEmail(email)) {
-                        showCustomConfirm('Please enter a valid email address.', () => {});
-                        return;
-                    }
-
-                    if (!password) {
-                        showCustomConfirm('Please enter your password.', () => {});
-                        return;
-                    }
-
-                    if (isSignUpMode) {
-                        const passwordValidation = validatePassword(password);
-                        if (!passwordValidation.valid) {
-                            showCustomConfirm(passwordValidation.message, () => {});
-                            return;
-                        }
-                    }
-
-                    // Set loading state
-                    if (authSubmitBtn) setLoadingState('auth-submit-btn', true, isSignUpMode ? 'Creating account...' : 'Signing in...');
-
-                    try {
-                        const endpoint = isSignUpMode ? '/register' : '/login';
-                        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email, password })
-                        });
-
-                        if (!response.ok) {
-                            const errorData = await response.json().catch(() => ({}));
-                            throw new Error(errorData.message || (isSignUpMode ? 'Sign-up failed' : 'Login failed'));
-                        }
-
-                        const result = await response.json();
-
-                        if (isSignUpMode) {
-                            showCustomConfirm('Account created successfully! Please sign in.', () => {
-                                // Switch to sign in mode
-                                isSignUpMode = false;
-                                authPageTitle.textContent = 'Sign In';
-                                authSubmitBtn.textContent = 'Sign In';
-                                authToggleText.textContent = 'Don\'t have an account?';
-                                authToggleBtn.textContent = 'Sign Up';
-                                authRememberContainer.style.display = 'flex';
-                                authForgotPasswordContainer.style.display = 'block';
-                                document.getElementById('auth-password').value = '';
-                            });
-                        } else {
-                            // Store token
-                            if (rememberMe) {
-                                localStorage.setItem('jwt_token', result.token);
-                                sessionStorage.removeItem('jwt_token');
-                            } else {
-                                sessionStorage.setItem('jwt_token', result.token);
-                                localStorage.removeItem('jwt_token');
-                            }
-
-                            // Check if user needs to set username
-                            if (result.needs_username) {
-                                showUsernameModal();
-                            } else {
-                                showCustomConfirm('Signed in successfully!', () => {});
-                            }
-
-                            updateAuthUI(true);
-                            loadCollectionFromBackend();
-                            window.history.pushState({}, '', '/dashboard');
-                            handleHistoryNavigation('/dashboard');
-                        }
-
-                    } catch (error) {
-                        console.error(`${isSignUpMode ? 'Sign-up' : 'Login'} error:`, error.message);
-                        showCustomConfirm(escapeHtml(error.message || `${isSignUpMode ? 'Sign-up' : 'Login'} failed. Please try again.`), () => {});
-                    } finally {
-                        if (authSubmitBtn) setLoadingState('auth-submit-btn', false);
-                    }
-                });
-            }
-
-            // Back to home button
-            const authBackToHome = document.getElementById('auth-back-to-home');
-            if (authBackToHome) {
-                authBackToHome.addEventListener('click', () => {
-                    window.history.pushState({}, '', '/');
-                    handleHistoryNavigation('/');
-                });
-            }
-
-            // Forgot password button
-            const authForgotPasswordBtn = document.getElementById('auth-forgot-password-btn');
-            if (authForgotPasswordBtn) {
-                authForgotPasswordBtn.addEventListener('click', () => {
-                    // Show forgot password modal (you can implement this later)
-                    showCustomConfirm('Password reset functionality coming soon!', () => {});
-                });
-            }
-        }
-
-        setupAuthPage();
 
         // --- AUTHENTICATION EVENT LISTENERS ---
         const loginForm = document.getElementById('login-form');
@@ -7560,7 +7252,6 @@
     // --- SPA Routing for Pretty URLs ---
     const pathToSection = {
       '/': 'content-home',
-      '/auth': 'content-auth',
       '/about': 'content-about',
       '/dashboard': 'content-dashboard',
       '/collection': 'content-collection',
