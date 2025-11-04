@@ -1703,14 +1703,14 @@ def add_to_wishlist(current_user):
     else:
         query = query.filter_by(year=None)
     
-    # If numista_id is provided, also check for it (most reliable)
+    # If numista_id is provided, check for it (most reliable)
     if numista_id:
         existing_by_numista = query.filter_by(numista_id=numista_id).first()
         if existing_by_numista:
             return jsonify({'message': 'This item is already in your wishlist.', 'id': existing_by_numista.id}), 200
     
-    # Check for duplicates without numista_id (in case of race condition)
-    existing = query.filter_by(numista_id=numista_id).first()
+    # Check for duplicates with matching country, denomination, and year (even without numista_id)
+    existing = query.first()
     if existing:
         return jsonify({'message': 'This item is already in your wishlist.', 'id': existing.id}), 200
     
