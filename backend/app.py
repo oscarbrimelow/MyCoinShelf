@@ -190,28 +190,48 @@ class PasswordResetToken(db.Model):
 def jwt_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split(" ")[1]
-        if not token:
-            print("DEBUG: Token is missing from Authorization header.")
-            return jsonify({'message': 'Token is missing!'}), 401
         try:
-            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
-            current_user = User.query.get(data['user_id'])
-            if not current_user:
-                print(f"DEBUG: User with ID {data['user_id']} not found for token.")
-                return jsonify({'message': 'User not found!'}), 401
-        except jwt.ExpiredSignatureError:
-            print("DEBUG: JWT ExpiredSignatureError caught.")
-            return jsonify({'message': 'Token has expired!'}), 401
-        except jwt.InvalidTokenError:
-            print("DEBUG: JWT InvalidTokenError caught.")
-            return jsonify({'message': 'Token is invalid!'}), 401
+            token = None
+            if 'Authorization' in request.headers:
+                auth_header = request.headers['Authorization']
+                if auth_header.startswith('Bearer '):
+                    token = auth_header.split(" ")[1]
+            if not token:
+                print("DEBUG: Token is missing from Authorization header.")
+                response = jsonify({'message': 'Token is missing!'})
+                response.headers['Content-Type'] = 'application/json'
+                return response, 401
+            try:
+                data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
+                current_user = User.query.get(data['user_id'])
+                if not current_user:
+                    print(f"DEBUG: User with ID {data['user_id']} not found for token.")
+                    response = jsonify({'message': 'User not found!'})
+                    response.headers['Content-Type'] = 'application/json'
+                    return response, 401
+            except jwt.ExpiredSignatureError:
+                print("DEBUG: JWT ExpiredSignatureError caught.")
+                response = jsonify({'message': 'Token has expired!'})
+                response.headers['Content-Type'] = 'application/json'
+                return response, 401
+            except jwt.InvalidTokenError:
+                print("DEBUG: JWT InvalidTokenError caught.")
+                response = jsonify({'message': 'Token is invalid!'})
+                response.headers['Content-Type'] = 'application/json'
+                return response, 401
+            except Exception as e:
+                print(f"DEBUG: Unexpected error in jwt_required: {e}")
+                traceback.print_exc()
+                response = jsonify({'message': 'An error occurred during authentication.'})
+                response.headers['Content-Type'] = 'application/json'
+                return response, 500
+            return f(current_user, *args, **kwargs)
         except Exception as e:
-            print(f"DEBUG: Unexpected error in jwt_required: {e}")
-            return jsonify({'message': 'An error occurred during authentication.'}), 500
-        return f(current_user, *args, **kwargs)
+            print(f"DEBUG: Fatal error in jwt_required wrapper: {e}")
+            traceback.print_exc()
+            response = jsonify({'message': 'Fatal authentication error'})
+            response.headers['Content-Type'] = 'application/json'
+            return response, 500
     return decorated
 
 # --- Helper function for region and historical flag ---
@@ -1107,17 +1127,27 @@ def get_coins(current_user):
 @jwt_required
 def search_numista(current_user):
     """Search Numista for coins and banknotes using official API"""
+    print(f"DEBUG: search_numista called - path={request.path}, method={request.method}")
+    print(f"DEBUG: query={request.args.get('q')}, type={request.args.get('type')}")
+    print(f"DEBUG: current_user={current_user.email if current_user else None}")
+    
+    # Ensure we always return JSON
     try:
         query = request.args.get('q', '').strip()
         item_type = request.args.get('type', 'coin').lower()  # 'coin' or 'banknote'
         
         if not query:
-            return jsonify({'results': [], 'error': 'Search query required'}), 200
+            print("DEBUG: No query provided")
+            response = jsonify({'results': [], 'error': 'Search query required'})
+            response.headers['Content-Type'] = 'application/json'
+            return response, 200
     
     except Exception as e:
         print(f"Error in search_numista (early): {e}")
         traceback.print_exc()
-        return jsonify({'results': [], 'error': f'Error processing request: {str(e)}'}), 200
+        response = jsonify({'results': [], 'error': f'Error processing request: {str(e)}'})
+        response.headers['Content-Type'] = 'application/json'
+        return response, 200
     
     try:
         # Check if API key is configured
@@ -1847,6 +1877,39 @@ def serve_spa(path):
         return send_from_directory('frontend', path)
     else:
         return send_from_directory('frontend', 'index.html')
+
+# --- Response Middleware ---
+@app.after_request
+def ensure_api_json_response(response):
+    """Ensure API routes always return JSON responses, never HTML"""
+    if request.path.startswith('/api/'):
+        # Force Content-Type to JSON for all API routes
+        response.headers['Content-Type'] = 'application/json'
+        
+        # If we somehow got HTML, convert it to a JSON error
+        if response.content_type and 'html' in response.content_type.lower():
+            print(f"WARNING: API route {request.path} returned HTML instead of JSON!")
+            print(f"Response preview: {response.get_data(as_text=True)[:500]}")
+            return jsonify({
+                'error': 'Internal server error',
+                'message': 'The server returned an unexpected HTML response. Please check backend logs.',
+                'path': request.path
+            }), 500
+        
+        # Check if response body is HTML
+        try:
+            response_text = response.get_data(as_text=True)
+            if response_text and ('<!DOCTYPE' in response_text[:50] or '<html' in response_text[:50].lower()):
+                print(f"WARNING: API route {request.path} returned HTML in body!")
+                return jsonify({
+                    'error': 'Internal server error',
+                    'message': 'The server returned an unexpected HTML response. Please check backend logs.',
+                    'path': request.path
+                }), 500
+        except:
+            pass  # If we can't read the response, continue normally
+    
+    return response
 
 # --- Database Initialization (Run once to create tables) ---
 # NOTE: @app.before_request is used instead of @app.before_first_request due to Flask version compatibility.
