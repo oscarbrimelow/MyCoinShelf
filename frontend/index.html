@@ -5077,7 +5077,7 @@
     }
 
     function getCurrentView() {
-        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
         for (const view of views) {
             const element = document.getElementById(view);
             if (element && !element.classList.contains('hidden')) {
@@ -5088,7 +5088,7 @@
     }
 
     function getNextView(currentView) {
-        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
         const currentIndex = views.indexOf(currentView);
         if (currentIndex === -1 || currentIndex === views.length - 1) {
             return null; // Already at the end
@@ -5097,7 +5097,7 @@
     }
 
     function getPreviousView(currentView) {
-        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
         const currentIndex = views.indexOf(currentView);
         if (currentIndex <= 0) {
             return null; // Already at the beginning
@@ -5377,6 +5377,12 @@
             console.log('Found nav-map');
             navMap.addEventListener('click', (e) => { e.preventDefault(); showView('content-map'); });
         } else { console.error('nav-map not found!'); }
+
+        const navMembers = document.getElementById('nav-members');
+        if (navMembers) {
+            console.log('Found nav-members');
+            navMembers.addEventListener('click', (e) => { e.preventDefault(); showView('content-members'); });
+        } else { console.error('nav-members not found!'); }
 
         const navMissing = document.getElementById('nav-missing');
         if (navMissing) {
@@ -7227,6 +7233,7 @@
       '/dashboard': 'content-dashboard',
       '/collection': 'content-collection',
       '/map': 'content-map',
+      '/members': 'content-members',
       '/missing': 'content-missing',
       '/settings': 'content-settings',
     };
