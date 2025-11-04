@@ -2090,6 +2090,19 @@
         return String(text).replace(/[&<>"']/g, m => map[m]);
     }
 
+    // Render username with crown icon for developer
+    function renderUsername(username, includeAt = true) {
+        if (!username) return '';
+        const escapedUsername = escapeHtml(username);
+        const isDeveloper = username === 'OscarBrimelow';
+        const prefix = includeAt ? '@' : '';
+        
+        if (isDeveloper) {
+            return `${prefix}${escapedUsername} <i class="ph-bold ph-crown text-purple-400 ml-1 inline-block" title="Developer"></i>`;
+        }
+        return `${prefix}${escapedUsername}`;
+    }
+
     // Sanitize input by trimming and escaping
     function sanitizeInput(input) {
         if (typeof input !== 'string') return input;
@@ -4684,7 +4697,7 @@
                             <h3 class="text-xl font-bold text-white mb-1">
                                 ${user.display_name || user.username}
                             </h3>
-                            <p class="text-sm text-gray-400">@${user.username}</p>
+                            <p class="text-sm text-gray-400">${renderUsername(user.username)}</p>
                         </div>
                         <i class="ph-bold ph-arrow-right text-emerald-400 text-xl"></i>
                     </div>
@@ -4753,7 +4766,12 @@
             const profile = await response.json();
 
             if (modalTitle) {
-                modalTitle.textContent = profile.display_name || profile.username;
+                const displayText = profile.display_name || profile.username;
+                if (profile.username === 'OscarBrimelow') {
+                    modalTitle.innerHTML = `${escapeHtml(displayText)} <i class="ph-bold ph-crown text-purple-400 ml-1 inline-block" title="Developer"></i>`;
+                } else {
+                    modalTitle.textContent = displayText;
+                }
             }
 
             const stats = profile.stats || {};
@@ -4776,7 +4794,7 @@
                     <!-- Profile Info -->
                     <div class="bg-gray-700 rounded-lg p-6">
                         <h3 class="text-xl font-bold text-white mb-4">${profile.display_name || profile.username}</h3>
-                        <p class="text-sm text-gray-400 mb-2">@${profile.username}</p>
+                        <p class="text-sm text-gray-400 mb-2">${renderUsername(profile.username)}</p>
                         ${profile.bio ? `<p class="text-gray-300 mt-4">${escapeHtml(profile.bio)}</p>` : ''}
                     </div>
 
@@ -5985,14 +6003,14 @@
                 card.className = 'bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-emerald-500 transition-colors';
                 card.innerHTML = `
                     <div class="flex flex-col h-full">
-                        <div class="mb-3 flex justify-center">
+                            <div class="mb-3 flex justify-center">
                             ${item.image_url ? `
                                 <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.denomination || 'Item')}" 
                                      class="max-w-full h-32 object-contain rounded-md bg-gray-700 p-2" 
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                 <div class="hidden max-w-full h-32 rounded-md bg-gray-700 p-2 items-center justify-center">
                                     <i class="ph-bold ph-image text-4xl text-gray-500"></i>
-                                </div>
+                            </div>
                             ` : `
                                 <div class="max-w-full h-32 rounded-md bg-gray-700 p-2 flex items-center justify-center">
                                     <i class="ph-bold ph-image text-4xl text-gray-500"></i>
