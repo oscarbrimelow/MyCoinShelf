@@ -1145,7 +1145,18 @@ def test_numista(current_user):
         
         print(f"TEST: Testing Numista API with URL: {test_url.replace(api_key, 'KEY_HIDDEN')}")
         
-        response = requests.get(test_url, headers={'User-Agent': 'CoinShelf/1.0', 'Accept': 'application/json'}, timeout=10)
+        # Use browser-like headers to bypass Cloudflare
+        browser_headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Referer': 'https://en.numista.com/',
+            'Origin': 'https://en.numista.com'
+        }
+        
+        response = requests.get(test_url, headers=browser_headers, timeout=10)
         
         return jsonify({
             'status_code': response.status_code,
