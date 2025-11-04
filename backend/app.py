@@ -1260,12 +1260,55 @@ def search_numista(current_user):
         }
         category = category_map.get(item_type.lower(), 'coin')
         
-        params = {
-            'q': query,
-            'category': category,  # 'coin' or 'banknote' (not 'type')
-            'lang': 'en',
-            'count': 10  # 'count' not 'limit', max 50
+        # Try to detect if query is a country name and use issuer parameter for better results
+        # Common country to issuer code mappings (issuer codes are lowercase, no spaces/hyphens)
+        # Based on swagger.yaml examples, issuer codes are like: canada, south_africa, etc.
+        country_to_issuer = {
+            'south africa': 'south_africa',
+            'southafrica': 'south_africa',
+            'usa': 'united_states',
+            'united states': 'united_states',
+            'united kingdom': 'united_kingdom',
+            'uk': 'united_kingdom',
+            'canada': 'canada',
+            'australia': 'australia',
+            'germany': 'germany',
+            'france': 'france',
+            'italy': 'italy',
+            'spain': 'spain',
+            'portugal': 'portugal',
+            'netherlands': 'netherlands',
+            'belgium': 'belgium',
+            'switzerland': 'switzerland',
+            'austria': 'austria',
+            'japan': 'japan',
+            'china': 'china',
+            'india': 'india',
+            'brazil': 'brazil',
+            'argentina': 'argentina',
+            'mexico': 'mexico',
+            'russia': 'russia'
         }
+        
+        # Normalize query for issuer lookup
+        query_lower = query.lower().strip()
+        issuer_code = country_to_issuer.get(query_lower)
+        
+        # Build search parameters - use issuer if we found a match, otherwise use q
+        params = {
+            'category': category,
+            'lang': 'en',
+            'count': 50  # Get more results to filter better
+        }
+        
+        if issuer_code:
+            # Use issuer parameter for country-specific search (more accurate)
+            params['issuer'] = issuer_code
+            print(f"DEBUG: Using issuer code '{issuer_code}' for country-specific search")
+        else:
+            # Use text search query
+            params['q'] = query
+            print(f"DEBUG: Using text search query: '{query}'")
         
         # Correct header format: Numista-API-Key (not Authorization, X-API-Key, etc.)
         headers = {
@@ -1319,14 +1362,32 @@ def search_numista(current_user):
             elif isinstance(data, list):
                 items = data
             
-            for item in items[:10]:  # Limit to 10 results
+            # Filter and score results for relevance
+            query_words = query.lower().split()
+            scored_items = []
+            
+            for item in items:
                 # Extract issuer/country name
                 country_name = ''
                 issuer = item.get('issuer', {})
+                issuer_code_result = ''
                 if isinstance(issuer, dict):
                     country_name = issuer.get('name', '') or issuer.get('en_name', '') or issuer.get('code', '')
+                    issuer_code_result = issuer.get('code', '')
                 elif isinstance(issuer, str):
                     country_name = issuer
+                
+                # Calculate relevance score
+                score = 0
+                title_lower = item.get('title', '').lower()
+                country_lower = country_name.lower()
+                
+                # Higher score for matches in country/issuer name
+                for word in query_words:
+                    if word in country_lower:
+                        score += 10
+                    if word in title_lower:
+                        score += 2
                 
                 # Extract year from min_year/max_year or year field
                 year = item.get('year') or item.get('min_year') or item.get('max_year')
@@ -1343,19 +1404,43 @@ def search_numista(current_user):
                 # Extract category
                 item_category = item.get('category', category)
                 
-                results.append({
-                    'id': item.get('id'),
+                # Numista URL format from swagger.yaml example: https://en.numista.com/catalogue/pieces{id}.html
+                # Also try the shorter format: https://en.numista.com/{id} (both should work)
+                item_id = item.get('id')
+                numista_url = ''
+                if item_id:
+                    # Use the official format from swagger.yaml
+                    numista_url = f"https://en.numista.com/catalogue/pieces{item_id}.html"
+                
+                scored_items.append({
+                    'score': score,
+                    'id': item_id,
                     'title': title,
                     'country': country_name,
                     'year': year,
                     'denomination': denomination,
                     'type': item_category,
-                    'url': f"https://en.numista.com/catalogue/{item.get('id')}.html" if item.get('id') else '',
+                    'url': numista_url,
                     'description': item.get('description', ''),
                     'composition': item.get('composition', ''),
                     'weight': item.get('weight', ''),
                     'diameter': item.get('size', '')  # Numista v3 uses 'size' for diameter
                 })
+            
+            # Sort by relevance score (highest first) and take top 10
+            scored_items.sort(key=lambda x: x['score'], reverse=True)
+            
+            # Filter out results with very low relevance (score < 2) if we used text search
+            # If we used issuer parameter, all results should be relevant
+            if not issuer_code:
+                # Text search - filter out irrelevant results
+                scored_items = [item for item in scored_items if item['score'] >= 2]
+            
+            results = [item for item in scored_items[:10] if item['id']]  # Take top 10
+            
+            # Remove score from results before returning
+            for result in results:
+                result.pop('score', None)
             
             return jsonify({'results': results}), 200
         else:
