@@ -121,7 +121,10 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=True) # Nullable for OAuth users
+    # OAuth fields
+    google_id = db.Column(db.String(255), unique=True, nullable=True) # Google user ID
+    oauth_provider = db.Column(db.String(50), nullable=True) # e.g., 'google'
     # Profile fields
     username = db.Column(db.String(50), unique=True, nullable=True) # Nullable initially for migration
     display_name = db.Column(db.String(100), nullable=True)
@@ -730,6 +733,11 @@ def login():
         print(f"DEBUG: Login failed - User with email {email} not found.")
         return jsonify({'message': 'Invalid credentials'}), 401
 
+    # Check if user is OAuth-only (no password)
+    if not user.password_hash:
+        print("DEBUG: Login failed - User is OAuth-only, cannot login with password.")
+        return jsonify({'message': 'This account uses Google Sign-In. Please use Google to sign in.'}), 401
+
     print(f"DEBUG: User found: {user.email}")
     print(f"DEBUG: Provided password: {password}")
     print(f"DEBUG: Stored password hash: {user.password_hash}")
@@ -752,9 +760,108 @@ def login():
         'needs_username': needs_username
     }), 200
 
+@app.route('/api/auth/google', methods=['POST'])
+def google_auth():
+    """Handle Google OAuth authentication"""
+    data = request.get_json()
+    google_token = data.get('token')
+    
+    if not google_token:
+        return jsonify({'message': 'Google token is required'}), 400
+    
+    try:
+        # Verify the Google token with Google's API
+        google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        if not google_client_id:
+            print("Warning: GOOGLE_CLIENT_ID not set in environment variables.")
+            return jsonify({'message': 'Google authentication not configured'}), 500
+        
+        # Verify token with Google
+        verify_url = f"https://www.googleapis.com/oauth2/v3/tokeninfo?id_token={google_token}"
+        response = requests.get(verify_url, timeout=10)
+        
+        if response.status_code != 200:
+            print(f"Google token verification failed: {response.status_code}")
+            return jsonify({'message': 'Invalid Google token'}), 401
+        
+        token_info = response.json()
+        
+        # Verify the token is for our app
+        if token_info.get('aud') != google_client_id:
+            print(f"Token audience mismatch: {token_info.get('aud')} != {google_client_id}")
+            return jsonify({'message': 'Invalid token audience'}), 401
+        
+        # Extract user information
+        google_id = token_info.get('sub')
+        email = token_info.get('email')
+        name = token_info.get('name', '')
+        picture = token_info.get('picture', '')
+        
+        if not google_id or not email:
+            return jsonify({'message': 'Invalid token data'}), 401
+        
+        # Check if user exists by google_id
+        user = User.query.filter_by(google_id=google_id).first()
+        
+        # If not found by google_id, check by email (for account linking)
+        if not user:
+            user = User.query.filter_by(email=email).first()
+            if user:
+                # Link existing account with email/password to Google
+                if user.password_hash:
+                    # User has email/password account - link it
+                    user.google_id = google_id
+                    user.oauth_provider = 'google'
+                    db.session.commit()
+                    print(f"Linked existing account {email} to Google")
+                else:
+                    # User already has OAuth but different provider (shouldn't happen for now)
+                    return jsonify({'message': 'Account already exists with different provider'}), 409
+            else:
+                # Create new user
+                new_user = User(
+                    email=email,
+                    google_id=google_id,
+                    oauth_provider='google',
+                    password_hash=None,  # OAuth users don't need passwords
+                    display_name=name if name else None
+                )
+                db.session.add(new_user)
+                db.session.commit()
+                user = new_user
+                
+                # Send welcome email
+                send_welcome_email(email)
+                print(f"Created new Google user: {email}")
+        
+        # Generate JWT token
+        token = jwt.encode({
+            'user_id': user.id,
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        }, app.config['JWT_SECRET_KEY'], algorithm="HS256")
+        
+        # Check if user needs to set username
+        needs_username = not user.username or user.username.strip() == ''
+        
+        return jsonify({
+            'token': token,
+            'needs_username': needs_username
+        }), 200
+        
+    except requests.RequestException as e:
+        print(f"Error verifying Google token: {e}")
+        return jsonify({'message': 'Failed to verify Google token'}), 500
+    except Exception as e:
+        print(f"Error in Google auth: {e}")
+        return jsonify({'message': 'Authentication error'}), 500
+
 @app.route('/api/change_password', methods=['POST'])
 @jwt_required
 def change_password(current_user):
+    # Check if user is OAuth-only
+    if not current_user.password_hash:
+        return jsonify({'message': 'OAuth users cannot set passwords. Use Google Sign-In to access your account.'}), 400
+    
     data = request.get_json()
     current_password = data.get('current_password')
     new_password = data.get('new_password')
