@@ -876,6 +876,98 @@ def update_profile(current_user):
         'collection_public': current_user.collection_public
     }), 200
 
+@app.route('/api/users/search', methods=['GET'])
+def search_users():
+    """Search for public users by username or display name"""
+    query = request.args.get('q', '').strip()
+    
+    # Get users with public profiles
+    users_query = User.query.filter_by(profile_public=True)
+    
+    # Filter by username if provided
+    if query:
+        users_query = users_query.filter(
+            db.or_(
+                User.username.ilike(f'%{query}%'),
+                User.display_name.ilike(f'%{query}%')
+            )
+        )
+    
+    # Only return users with usernames
+    users_query = users_query.filter(User.username.isnot(None), User.username != '')
+    
+    users = users_query.all()
+    
+    # Build response with user info and collection stats
+    result = []
+    for user in users:
+        # Count public coins
+        coin_count = Coin.query.filter_by(user_id=user.id).count()
+        
+        # Only include if they have items or if searching
+        if coin_count > 0 or query:
+            result.append({
+                'id': user.id,
+                'username': user.username,
+                'display_name': user.display_name,
+                'bio': user.bio,
+                'profile_public': user.profile_public,
+                'collection_public': user.collection_public,
+                'coin_count': coin_count
+            })
+    
+    return jsonify({'users': result}), 200
+
+@app.route('/api/users/<username>', methods=['GET'])
+def get_user_profile(username):
+    """Get public profile and collection for a specific user by username"""
+    user = User.query.filter_by(username=username, profile_public=True).first()
+    
+    if not user:
+        return jsonify({'message': 'User not found or profile is private'}), 404
+    
+    # Get collection stats
+    coins = Coin.query.filter_by(user_id=user.id).all()
+    coin_count = len(coins)
+    
+    # Calculate collection value
+    total_value = sum(coin.value * coin.quantity for coin in coins if coin.value)
+    
+    # Get unique countries
+    unique_countries = len(set(coin.country for coin in coins))
+    
+    # Get collection items (only if collection is public)
+    collection_items = []
+    if user.collection_public:
+        for coin in coins:
+            collection_items.append({
+                'id': coin.id,
+                'type': coin.type,
+                'country': coin.country,
+                'year': coin.year,
+                'denomination': coin.denomination,
+                'value': coin.value,
+                'quantity': coin.quantity,
+                'notes': coin.notes,
+                'localImagePath': coin.localImagePath,
+                'region': coin.region,
+                'isHistorical': coin.isHistorical
+            })
+    
+    return jsonify({
+        'username': user.username,
+        'display_name': user.display_name,
+        'bio': user.bio,
+        'profile_public': user.profile_public,
+        'collection_public': user.collection_public,
+        'stats': {
+            'coin_count': coin_count,
+            'total_value': total_value,
+            'unique_countries': unique_countries
+        },
+        'collection': collection_items if user.collection_public else None
+    }), 200
+
 @app.route('/api/forgot_password', methods=['POST'])
 def forgot_password():
     """Request a password reset email"""
