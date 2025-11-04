@@ -1895,6 +1895,9 @@
             console.log("Collection data loaded from backend:", collectionData);
             console.log("Number of items in collection:", collectionData.length);
 
+            // Update collection statistics
+            updateCollectionStats();
+
             // Region and isHistorical are now calculated by the backend upon add/update.
             // We just ensure the data is present in case older data exists or for consistency.
             collectionData.forEach(item => {
@@ -2732,10 +2735,37 @@
 
 
     // --- COLLECTION INTERACTIVITY ---
+    // Store current filtered results for export
+    let currentFilteredResults = [];
+
     function initializeFilters() {
         const searchInput = document.getElementById('search-input');
         const regionFilter = document.getElementById('region-filter');
         const typeFilter = document.getElementById('type-filter');
+        const clearSearchBtn = document.getElementById('clear-search-btn');
+        const clearFiltersBtn = document.getElementById('clear-filters-btn');
+        const resultCountBadge = document.getElementById('collection-result-count');
+
+        const updateResultCount = (filteredCount, totalCount) => {
+            if (resultCountBadge) {
+                if (filteredCount !== totalCount) {
+                    resultCountBadge.textContent = `${filteredCount} of ${totalCount}`;
+                    resultCountBadge.classList.remove('hidden');
+                } else {
+                    resultCountBadge.classList.add('hidden');
+                }
+            }
+        };
+
+        const updateClearSearchButton = () => {
+            if (clearSearchBtn) {
+                if (searchInput.value.trim()) {
+                    clearSearchBtn.classList.remove('hidden');
+                } else {
+                    clearSearchBtn.classList.add('hidden');
+                }
+            }
+        };
 
         const applyFilters = () => {
             const searchTerm = searchInput.value.toLowerCase();
@@ -2753,19 +2783,51 @@
                 const matchesType = selectedType === '' || item.type === selectedType;
                 return matchesSearch && matchesRegion && matchesType;
             });
+            
+            currentFilteredResults = filtered; // Store for export
+            updateResultCount(filtered.length, collectionData.length);
             renderCollectionTable(filtered);
         };
 
+        const clearAllFilters = () => {
+            searchInput.value = '';
+            regionFilter.value = '';
+            typeFilter.value = '';
+            updateClearSearchButton();
+            applyFilters();
+        };
+
         const uniqueRegions = [...new Set(collectionData.map(item => item.region))].sort();
-        regionFilter.innerHTML = '<option value="">All Regions</option>' + uniqueRegions.map(r => `<option value="${r}">${r}</option>`).join('');
+        regionFilter.innerHTML = '<option value="">All Regions</option>' + uniqueRegions.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join('');
 
         const uniqueTypes = [...new Set(collectionData.map(item => item.type))].sort();
-        typeFilter.innerHTML = '<option value="">All Types</option>' + uniqueTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+        typeFilter.innerHTML = '<option value="">All Types</option>' + uniqueTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 
-
-        searchInput.addEventListener('input', debounce(applyFilters, 300));
+        // Event listeners
+        const debouncedApplyFilters = debounce(applyFilters, 300);
+        searchInput.addEventListener('input', () => {
+            updateClearSearchButton();
+            debouncedApplyFilters();
+        });
         regionFilter.addEventListener('change', applyFilters);
         typeFilter.addEventListener('change', applyFilters);
+        
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                updateClearSearchButton();
+                applyFilters();
+                searchInput.focus();
+            });
+        }
+        
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', clearAllFilters);
+        }
+
+        // Initial update
+        updateResultCount(collectionData.length, collectionData.length);
+        updateClearSearchButton();
     }
 
     function initializeActionButtons() {
@@ -2776,7 +2838,7 @@
                 const item = collectionData.find(d => d.id === id);
                 if (item) {
                     document.getElementById('item-id').value = item.id;
-                    document.getElementById('modal-title').innerText = 'Edit Item';
+                    safeSetTextContent(document.getElementById('modal-title'), 'Edit Item');
                     document.getElementById('type').value = item.type;
                     document.getElementById('country').value = item.country;
                     document.getElementById('year').value = item.year;
@@ -2786,7 +2848,37 @@
                     document.getElementById('notes').value = item.notes;
                     document.getElementById('referenceUrl').value = item.referenceUrl;
                     document.getElementById('localImagePath').value = item.localImagePath;
+                    // Set bullion fields if applicable
+                    if (item.weight_grams) document.getElementById('weight_grams').value = item.weight_grams;
+                    if (item.purity_percent) document.getElementById('purity_percent').value = item.purity_percent;
                     openModal('item-modal'); // Pass modal ID
+                }
+            });
+        });
+
+        // Duplicate item functionality
+        document.querySelectorAll('.duplicate-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(button.dataset.id);
+                const item = collectionData.find(d => d.id === id);
+                if (item) {
+                    // Clear item ID to create new item
+                    document.getElementById('item-id').value = '';
+                    safeSetTextContent(document.getElementById('modal-title'), 'Duplicate Item');
+                    document.getElementById('type').value = item.type;
+                    document.getElementById('country').value = item.country;
+                    document.getElementById('year').value = item.year;
+                    document.getElementById('denomination').value = item.denomination;
+                    document.getElementById('value').value = item.value;
+                    document.getElementById('quantity').value = item.quantity || 1;
+                    document.getElementById('notes').value = item.notes;
+                    document.getElementById('referenceUrl').value = item.referenceUrl;
+                    document.getElementById('localImagePath').value = item.localImagePath;
+                    // Set bullion fields if applicable
+                    if (item.weight_grams) document.getElementById('weight_grams').value = item.weight_grams;
+                    if (item.purity_percent) document.getElementById('purity_percent').value = item.purity_percent;
+                    openModal('item-modal');
                 }
             });
         });
@@ -2845,28 +2937,55 @@
 
         collectionContentWrapper.innerHTML = `
             <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
-                <h1 class="text-3xl font-bold text-white">Collection</h1>
-                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-                    <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2">
+                <div class="flex items-center space-x-3">
+                    <h1 class="text-3xl font-bold text-white">Collection</h1>
+                    <span id="collection-result-count" class="px-3 py-1 bg-emerald-600 text-white text-sm rounded-full font-semibold hidden"></span>
+                    <div id="collection-stats-badge" class="px-3 py-1 bg-blue-600 text-white text-sm rounded-full font-semibold hidden">
+                        <span id="stats-items-count">0</span> items • <span id="stats-total-value">$0.00</span>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+                    <div class="relative w-full sm:w-auto">
+                        <input type="text" id="search-input" placeholder="Search... (Ctrl+F)" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2 pr-8">
+                        <button id="clear-search-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white hidden" title="Clear search">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </div>
                     <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
                     <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                    <button id="clear-filters-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-md transition-colors text-sm" title="Clear all filters">
+                        <i class="ph ph-x-circle mr-1"></i> Clear
+                    </button>
                 </div>
+            </div>
+            <div id="bulk-actions-toolbar" class="hidden mb-4 p-3 bg-gray-800 rounded-lg border border-emerald-600 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <span class="text-white font-semibold" id="bulk-selected-count">0 items selected</span>
+                    <button id="select-all-btn" class="text-blue-400 hover:text-blue-300 text-sm">Select All</button>
+                    <button id="select-none-btn" class="text-gray-400 hover:text-gray-300 text-sm">Select None</button>
+                </div>
+                <button id="bulk-delete-btn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors font-semibold">
+                    <i class="ph ph-trash mr-2"></i>Delete Selected
+                </button>
             </div>
             <div class="flex-1 flex overflow-hidden">
                 <div class="w-full flex flex-col">
                     <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
-                        <table class="w-full text-left data-table min-w-max"> <!-- min-w-max to prevent crushing columns -->
-                            <thead class="bg-gray-700 sticky top-0">
+                        <table class="w-full text-left data-table" style="min-width: 100%; table-layout: auto;">
+                            <thead class="bg-gray-700 sticky top-0" style="z-index: 20;">
                                 <tr>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
-                                    <th class="p-4 font-semibold">Type</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="country">Country</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="year">Year</th>
-                                    <th class="p-4 font-semibold">Denomination</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="quantity">Qty</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="value">Value</th>
-                                    <th class="p-4 font-semibold">Notes & Ref.</th>
-                                    <th class="p-4 font-semibold">Actions</th>
+                                    <th class="p-2 font-semibold w-12" style="min-width: 50px;">
+                                        <input type="checkbox" id="select-all-checkbox" class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-emerald-600 focus:ring-emerald-500" title="Select all items">
+                                    </th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="id" style="min-width: 50px;">ID</th>
+                                    <th class="p-2 font-semibold" style="min-width: 80px;">Type</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="country" style="min-width: 120px;">Country</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="year" style="min-width: 70px;">Year</th>
+                                    <th class="p-2 font-semibold" style="min-width: 120px;">Denomination</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="quantity" style="min-width: 50px;">Qty</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="value" style="min-width: 100px;">Value</th>
+                                    <th class="p-2 font-semibold" style="min-width: 150px;">Notes & Ref.</th>
+                                    <th class="p-2 font-semibold" style="min-width: 120px; position: sticky; right: 0; background-color: #374151; z-index: 15;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="collection-table-body"></tbody>
@@ -2880,7 +2999,7 @@
             const tableBody = document.getElementById('collection-table-body');
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="p-8 text-center text-gray-500">
+                    <td colspan="10" class="p-8 text-center text-gray-500">
                         <div class="flex flex-col items-center space-y-4">
                             <i class="ph ph-coin text-4xl"></i>
                             <p class="text-lg">Your collection is empty</p>
@@ -2893,29 +3012,34 @@
             renderCollectionTable(filteredData);
         }
         attachSortEventListeners();
+        updateCollectionStats();
     };
 
     function renderCollectionTable(dataToRender) {
         const tableBody = document.getElementById('collection-table-body');
         const tableRows = dataToRender.map(item => `
-            <tr class="border-b border-gray-700 cursor-pointer" data-item-id="${item.id}">
-                <td class="p-4">${item.id}</td>
-                <td class="p-4">${item.type}</td>
-                <td class="p-4">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
-                <td class="p-4">${item.year || 'N/A'}</td>
-                <td class="p-4">${item.denomination}</td>
-                <td class="p-4">${item.quantity || 1}</td>
-                <td class="p-4">${formatCurrency(getItemValueInCurrency(item, currencySetting) * (item.quantity || 1), currencySetting)}</td>
-                <td class="p-4">
+            <tr class="border-b border-gray-700" data-item-id="${item.id}">
+                <td class="p-2">
+                    <input type="checkbox" class="item-checkbox w-4 h-4 rounded border-gray-600 bg-gray-700 text-emerald-600 focus:ring-emerald-500" data-item-id="${item.id}" title="Select item">
+                </td>
+                <td class="p-2">${item.id}</td>
+                <td class="p-2">${escapeHtml(item.type)}</td>
+                <td class="p-2">${escapeHtml(item.country)} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
+                <td class="p-2">${item.year || 'N/A'}</td>
+                <td class="p-2">${escapeHtml(item.denomination)}</td>
+                <td class="p-2">${item.quantity || 1}</td>
+                <td class="p-2">${formatCurrency(getItemValueInCurrency(item, currencySetting) * (item.quantity || 1), currencySetting)}</td>
+                <td class="p-2">
                     <div class="flex flex-col">
-                        <p class="text-xs text-gray-400 max-w-xs truncate" title="${item.notes ? item.notes.replace(/&/g, '&amp;').replace(/\"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A'}">
-                            ${item.notes || 'N/A'}
+                        <p class="text-xs text-gray-400 max-w-xs truncate" title="${item.notes ? escapeHtml(item.notes) : 'N/A'}">
+                            ${escapeHtml(item.notes || 'N/A')}
                         </p>
-                        ${item.referenceUrl ? `<a href="${item.referenceUrl}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
+                        ${item.referenceUrl ? `<a href="${escapeHtml(item.referenceUrl)}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
                     </div>
                 </td>
-                <td class="p-4">
+                <td class="p-2" style="position: sticky; right: 0; background-color: #1f2937; z-index: 10;">
                      <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
+                     <button class="duplicate-btn text-emerald-400 hover:text-emerald-300 mr-2" data-id="${item.id}" title="Duplicate Item"><i class="ph ph-copy"></i></button>
                      <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
                 </td>
             </tr>
@@ -2923,6 +3047,183 @@
         tableBody.innerHTML = tableRows;
 
         initializeActionButtons();
+        initializeBulkSelection();
+    }
+
+    // --- BULK SELECTION FUNCTIONALITY ---
+    function initializeBulkSelection() {
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        const itemCheckboxes = document.querySelectorAll('.item-checkbox');
+        const bulkActionsToolbar = document.getElementById('bulk-actions-toolbar');
+        const bulkSelectedCount = document.getElementById('bulk-selected-count');
+        const selectAllBtn = document.getElementById('select-all-btn');
+        const selectNoneBtn = document.getElementById('select-none-btn');
+        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+
+        const updateBulkToolbar = () => {
+            const checkedBoxes = document.querySelectorAll('.item-checkbox:checked');
+            const count = checkedBoxes.length;
+            
+            if (count > 0) {
+                bulkActionsToolbar.classList.remove('hidden');
+                bulkSelectedCount.textContent = `${count} item${count !== 1 ? 's' : ''} selected`;
+            } else {
+                bulkActionsToolbar.classList.add('hidden');
+            }
+
+            // Update select all checkbox state
+            if (selectAllCheckbox) {
+                if (count === 0) {
+                    selectAllCheckbox.indeterminate = false;
+                    selectAllCheckbox.checked = false;
+                } else if (count === itemCheckboxes.length) {
+                    selectAllCheckbox.indeterminate = false;
+                    selectAllCheckbox.checked = true;
+                } else {
+                    selectAllCheckbox.indeterminate = true;
+                    selectAllCheckbox.checked = false;
+                }
+            }
+        };
+
+        // Select all checkbox in header
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', (e) => {
+                itemCheckboxes.forEach(checkbox => {
+                    checkbox.checked = e.target.checked;
+                });
+                updateBulkToolbar();
+            });
+        }
+
+        // Individual item checkboxes
+        itemCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateBulkToolbar);
+            // Prevent row click from toggling checkbox
+            checkbox.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        });
+
+        // Select All button
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                itemCheckboxes.forEach(checkbox => {
+                    checkbox.checked = true;
+                });
+                updateBulkToolbar();
+            });
+        }
+
+        // Select None button
+        if (selectNoneBtn) {
+            selectNoneBtn.addEventListener('click', () => {
+                itemCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                updateBulkToolbar();
+            });
+        }
+
+        // Bulk delete button
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.addEventListener('click', async () => {
+                const checkedBoxes = document.querySelectorAll('.item-checkbox:checked');
+                const selectedIds = Array.from(checkedBoxes).map(cb => parseInt(cb.dataset.itemId));
+                
+                if (selectedIds.length === 0) {
+                    showCustomConfirm('Please select items to delete.', () => {});
+                    return;
+                }
+
+                const itemCount = selectedIds.length;
+                showCustomConfirm(
+                    `Are you sure you want to delete ${itemCount} item${itemCount !== 1 ? 's' : ''}? This action cannot be undone.`,
+                    async () => {
+                        if (!isAuthenticated()) {
+                            showCustomConfirm('Please sign in to delete items.', () => {});
+                            return;
+                        }
+
+                        setLoadingState(bulkDeleteBtn.id || 'bulk-delete-btn', true, 'Deleting...');
+                        
+                        try {
+                            let successCount = 0;
+                            let errorCount = 0;
+
+                            // Delete items in parallel
+                            const deletePromises = selectedIds.map(async (id) => {
+                                try {
+                                    const response = await fetch(`${API_BASE_URL}/coins/${id}`, {
+                                        method: 'DELETE',
+                                        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+                                    });
+
+                                    if (!response.ok) {
+                                        if (response.status === 401) {
+                                            handleUnauthorized();
+                                            throw new Error('Unauthorized');
+                                        }
+                                        throw new Error(`Failed to delete item ${id}`);
+                                    }
+                                    successCount++;
+                                } catch (error) {
+                                    errorCount++;
+                                    console.error(`Error deleting item ${id}:`, error);
+                                }
+                            });
+
+                            await Promise.all(deletePromises);
+
+                            if (successCount > 0) {
+                                showCustomConfirm(
+                                    `Successfully deleted ${successCount} item${successCount !== 1 ? 's' : ''}${errorCount > 0 ? `. ${errorCount} item${errorCount !== 1 ? 's' : ''} failed to delete.` : ''}`,
+                                    () => {}
+                                );
+                                loadCollectionFromBackend(); // Reload data after deletion
+                            } else {
+                                showCustomConfirm('Failed to delete items. Please try again.', () => {});
+                            }
+                        } catch (error) {
+                            console.error("Error during bulk delete:", error);
+                            const safeMessage = escapeHtml(error.message || 'An unexpected error occurred');
+                            showCustomConfirm(`Failed to delete items: ${safeMessage}. Please check your connection and try again.`, () => {});
+                        } finally {
+                            setLoadingState(bulkDeleteBtn.id || 'bulk-delete-btn', false);
+                        }
+                    }
+                );
+            });
+        }
+
+        // Initial update
+        updateBulkToolbar();
+    }
+
+    // --- COLLECTION STATISTICS ---
+    function updateCollectionStats() {
+        const statsBadge = document.getElementById('collection-stats-badge');
+        const statsItemsCount = document.getElementById('stats-items-count');
+        const statsTotalValue = document.getElementById('stats-total-value');
+
+        if (!statsBadge || !statsItemsCount || !statsTotalValue) return;
+
+        const totalItems = collectionData.reduce((sum, item) => sum + (item.quantity || 1), 0);
+        const totalValue = collectionData.reduce((sum, item) => {
+            if (item.type === 'Gold Bullion' || item.type === 'Silver Bullion') {
+                return sum + (calculateBullionValue(item) * (item.quantity || 1));
+            } else {
+                return sum + (getItemValueInCurrency(item, currencySetting) * (item.quantity || 1));
+            }
+        }, 0);
+
+        if (totalItems > 0) {
+            safeSetTextContent(statsItemsCount, String(totalItems));
+            safeSetTextContent(statsTotalValue, formatCurrency(totalValue, currencySetting));
+            statsBadge.classList.remove('hidden');
+        } else {
+            statsBadge.classList.add('hidden');
+        }
     }
 
     function attachSortEventListeners() {
@@ -3712,31 +4013,34 @@
     }
 
     // --- Export Functions ---
-    function exportCollectionAsJson() {
-        const jsonString = JSON.stringify(collectionData, null, 2);
+    function exportCollectionAsJson(exportFiltered = false) {
+        const dataToExport = exportFiltered && currentFilteredResults.length > 0 ? currentFilteredResults : collectionData;
+        const jsonString = JSON.stringify(dataToExport, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'coinshelf_collection.json';
+        a.download = exportFiltered ? 'coinshelf_filtered_collection.json' : 'coinshelf_collection.json';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showCustomConfirm('Collection exported as JSON!', () => {});
+        const message = exportFiltered ? `Filtered collection (${dataToExport.length} items) exported as JSON!` : 'Collection exported as JSON!';
+        showCustomConfirm(message, () => {});
         closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
     }
 
-    function exportCollectionAsCsv() {
-        if (collectionData.length === 0) {
+    function exportCollectionAsCsv(exportFiltered = false) {
+        const dataToExport = exportFiltered && currentFilteredResults.length > 0 ? currentFilteredResults : collectionData;
+        if (dataToExport.length === 0) {
             showCustomConfirm('No data to export.', () => {});
             return;
         }
 
-        const headers = ['id', 'type', 'country', 'year', 'denomination', 'value', 'notes', 'referenceUrl', 'localImagePath', 'region', 'isHistorical'];
+        const headers = ['id', 'type', 'country', 'year', 'denomination', 'value', 'quantity', 'notes', 'referenceUrl', 'localImagePath', 'region', 'isHistorical', 'weight_grams', 'purity_percent'];
         let csv = headers.join(',') + '\n';
 
-        collectionData.forEach(item => {
+        dataToExport.forEach(item => {
             const row = headers.map(header => {
                 let value = item[header];
                 if (value === null || typeof value === 'undefined') {
@@ -3754,12 +4058,13 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'coinshelf_collection.csv';
+        a.download = exportFiltered ? 'coinshelf_filtered_collection.csv' : 'coinshelf_collection.csv';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        showCustomConfirm('Collection exported as CSV!', () => {});
+        const message = exportFiltered ? `Filtered collection (${dataToExport.length} items) exported as CSV!` : 'Collection exported as CSV!';
+        showCustomConfirm(message, () => {});
         closeModal(document.getElementById('export-modal'), document.getElementById('export-modal').querySelector('div'));
     }
 
@@ -4486,6 +4791,45 @@
 
 
         document.addEventListener('keydown', function(event) {
+            // Don't trigger shortcuts when user is typing in input fields
+            const activeElement = document.activeElement;
+            const isInputFocused = activeElement && (
+                activeElement.tagName === 'INPUT' || 
+                activeElement.tagName === 'TEXTAREA' || 
+                activeElement.isContentEditable
+            );
+
+            // Keyboard shortcuts (only when not typing in inputs)
+            if (!isInputFocused || event.ctrlKey || event.metaKey) {
+                // Ctrl+N or Cmd+N: New item
+                if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
+                    event.preventDefault();
+                    if (isAuthenticated()) {
+                        const quickAddBtn = document.getElementById('quick-add-btn');
+                        if (quickAddBtn) quickAddBtn.click();
+                    }
+                }
+                // Ctrl+F or Cmd+F: Focus search
+                if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+                    event.preventDefault();
+                    const searchInput = document.getElementById('search-input');
+                    if (searchInput) {
+                        searchInput.focus();
+                        searchInput.select();
+                    }
+                }
+                // Ctrl+S or Cmd+S: Save item (when in item modal)
+                if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+                    const itemModal = document.getElementById('item-modal');
+                    if (itemModal && !itemModal.classList.contains('hidden')) {
+                        event.preventDefault();
+                        const submitBtn = document.querySelector('#item-modal button[type="submit"]');
+                        if (submitBtn) submitBtn.click();
+                    }
+                }
+            }
+
+            // Escape key handling
             if (event.key === 'Escape') {
                 if (itemModal && !itemModal.classList.contains('hidden')) {
                     closeModal(itemModal, itemModal.querySelector('div'));
