@@ -481,6 +481,16 @@
                 </button>
             </div>
 
+            <!-- Sign In Button at Bottom -->
+            <div class="p-4 border-t border-gray-700 mt-auto flex-shrink-0">
+                <button type="button" id="sidebar-signin-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors flex items-center justify-center">
+                    <i class="ph-bold ph-sign-in mr-2"></i> Sign In
+                </button>
+                <button type="button" id="sidebar-logout-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md text-sm hidden transition-colors flex items-center justify-center mt-2">
+                    <i class="ph-bold ph-sign-out mr-2"></i> Sign Out
+                </button>
+            </div>
+
         </aside>
 
         <!-- Main Content -->
@@ -4931,6 +4941,11 @@
         if (!document.getElementById('content-home').classList.contains('hidden')) {
             renderHome();
         }
+        
+        // No authentication check needed for Auth page
+        if (!document.getElementById('content-auth').classList.contains('hidden')) {
+            // Auth page is already visible, no need to render anything special
+        }
 
         // For authenticated views, check if authenticated before rendering
         if (isAuthenticated()) {
@@ -5004,6 +5019,8 @@
 
     function updateAuthUI(loggedIn) {
         console.log('Updating Auth UI. Logged In:', loggedIn);
+        const sidebarSignInBtn = document.getElementById('sidebar-signin-btn');
+        const sidebarLogoutBtn = document.getElementById('sidebar-logout-btn');
         const quickAddBtn = document.getElementById('quick-add-btn');
         const importDataBtn = document.getElementById('import-data-btn');
         const exportDataBtn = document.getElementById('export-data-btn'); // New
@@ -5011,12 +5028,16 @@
         const shareCollectionBtn = document.getElementById('share-collection-btn'); // New
 
         if (loggedIn) {
+            if (sidebarSignInBtn) sidebarSignInBtn.classList.add('hidden');
+            if (sidebarLogoutBtn) sidebarLogoutBtn.classList.remove('hidden');
             if (quickAddBtn) quickAddBtn.classList.remove('hidden'); // Show Quick Add
             if (importDataBtn) importDataBtn.classList.remove('hidden'); // Show Import Data
             if (exportDataBtn) exportDataBtn.classList.remove('hidden'); // Show Export Data
             if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
             if (shareCollectionBtn) shareCollectionBtn.classList.remove('hidden'); // Show Share Collection
         } else {
+            if (sidebarSignInBtn) sidebarSignInBtn.classList.remove('hidden');
+            if (sidebarLogoutBtn) sidebarLogoutBtn.classList.add('hidden');
             if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
             if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
             if (exportDataBtn) exportDataBtn.classList.add('hidden'); // Hide Export Data
@@ -6285,9 +6306,33 @@
 
         setupAuthPage();
 
-        // --- AUTHENTICATION EVENT LISTENERS (OLD SIDEBAR FORM - REMOVED, NO LONGER NEEDED) ---
-        // Old login form code removed - all authentication now happens on dedicated /auth page
-        // Logout functionality can be accessed through Account Settings page
+        // --- SIDEBAR SIGN IN BUTTON ---
+        const sidebarSignInBtn = document.getElementById('sidebar-signin-btn');
+        if (sidebarSignInBtn) {
+            sidebarSignInBtn.addEventListener('click', () => {
+                // Navigate to auth page
+                window.history.pushState({}, '', '/auth');
+                handleHistoryNavigation('/auth');
+                // Close sidebar on mobile after navigation
+                if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
+                    toggleSidebar();
+                }
+            });
+        }
+
+        // --- SIDEBAR LOGOUT BUTTON ---
+        const sidebarLogoutBtn = document.getElementById('sidebar-logout-btn');
+        if (sidebarLogoutBtn) {
+            sidebarLogoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('jwt_token');
+                sessionStorage.removeItem('jwt_token');
+                updateAuthUI(false);
+                collectionData = []; // Clear data when logged out
+                history.replaceState(null, '', window.location.pathname); // Clear public URL param on logout
+                renderAllViews();
+                showCustomConfirm('Signed out successfully!', () => {});
+            });
+        }
 
         // Currency update button
         const updateCurrencyBtn = document.getElementById('update-currency-btn');
