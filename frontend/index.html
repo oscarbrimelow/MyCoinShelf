@@ -2785,6 +2785,8 @@
             });
             
             currentFilteredResults = filtered; // Store for export
+            originalFilteredOrder = [...filtered]; // Store original order
+            currentSort = { column: null, direction: null }; // Reset sort when filters change
             updateResultCount(filtered.length, collectionData.length);
             renderCollectionTable(filtered);
         };
@@ -2921,7 +2923,8 @@
     }
 
     // --- COLLECTION RENDERING ---
-    let currentSort = { column: null, direction: 'asc' };
+    let currentSort = { column: null, direction: null }; // null = original/unsorted
+    let originalFilteredOrder = []; // Store original order for reset
 
     function renderCollection(filteredData = collectionData) {
         console.log('Rendering collection with data:', filteredData);
@@ -3009,6 +3012,8 @@
                 </tr>
             `;
         } else {
+            originalFilteredOrder = [...filteredData]; // Store original order on initial render
+            currentFilteredResults = currentFilteredResults.length > 0 ? currentFilteredResults : [...filteredData]; // Initialize if empty
             renderCollectionTable(filteredData);
         }
         attachSortEventListeners();
@@ -3232,8 +3237,15 @@
                 const column = header.dataset.sortColumn;
                 let direction = 'asc';
 
+                // Three-state toggle: asc -> desc -> original (null)
                 if (currentSort.column === column) {
-                    direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    if (currentSort.direction === 'asc') {
+                        direction = 'desc';
+                    } else if (currentSort.direction === 'desc') {
+                        direction = null; // Original/unsorted
+                    } else {
+                        direction = 'asc'; // From null back to asc
+                    }
                 }
 
                 sortCollection(column, direction);
@@ -3243,19 +3255,49 @@
     }
 
     function sortCollection(column, direction) {
-        const sortedData = [...collectionData].sort((a, b) => {
-            let valA = a[column];
-            let valB = b[column];
+        // Use filtered results if available, otherwise use full collection
+        const dataToSort = currentFilteredResults.length > 0 ? currentFilteredResults : collectionData;
+        
+        // If direction is null, restore original order
+        if (direction === null) {
+            if (originalFilteredOrder.length > 0) {
+                renderCollectionTable([...originalFilteredOrder]);
+            } else {
+                renderCollectionTable([...dataToSort]);
+            }
+            return;
+        }
 
-            if (column === 'year' || column === 'value' || column === 'id' || column === 'quantity') {
+        const sortedData = [...dataToSort].sort((a, b) => {
+            let valA, valB;
+
+            if (column === 'value') {
+                // For value, use the calculated value including quantity
+                valA = getItemValueInCurrency(a, currencySetting) * (a.quantity || 1);
+                valB = getItemValueInCurrency(b, currencySetting) * (b.quantity || 1);
+            } else if (column === 'year' || column === 'id' || column === 'quantity') {
                 // Ensure numbers are treated as numbers and handle N/A/null for sorting
-                valA = (valA === null || valA === 'N/A') ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valA);
-                valB = (valB === null || valB === 'N/A') ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valB);
+                valA = a[column];
+                valB = b[column];
+                valA = (valA === null || valA === 'N/A' || valA === undefined) ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valA);
+                valB = (valB === null || valB === 'N/A' || valB === undefined) ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valB);
+            } else if (column === 'country') {
+                // String comparison for country
+                valA = String(a[column] || '');
+                valB = String(b[column] || '');
+            } else {
+                valA = a[column];
+                valB = b[column];
+            }
+
+            // Perform comparison
+            if (column === 'year' || column === 'value' || column === 'id' || column === 'quantity') {
                 return direction === 'asc' ? valA - valB : valB - valA;
-            } else { // String comparison
+            } else { // String comparison (country, etc.)
                 return direction === 'asc' ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
             }
         });
+        
         renderCollectionTable(sortedData);
     }
 
