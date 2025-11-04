@@ -1271,7 +1271,13 @@
                     <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="denomination" class="block text-sm font-medium text-gray-400">Denomination <span class="text-red-400">*</span></label>
-                            <input type="text" id="denomination" required aria-label="Denomination" placeholder="e.g., 1 Rand, $1" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            <div class="mt-1 relative">
+                                <input type="text" id="denomination" required aria-label="Denomination" placeholder="e.g., 1 Rand, $1" class="block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 pr-20">
+                                <button type="button" id="search-numista-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-xs transition-colors" title="Search Numista database">
+                                    <i class="ph-bold ph-magnifying-glass"></i>
+                                </button>
+                            </div>
+                            <div id="numista-results" class="hidden mt-2 bg-gray-700 border border-gray-600 rounded-md max-h-60 overflow-y-auto z-50 relative w-full shadow-lg"></div>
                         </div>
                         <div>
                             <label for="quantity" class="block text-sm font-medium text-gray-400">Quantity <span class="text-red-400">*</span></label>
@@ -2218,6 +2224,12 @@
         document.getElementById('purity_percent').value = '';
         document.getElementById('modal-title').innerText = 'Add New Item';
         
+        // Hide Numista results
+        const resultsDiv = document.getElementById('numista-results');
+        if (resultsDiv) {
+            resultsDiv.classList.add('hidden');
+        }
+        
         // Reset form field visibility
         toggleBullionFields();
     }
@@ -2317,6 +2329,130 @@
         
         // Attach bullion event listeners
         attachBullionEventListeners();
+        
+        // Attach Numista search button
+        const searchBtn = document.getElementById('search-numista-btn');
+        if (searchBtn) {
+            searchBtn.addEventListener('click', handleNumistaSearch);
+        }
+    }
+    
+    async function handleNumistaSearch() {
+        const query = document.getElementById('denomination').value.trim();
+        const itemType = document.getElementById('type').value.toLowerCase();
+        const resultsDiv = document.getElementById('numista-results');
+        
+        if (!query) {
+            showCustomConfirm('Please enter a search term in the denomination field.', () => {});
+            return;
+        }
+        
+        // Show loading state
+        resultsDiv.innerHTML = '<div class="p-3 text-center text-gray-400">Searching...</div>';
+        resultsDiv.classList.remove('hidden');
+        
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showCustomConfirm('Please sign in to search.', () => {});
+                return;
+            }
+            
+            // Map type to Numista format
+            const numistaType = itemType.includes('banknote') ? 'banknote' : 'coin';
+            
+            const response = await fetch(`/api/search-numista?q=${encodeURIComponent(query)}&type=${numistaType}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                resultsDiv.innerHTML = `<div class="p-3 text-center text-yellow-400">${data.error}</div>`;
+            } else if (data.results && data.results.length > 0) {
+                let html = '<div class="p-2 text-xs text-gray-400 border-b border-gray-600">Search Results (click to select):</div>';
+                data.results.forEach((result, index) => {
+                    html += `
+                        <div class="p-2 hover:bg-gray-600 cursor-pointer border-b border-gray-600 last:border-b-0 transition-colors" data-index="${index}">
+                            <div class="font-semibold text-white">${escapeHtml(result.title || result.denomination || query)}</div>
+                            ${result.country ? `<div class="text-xs text-gray-400">Country: ${escapeHtml(result.country)}</div>` : ''}
+                            ${result.year ? `<div class="text-xs text-gray-400">Year: ${result.year}</div>` : ''}
+                            ${result.denomination && result.denomination !== result.title ? `<div class="text-xs text-gray-400">Denomination: ${escapeHtml(result.denomination)}</div>` : ''}
+                            ${result.composition ? `<div class="text-xs text-gray-500">Composition: ${escapeHtml(result.composition)}</div>` : ''}
+                            ${result.url ? `<div class="text-xs text-emerald-400 mt-1"><a href="${result.url}" target="_blank" class="hover:underline" onclick="event.stopPropagation()">View on Numista →</a></div>` : ''}
+                        </div>
+                    `;
+                });
+                resultsDiv.innerHTML = html;
+                
+                // Add click handlers to results
+                resultsDiv.querySelectorAll('[data-index]').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const result = data.results[parseInt(item.dataset.index)];
+                        populateFormFromNumistaResult(result);
+                        resultsDiv.classList.add('hidden');
+                    });
+                });
+            } else {
+                resultsDiv.innerHTML = '<div class="p-3 text-center text-gray-400">No results found. Try a different search term.</div>';
+            }
+        } catch (error) {
+            console.error('Numista search error:', error);
+            resultsDiv.innerHTML = '<div class="p-3 text-center text-red-400">Search failed. Please try again or fill in manually.</div>';
+        }
+    }
+    
+    function populateFormFromNumistaResult(result) {
+        if (result.country) {
+            document.getElementById('country').value = result.country;
+        }
+        if (result.year) {
+            document.getElementById('year').value = result.year;
+        }
+        if (result.denomination) {
+            document.getElementById('denomination').value = result.denomination;
+        } else if (result.title) {
+            // Use title as denomination if denomination not available
+            document.getElementById('denomination').value = result.title;
+        }
+        if (result.type) {
+            const typeMap = {
+                'coin': 'Coin',
+                'banknote': 'Banknote'
+            };
+            const mappedType = typeMap[result.type.toLowerCase()] || result.type;
+            document.getElementById('type').value = mappedType;
+        }
+        if (result.url) {
+            document.getElementById('referenceUrl').value = result.url;
+        }
+        
+        // Add additional details to notes if available
+        let notes = document.getElementById('notes').value;
+        if (result.description && !notes) {
+            notes = result.description;
+        }
+        if (result.composition && notes) {
+            notes += `\nComposition: ${result.composition}`;
+        } else if (result.composition) {
+            notes = `Composition: ${result.composition}`;
+        }
+        if (result.weight && notes) {
+            notes += `\nWeight: ${result.weight}${result.weight.includes('g') ? '' : 'g'}`;
+        } else if (result.weight) {
+            notes = `Weight: ${result.weight}${result.weight.includes('g') ? '' : 'g'}`;
+        }
+        if (notes) {
+            document.getElementById('notes').value = notes.trim();
+        }
+        
+        // Trigger bullion fields update if type changed
+        const typeValue = document.getElementById('type').value;
+        if (typeValue === 'Gold Bullion' || typeValue === 'Silver Bullion') {
+            document.getElementById('bullion-fields').style.display = 'block';
+        }
     }
 
     async function handleFormSubmission(e) {

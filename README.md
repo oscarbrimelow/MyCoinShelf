@@ -165,4 +165,37 @@ When using mass import, use the following format:
 
 ---
 
+## 🔧 **Setup Instructions**
+
+### Environment Variables
+
+Create a `.env` file in the `backend/` directory (or set environment variables) with the following:
+
+```bash
+# Flask Configuration
+SECRET_KEY=your-secret-key-here-change-in-production
+JWT_SECRET_KEY=your-jwt-secret-key-here-change-in-production
+DATABASE_URL=sqlite:///database.db
+
+# Numista API Credentials (Optional - for coin search feature)
+# Get your API key from: https://en.numista.com/api/
+NUMISTA_API_KEY=your-numista-api-key-here
+NUMISTA_CLIENT_ID=your-numista-client-id-here
+```
+
+**Important:** Never commit your `.env` file or API keys to version control! The `.gitignore` file is configured to exclude `.env` files.
+
+### Installing Dependencies
+
+```bash
+# Backend
+cd backend
+pip install -r requirements.txt
+
+# Run the Flask server
+python app.py
+```
+
+---
+
 *CoinShelf - Where passion meets technology in the world of numismatics* 🪙✨

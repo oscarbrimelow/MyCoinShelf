@@ -2,6 +2,7 @@
 
 import os
 import re
+import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -25,6 +26,13 @@ except ImportError:
 
 # Import configuration
 from config import Config
+
+# Try to load .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load environment variables from .env file
+except ImportError:
+    pass  # python-dotenv not installed, use environment variables directly
 
 # Import the new reliable price fetcher (optional)
 try:
@@ -1081,6 +1089,132 @@ def get_coins(current_user):
         }
         output.append(coin_data)
     return jsonify(output), 200
+
+@app.route('/api/search-numista', methods=['GET'])
+@jwt_required
+def search_numista(current_user):
+    """Search Numista for coins and banknotes using official API"""
+    query = request.args.get('q', '').strip()
+    item_type = request.args.get('type', 'coin').lower()  # 'coin' or 'banknote'
+    
+    if not query:
+        return jsonify({'message': 'Search query required'}), 400
+    
+    try:
+        # Check if API key is configured
+        api_key = app.config.get('NUMISTA_API_KEY')
+        client_id = app.config.get('NUMISTA_CLIENT_ID')
+        
+        if not api_key or not client_id:
+            return jsonify({
+                'results': [],
+                'error': 'Numista API credentials not configured. Please set NUMISTA_API_KEY and NUMISTA_CLIENT_ID environment variables.'
+            }), 200
+        
+        # Numista API endpoint - using official API with authentication
+        # Documentation: https://en.numista.com/api/doc/index.php
+        search_url = "https://api.numista.com/api/v3/search"
+        
+        # Numista API typically uses query parameters or headers for authentication
+        params = {
+            'q': query,
+            'type': item_type,  # 'coin' or 'banknote'
+            'lang': 'en',
+            'limit': 10  # Limit results
+        }
+        
+        headers = {
+            'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
+            'Authorization': f'Bearer {api_key}',
+            'X-Client-ID': client_id
+        }
+        
+        # Alternative: Some APIs use query parameters for auth
+        # Try both methods if one doesn't work
+        response = requests.get(search_url, params=params, headers=headers, timeout=10)
+        
+        # If Bearer token doesn't work, try with API key in params
+        if response.status_code == 401 or response.status_code == 403:
+            params['api_key'] = api_key
+            params['client_id'] = client_id
+            headers.pop('Authorization', None)
+            headers.pop('X-Client-ID', None)
+            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            results = []
+            
+            # Parse Numista API response format
+            # Numista API v3 typically returns: { "items": [...] } or { "results": [...] }
+            items = []
+            if isinstance(data, dict):
+                if 'items' in data:
+                    items = data.get('items', [])
+                elif 'results' in data:
+                    items = data.get('results', [])
+                elif isinstance(data.get('data'), list):
+                    items = data.get('data', [])
+            elif isinstance(data, list):
+                items = data
+            
+            for item in items[:10]:  # Limit to 10 results
+                # Extract country name
+                country_name = ''
+                if isinstance(item.get('country'), dict):
+                    country_name = item.get('country', {}).get('name', '') or item.get('country', {}).get('en_name', '')
+                elif isinstance(item.get('country'), str):
+                    country_name = item.get('country', '')
+                
+                # Extract year - could be in different fields
+                year = item.get('year') or item.get('date') or item.get('issue_date')
+                if year and isinstance(year, str):
+                    # Try to extract year from date string
+                    year_match = re.search(r'\d{4}', year)
+                    if year_match:
+                        year = int(year_match.group())
+                
+                # Extract denomination
+                denomination = item.get('denomination') or item.get('value') or item.get('title', '')
+                
+                results.append({
+                    'id': item.get('id') or item.get('numista_id'),
+                    'title': item.get('title') or item.get('name') or denomination,
+                    'country': country_name,
+                    'year': year,
+                    'denomination': denomination,
+                    'type': item.get('type', item_type),
+                    'url': item.get('url') or (f"https://en.numista.com/catalogue/{item.get('id') or item.get('numista_id')}.html" if item.get('id') or item.get('numista_id') else ''),
+                    'description': item.get('description', ''),
+                    'composition': item.get('composition', ''),
+                    'weight': item.get('weight', ''),
+                    'diameter': item.get('diameter', '')
+                })
+            
+            return jsonify({'results': results}), 200
+        else:
+            # Log error for debugging
+            error_msg = f"Numista API error: {response.status_code}"
+            try:
+                error_data = response.json()
+                error_msg += f" - {error_data}"
+            except:
+                error_msg += f" - {response.text[:200]}"
+            print(error_msg)
+            
+            # Return error message to frontend
+            return jsonify({
+                'results': [],
+                'error': f'Numista API returned status {response.status_code}. Please try again or fill in manually.'
+            }), 200
+            
+    except requests.RequestException as e:
+        print(f"Numista search request error: {e}")
+        return jsonify({'results': [], 'error': f'Connection error: {str(e)}'}), 200
+    except Exception as e:
+        print(f"Unexpected error in Numista search: {e}")
+        traceback.print_exc()
+        return jsonify({'results': [], 'error': str(e)}), 200
 
 @app.route('/api/coins', methods=['POST'])
 @jwt_required
