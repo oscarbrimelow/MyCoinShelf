@@ -4056,6 +4056,8 @@
             const allCountriesSet = new Set(ALL_COUNTRIES.map(c => getGeoChartCountryName(c)));
             allCountriesSet.add("Greenland"); // Add Greenland for special case
             
+            // Only add countries with items to the dataTable for coloring
+            // Countries with 0 items will use defaultColor (grey) automatically
             allCountriesSet.forEach(country => {
                 const itemCount = countryCounts[country] || 0;
                 let tooltipContent = `<div class=\"p-2 font-semibold\">${country}</div>`;
@@ -4070,13 +4072,13 @@
                         tooltipContent += `<div>${item.denomination} (${item.year || 'N/A'}) - ${quantity > 1 ? `${quantity}x ` : ''}${formatCurrency(value, currencySetting)}</div>`;
                     });
                     tooltipContent += `</div>`;
+                    // Only add countries with items to the dataTable - they'll be colored
+                    dataTable.addRow([country, itemCount, tooltipContent]);
                 } else {
-                    tooltipContent += `<div class=\"px-2 pb-1 text-gray-400\">No items collected yet</div>`;
+                    // For countries with 0 items, we don't add them to dataTable
+                    // They'll automatically use defaultColor (grey) and won't show tooltips
+                    // This is the desired behavior - grey for uncollected countries
                 }
-                
-                // Use a small value (0.1) instead of 0 for uncollected countries so tooltips still work
-                // This way they'll use defaultColor but still be interactive
-                dataTable.addRow([country, itemCount > 0 ? itemCount : 0.1, tooltipContent]);
             });
 
             const maxItems = Math.max(1, ...Object.values(countryCounts));
@@ -4084,13 +4086,13 @@
             const options = {
                 colorAxis: {
                     colors: ['#d9f99d', '#65a30d', '#facc15', '#f97316', '#dc2626'],
-                    minValue: 0.1, // Start from 0.1 so values below 1 use defaultColor but are still interactive
+                    minValue: 1, // Start from 1 - countries with 0 items will use defaultColor
                     maxValue: maxItems,
                 },
                 backgroundColor: {
                     fill: '#1f2937',
                 },
-                defaultColor: '#374151', // Dark gray for missing countries (visible but distinct)
+                defaultColor: '#374151', // Dark gray for countries with 0 items (not in dataTable)
                 tooltip: {
                     isHtml: true,
                     trigger: 'focus', // Show on hover/focus
@@ -5475,8 +5477,21 @@
         if (!document.getElementById('content-members').classList.contains('hidden')) {
             renderMembers();
         }
+        
+        // Catalogue page requires authentication
         if (!document.getElementById('content-catalogue').classList.contains('hidden')) {
-            setupCatalogueSearch();
+            if (isAuthenticated()) {
+                setupCatalogueSearch();
+            } else {
+                // Show message if not authenticated
+                const catalogueContent = document.getElementById('content-catalogue');
+                if (catalogueContent) {
+                    const wrapper = catalogueContent.querySelector('.max-w-7xl');
+                    if (wrapper) {
+                        wrapper.innerHTML = '<div class="text-center py-12"><p class="text-xl text-red-400">Please sign in to search the catalogue.</p></div>';
+                    }
+                }
+            }
         }
     }
     
@@ -7736,11 +7751,13 @@
 
     // --- Forgot Password Functionality ---
     
-    // Forgot Password Modal
-    const forgotPasswordModal = document.createElement('div');
-    forgotPasswordModal.id = 'forgot-password-modal';
-    forgotPasswordModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden';
-    forgotPasswordModal.innerHTML = `
+    // Forgot Password Modal - Create inside DOMContentLoaded to ensure DOM is ready
+    let forgotPasswordModal;
+    document.addEventListener('DOMContentLoaded', () => {
+        forgotPasswordModal = document.createElement('div');
+        forgotPasswordModal.id = 'forgot-password-modal';
+        forgotPasswordModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden';
+        forgotPasswordModal.innerHTML = `
         <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-white">Reset Password</h3>
@@ -7766,72 +7783,94 @@
             </div>
         </div>
     `;
-    document.body.appendChild(forgotPasswordModal);
+        document.body.appendChild(forgotPasswordModal);
 
-    // Forgot Password Event Listeners
-    document.getElementById('forgot-password-btn').addEventListener('click', () => {
-        forgotPasswordModal.classList.remove('hidden');
-        document.getElementById('forgot-password-step1').classList.remove('hidden');
-        document.getElementById('forgot-password-step2').classList.add('hidden');
-        document.getElementById('forgot-email').value = '';
-    });
-
-    document.getElementById('close-forgot-modal').addEventListener('click', () => {
-        forgotPasswordModal.classList.add('hidden');
-    });
-
-    document.getElementById('close-forgot-success').addEventListener('click', () => {
-        forgotPasswordModal.classList.add('hidden');
-    });
-
-    // Close modal when clicking outside
-    forgotPasswordModal.addEventListener('click', (e) => {
-        if (e.target === forgotPasswordModal) {
-            forgotPasswordModal.classList.add('hidden');
-        }
-    });
-
-    // Handle forgot password form submission
-    document.getElementById('forgot-password-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const email = document.getElementById('forgot-email').value;
-        const sendResetBtn = document.getElementById('send-reset-btn');
-        
-        if (!email) {
-            showCustomConfirm('Please enter your email address.', () => {});
-            return;
-        }
-
-        // Disable button and show loading
-        sendResetBtn.disabled = true;
-        sendResetBtn.textContent = 'Sending...';
-        
-        try {
-            const response = await fetch(`${API_BASE_URL}/forgot_password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email: email })
+        // Forgot Password Event Listeners
+        const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+        if (forgotPasswordBtn) {
+            forgotPasswordBtn.addEventListener('click', () => {
+                if (forgotPasswordModal) {
+                    forgotPasswordModal.classList.remove('hidden');
+                    const step1 = document.getElementById('forgot-password-step1');
+                    const step2 = document.getElementById('forgot-password-step2');
+                    const forgotEmail = document.getElementById('forgot-email');
+                    if (step1) step1.classList.remove('hidden');
+                    if (step2) step2.classList.add('hidden');
+                    if (forgotEmail) forgotEmail.value = '';
+                }
             });
+        }
 
-            const result = await response.json();
-            
-            if (response.ok) {
-                // Show success step
-                document.getElementById('forgot-password-step1').classList.add('hidden');
-                document.getElementById('forgot-password-step2').classList.remove('hidden');
-            } else {
-                showCustomConfirm(result.message || 'Failed to send reset email. Please try again.', () => {});
-            }
-        } catch (error) {
-            console.error('Error sending reset email:', error);
-            showCustomConfirm('Network error. Please check your connection and try again.', () => {});
-        } finally {
-            // Re-enable button
-            sendResetBtn.disabled = false;
-            sendResetBtn.textContent = 'Send Reset Link';
+        const closeForgotModal = document.getElementById('close-forgot-modal');
+        if (closeForgotModal) {
+            closeForgotModal.addEventListener('click', () => {
+                if (forgotPasswordModal) forgotPasswordModal.classList.add('hidden');
+            });
+        }
+
+        const closeForgotSuccess = document.getElementById('close-forgot-success');
+        if (closeForgotSuccess) {
+            closeForgotSuccess.addEventListener('click', () => {
+                if (forgotPasswordModal) forgotPasswordModal.classList.add('hidden');
+            });
+        }
+
+        // Close modal when clicking outside
+        if (forgotPasswordModal) {
+            forgotPasswordModal.addEventListener('click', (e) => {
+                if (e.target === forgotPasswordModal) {
+                    forgotPasswordModal.classList.add('hidden');
+                }
+            });
+        }
+    });
+
+    // Handle forgot password form submission - moved inside DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', () => {
+        const forgotPasswordForm = document.getElementById('forgot-password-form');
+        if (forgotPasswordForm) {
+            forgotPasswordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const email = document.getElementById('forgot-email').value;
+                const sendResetBtn = document.getElementById('send-reset-btn');
+                
+                if (!email) {
+                    showCustomConfirm('Please enter your email address.', () => {});
+                    return;
+                }
+
+                // Disable button and show loading
+                sendResetBtn.disabled = true;
+                sendResetBtn.textContent = 'Sending...';
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/forgot_password`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ email: email })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        // Show success step
+                        document.getElementById('forgot-password-step1').classList.add('hidden');
+                        document.getElementById('forgot-password-step2').classList.remove('hidden');
+                    } else {
+                        showCustomConfirm(result.message || 'Failed to send reset email. Please try again.', () => {});
+                    }
+                } catch (error) {
+                    console.error('Error sending reset email:', error);
+                    showCustomConfirm('Network error. Please check your connection and try again.', () => {});
+                } finally {
+                    // Re-enable button
+                    sendResetBtn.disabled = false;
+                    sendResetBtn.textContent = 'Send Reset Link';
+                }
+            });
         }
     });
 
