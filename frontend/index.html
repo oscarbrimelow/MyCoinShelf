@@ -6020,17 +6020,31 @@
         }
     }
     
+    // Track ongoing deletions to prevent duplicate requests
+    const wishlistDeleteInProgress = new Set();
+    
     async function removeFromWishlist(itemId) {
+        // Prevent duplicate delete requests
+        if (wishlistDeleteInProgress.has(itemId)) {
+            console.log(`Already deleting wishlist item ${itemId}, skipping duplicate request`);
+            return;
+        }
+        
         if (!confirm('Are you sure you want to remove this item from your wishlist?')) {
             return;
         }
+        
+        wishlistDeleteInProgress.add(itemId);
         
         try {
             const token = getAuthToken();
             if (!token) {
                 showCustomConfirm('Please sign in to remove items.', () => {});
+                wishlistDeleteInProgress.delete(itemId);
                 return;
             }
+            
+            console.log(`Deleting wishlist item ID: ${itemId}`);
             
             const response = await fetch(`${API_BASE_URL}/wishlist/${itemId}`, {
                 method: 'DELETE',
@@ -6042,15 +6056,22 @@
             const data = await response.json();
             
             if (response.ok) {
+                console.log(`Successfully deleted wishlist item ID: ${itemId}`);
                 showCustomConfirm(data.message || 'Item removed from wishlist successfully!', () => {
                     loadWishlist(); // Reload wishlist
                 });
             } else {
+                console.error(`Failed to delete wishlist item ${itemId}:`, data.message);
                 showCustomConfirm(data.message || 'Failed to remove item from wishlist.', () => {});
             }
         } catch (error) {
             console.error('Error removing from wishlist:', error);
             showCustomConfirm('An error occurred. Please try again.', () => {});
+        } finally {
+            // Remove from in-progress set after a delay
+            setTimeout(() => {
+                wishlistDeleteInProgress.delete(itemId);
+            }, 1000);
         }
     }
 

@@ -1764,13 +1764,24 @@ def add_to_wishlist(current_user):
 @jwt_required
 def remove_from_wishlist(current_user, item_id):
     """Remove an item from the wishlist"""
+    # Only delete the specific item by ID and user_id to prevent accidental deletions
     item = WishlistItem.query.filter_by(id=item_id, user_id=current_user.id).first()
     if not item:
         return jsonify({'message': 'Wishlist item not found'}), 404
     
+    print(f"Deleting wishlist item ID {item_id} for user {current_user.id}: {item.denomination} from {item.country}")
+    
+    # Delete only this specific item
     db.session.delete(item)
     db.session.commit()
-    return jsonify({'message': 'Item removed from wishlist successfully!'}), 200
+    
+    # Verify deletion
+    deleted_item = WishlistItem.query.filter_by(id=item_id).first()
+    if deleted_item:
+        print(f"WARNING: Item {item_id} still exists after deletion attempt!")
+        return jsonify({'message': 'Failed to delete item. Please try again.'}), 500
+    
+    return jsonify({'message': 'Item removed from wishlist successfully!', 'deleted_id': item_id}), 200
 
 @app.route('/api/wishlist/<int:item_id>/move-to-collection', methods=['POST'])
 @jwt_required
