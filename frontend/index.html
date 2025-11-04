@@ -2413,7 +2413,7 @@
         resultsDiv.classList.remove('hidden');
         
         try {
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
             if (!token) {
                 showCustomConfirm('Please sign in to search.', () => {});
                 return;
@@ -5566,7 +5566,13 @@
         noResultsDiv.classList.add('hidden');
         
         try {
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
+            if (!token) {
+                showCustomConfirm('Please sign in to search the catalogue.', () => {});
+                loadingDiv.classList.add('hidden');
+                return;
+            }
+            
             const response = await fetch(`${API_BASE_URL}/search-numista?q=${encodeURIComponent(query)}&type=${itemType}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
