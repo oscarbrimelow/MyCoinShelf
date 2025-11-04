@@ -208,6 +208,11 @@
 
 
         /* General styles for containers, no specific map library styles needed here */
+        #map-wrapper {
+            position: relative;
+            min-height: 500px;
+            overflow: hidden; /* Hide overflow from zoomed map */
+        }
         #map-container {
             width: 100%;
             /* min-height can be adjusted based on desired aspect ratio. 500px is a good start. */
@@ -215,9 +220,12 @@
             display: flex; /* Flex to center content if needed, though GeoChart fills its container */
             align-items: center;
             justify-content: center;
-            border-radius: 0.5rem;
-            border: 1px solid #374151;
-            overflow: hidden; /* Hide any overflow from the chart */
+            overflow: visible; /* Allow overflow when zoomed */
+            cursor: default;
+            transition: transform 0.1s ease-out;
+        }
+        #map-container:active {
+            cursor: grabbing;
         }
         /* Make sure Google Charts fits its container */
         #map-container > div {
@@ -630,9 +638,24 @@
                 <!-- Map Content Here -->
                 <div class="max-w-7xl mx-auto h-full flex flex-col lg:flex-row gap-6">
                     <div class="flex-1">
-                        <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
-                            <!-- Google GeoChart will be rendered here -->
-                            <div id="geochart-canvas"></div>
+                        <div id="map-wrapper" class="relative h-[95%] w-full rounded-lg border border-gray-700 overflow-hidden">
+                            <!-- Zoom Controls -->
+                            <div class="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                                <button id="zoom-in-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Zoom In">
+                                    <i class="ph-bold ph-plus"></i>
+                                </button>
+                                <button id="zoom-out-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Zoom Out">
+                                    <i class="ph-bold ph-minus"></i>
+                                </button>
+                                <button id="zoom-reset-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Reset Zoom">
+                                    <i class="ph-bold ph-arrows-clockwise"></i>
+                                </button>
+                            </div>
+                            <!-- Map Container -->
+                            <div id="map-container" class="h-full w-full relative transform transition-transform duration-200 origin-center">
+                                <!-- Google GeoChart will be rendered here -->
+                                <div id="geochart-canvas" class="h-full w-full"></div>
+                            </div>
                         </div>
                         <div class="flex justify-end mt-4">
                           <button id="export-map-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
@@ -3760,10 +3783,23 @@
         }
         
         // Ensure the map container is present within the wrapper before rendering
-        if (!mapContentWrapper.querySelector('#map-container')) {
+        if (!mapContentWrapper.querySelector('#map-wrapper')) {
              mapContentWrapper.innerHTML = `
-                <div id="map-container" class="h-[95%] w-full rounded-lg border border-gray-700">
-                    <div id="geochart-canvas"></div>
+                <div id="map-wrapper" class="relative h-[95%] w-full rounded-lg border border-gray-700 overflow-hidden">
+                    <div class="absolute top-4 right-4 z-10 flex flex-col gap-2">
+                        <button id="zoom-in-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Zoom In">
+                            <i class="ph-bold ph-plus"></i>
+                        </button>
+                        <button id="zoom-out-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Zoom Out">
+                            <i class="ph-bold ph-minus"></i>
+                        </button>
+                        <button id="zoom-reset-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Reset Zoom">
+                            <i class="ph-bold ph-arrows-clockwise"></i>
+                        </button>
+                    </div>
+                    <div id="map-container" class="h-full w-full relative transform transition-transform duration-200 origin-center">
+                        <div id="geochart-canvas" class="h-full w-full"></div>
+                    </div>
                 </div>`;
         }
 
@@ -3797,19 +3833,29 @@
             dataTable.addColumn('number', 'Items');
             dataTable.addColumn({ type: 'string', role: 'tooltip', 'p': {'html': true} });
 
-            // Only add collected countries (and Greenland if Denmark is collected)
-            Object.keys(countryCounts).forEach(country => {
-                const itemCount = countryCounts[country];
+            // Add ALL countries to the dataset so tooltips work for all countries
+            // This allows hovering over countries you don't have yet
+            const allCountriesSet = new Set(ALL_COUNTRIES.map(c => getGeoChartCountryName(c)));
+            allCountriesSet.add("Greenland"); // Add Greenland for special case
+            
+            allCountriesSet.forEach(country => {
+                const itemCount = countryCounts[country] || 0;
                 let tooltipContent = `<div class=\"p-2 font-semibold\">${country}</div>`;
-                tooltipContent += `<div class=\"px-2 pb-1\">Items: ${itemCount}</div>`;
-                const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === country);
-                tooltipContent += `<div class=\"px-2 text-sm text-gray-400 tooltip-scroll-content\">`;
-                itemsInCountry.forEach(item => {
-                    const quantity = item.quantity || 1;
-                    const value = getItemValueInCurrency(item, currencySetting) * quantity;
-                    tooltipContent += `<div>${item.denomination} (${item.year || 'N/A'}) - ${quantity > 1 ? `${quantity}x ` : ''}${formatCurrency(value, currencySetting)}</div>`;
-                });
-                tooltipContent += `</div>`;
+                
+                if (itemCount > 0) {
+                    tooltipContent += `<div class=\"px-2 pb-1\">Items: ${itemCount}</div>`;
+                    const itemsInCountry = collectionData.filter(item => getGeoChartCountryName(item.country) === country);
+                    tooltipContent += `<div class=\"px-2 text-sm text-gray-400 tooltip-scroll-content\">`;
+                    itemsInCountry.forEach(item => {
+                        const quantity = item.quantity || 1;
+                        const value = getItemValueInCurrency(item, currencySetting) * quantity;
+                        tooltipContent += `<div>${item.denomination} (${item.year || 'N/A'}) - ${quantity > 1 ? `${quantity}x ` : ''}${formatCurrency(value, currencySetting)}</div>`;
+                    });
+                    tooltipContent += `</div>`;
+                } else {
+                    tooltipContent += `<div class=\"px-2 pb-1 text-gray-400\">No items collected yet</div>`;
+                }
+                
                 dataTable.addRow([country, itemCount, tooltipContent]);
             });
 
@@ -3818,16 +3864,16 @@
             const options = {
                 colorAxis: {
                     colors: ['#d9f99d', '#65a30d', '#facc15', '#f97316', '#dc2626'],
-                    minValue: 1,
+                    minValue: 0,
                     maxValue: maxItems,
                 },
                 backgroundColor: {
                     fill: '#1f2937',
                 },
-                defaultColor: '#ffffff', // White for missing countries
+                defaultColor: '#374151', // Dark gray for missing countries (visible but distinct)
                 tooltip: {
                     isHtml: true,
-                    trigger: 'focus',
+                    trigger: 'both', // Show on both hover and focus for better UX
                     textStyle: { color: '#d1d5db' },
                 },
                 keepAspectRatio: true,
@@ -3858,6 +3904,114 @@
 
         // After rendering the map, render the unrecognized places panel
         renderUnrecognizedPlacesPanel();
+        
+        // Setup zoom controls
+        setupMapZoomControls();
+    }
+    
+    // Map zoom functionality
+    let mapZoomLevel = 1;
+    let panX = 0;
+    let panY = 0;
+    const MIN_ZOOM = 0.5;
+    const MAX_ZOOM = 3;
+    const ZOOM_STEP = 0.2;
+    
+    function setupMapZoomControls() {
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        const zoomResetBtn = document.getElementById('zoom-reset-btn');
+        const mapContainer = document.getElementById('map-container');
+        
+        if (!mapContainer) return;
+        
+        // Zoom in
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => {
+                mapZoomLevel = Math.min(mapZoomLevel + ZOOM_STEP, MAX_ZOOM);
+                applyZoom();
+            });
+        }
+        
+        // Zoom out
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => {
+                mapZoomLevel = Math.max(mapZoomLevel - ZOOM_STEP, MIN_ZOOM);
+                applyZoom();
+            });
+        }
+        
+        // Reset zoom
+        if (zoomResetBtn) {
+            zoomResetBtn.addEventListener('click', () => {
+                mapZoomLevel = 1;
+                panX = 0;
+                panY = 0;
+                applyZoom();
+            });
+        }
+        
+        // Mouse wheel zoom
+        mapContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+            mapZoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, mapZoomLevel + delta));
+            applyZoom();
+        }, { passive: false });
+        
+        // Pan functionality (drag to move when zoomed)
+        let isPanning = false;
+        let panStartX = 0;
+        let panStartY = 0;
+        
+        mapContainer.addEventListener('mousedown', (e) => {
+            if (mapZoomLevel > 1 && e.button === 0) { // Left mouse button only
+                isPanning = true;
+                panStartX = e.clientX - panX;
+                panStartY = e.clientY - panY;
+                mapContainer.style.cursor = 'grabbing';
+            }
+        });
+        
+        mapContainer.addEventListener('mouseleave', () => {
+            isPanning = false;
+            mapContainer.style.cursor = mapZoomLevel > 1 ? 'grab' : 'default';
+        });
+        
+        mapContainer.addEventListener('mouseup', () => {
+            isPanning = false;
+            mapContainer.style.cursor = mapZoomLevel > 1 ? 'grab' : 'default';
+        });
+        
+        mapContainer.addEventListener('mousemove', (e) => {
+            if (!isPanning || mapZoomLevel <= 1) return;
+            e.preventDefault();
+            panX = e.clientX - panStartX;
+            panY = e.clientY - panStartY;
+            applyZoom(); // This will update both zoom and pan
+        });
+    }
+    
+    function applyZoom() {
+        const mapContainer = document.getElementById('map-container');
+        if (!mapContainer) return;
+        
+        // Reset pan when zoom is 1 or less
+        if (mapZoomLevel <= 1) {
+            panX = 0;
+            panY = 0;
+        }
+        
+        // Update cursor style based on zoom level
+        if (mapZoomLevel > 1) {
+            mapContainer.style.cursor = 'grab';
+        } else {
+            mapContainer.style.cursor = 'default';
+        }
+        
+        // Apply both zoom and pan transforms
+        mapContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${mapZoomLevel})`;
+        mapContainer.style.transformOrigin = 'center center';
     }
 
     function renderUnrecognizedPlacesPanel() {
