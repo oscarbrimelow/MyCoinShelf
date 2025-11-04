@@ -3864,7 +3864,7 @@
             const options = {
                 colorAxis: {
                     colors: ['#d9f99d', '#65a30d', '#facc15', '#f97316', '#dc2626'],
-                    minValue: 0,
+                    minValue: 1, // Start from 1 so 0 values use defaultColor
                     maxValue: maxItems,
                 },
                 backgroundColor: {
@@ -3905,8 +3905,12 @@
         // After rendering the map, render the unrecognized places panel
         renderUnrecognizedPlacesPanel();
         
-        // Setup zoom controls
-        setupMapZoomControls();
+        // Setup zoom controls after map is drawn
+        // Use setTimeout to ensure Google Charts has finished rendering
+        setTimeout(() => {
+            removeMapZoomControls(); // Remove old listeners if any
+            setupMapZoomControls();
+        }, 500);
     }
     
     // Map zoom functionality
@@ -3916,80 +3920,128 @@
     const MIN_ZOOM = 0.5;
     const MAX_ZOOM = 3;
     const ZOOM_STEP = 0.2;
+    let zoomControlsSetup = false;
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    
+    // Store event handlers to be able to remove them
+    let zoomInHandler, zoomOutHandler, zoomResetHandler, wheelHandler;
+    let mouseDownHandler, mouseLeaveHandler, mouseUpHandler, mouseMoveHandler;
     
     function setupMapZoomControls() {
+        // Prevent multiple setups
+        if (zoomControlsSetup) return;
+        
         const zoomInBtn = document.getElementById('zoom-in-btn');
         const zoomOutBtn = document.getElementById('zoom-out-btn');
         const zoomResetBtn = document.getElementById('zoom-reset-btn');
         const mapContainer = document.getElementById('map-container');
         
-        if (!mapContainer) return;
-        
-        // Zoom in
-        if (zoomInBtn) {
-            zoomInBtn.addEventListener('click', () => {
-                mapZoomLevel = Math.min(mapZoomLevel + ZOOM_STEP, MAX_ZOOM);
-                applyZoom();
-            });
+        if (!mapContainer || !zoomInBtn || !zoomOutBtn || !zoomResetBtn) {
+            // Try again after a short delay if elements aren't ready
+            setTimeout(setupMapZoomControls, 100);
+            return;
         }
         
-        // Zoom out
-        if (zoomOutBtn) {
-            zoomOutBtn.addEventListener('click', () => {
-                mapZoomLevel = Math.max(mapZoomLevel - ZOOM_STEP, MIN_ZOOM);
-                applyZoom();
-            });
-        }
+        zoomControlsSetup = true;
         
-        // Reset zoom
-        if (zoomResetBtn) {
-            zoomResetBtn.addEventListener('click', () => {
-                mapZoomLevel = 1;
-                panX = 0;
-                panY = 0;
-                applyZoom();
-            });
-        }
-        
-        // Mouse wheel zoom
-        mapContainer.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-            mapZoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, mapZoomLevel + delta));
+        // Zoom in handler
+        zoomInHandler = () => {
+            mapZoomLevel = Math.min(mapZoomLevel + ZOOM_STEP, MAX_ZOOM);
             applyZoom();
-        }, { passive: false });
+        };
+        zoomInBtn.addEventListener('click', zoomInHandler);
+        
+        // Zoom out handler
+        zoomOutHandler = () => {
+            mapZoomLevel = Math.max(mapZoomLevel - ZOOM_STEP, MIN_ZOOM);
+            applyZoom();
+        };
+        zoomOutBtn.addEventListener('click', zoomOutHandler);
+        
+        // Reset zoom handler
+        zoomResetHandler = () => {
+            mapZoomLevel = 1;
+            panX = 0;
+            panY = 0;
+            applyZoom();
+        };
+        zoomResetBtn.addEventListener('click', zoomResetHandler);
+        
+        // Mouse wheel zoom - attach to map-wrapper to avoid conflicts with Google Charts
+        const mapWrapper = document.getElementById('map-wrapper');
+        if (mapWrapper) {
+            wheelHandler = (e) => {
+                // Only zoom if not hovering over buttons
+                if (!e.target.closest('#zoom-in-btn, #zoom-out-btn, #zoom-reset-btn')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+                    mapZoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, mapZoomLevel + delta));
+                    applyZoom();
+                }
+            };
+            mapWrapper.addEventListener('wheel', wheelHandler, { passive: false });
+        }
         
         // Pan functionality (drag to move when zoomed)
-        let isPanning = false;
-        let panStartX = 0;
-        let panStartY = 0;
-        
-        mapContainer.addEventListener('mousedown', (e) => {
-            if (mapZoomLevel > 1 && e.button === 0) { // Left mouse button only
+        mouseDownHandler = (e) => {
+            // Only pan if clicking on the map container itself, not on buttons or chart elements
+            if (mapZoomLevel > 1 && e.button === 0 && !e.target.closest('#zoom-in-btn, #zoom-out-btn, #zoom-reset-btn')) {
                 isPanning = true;
                 panStartX = e.clientX - panX;
                 panStartY = e.clientY - panY;
                 mapContainer.style.cursor = 'grabbing';
+                e.preventDefault();
             }
-        });
+        };
+        mapContainer.addEventListener('mousedown', mouseDownHandler);
         
-        mapContainer.addEventListener('mouseleave', () => {
+        mouseLeaveHandler = () => {
             isPanning = false;
             mapContainer.style.cursor = mapZoomLevel > 1 ? 'grab' : 'default';
-        });
+        };
+        mapContainer.addEventListener('mouseleave', mouseLeaveHandler);
         
-        mapContainer.addEventListener('mouseup', () => {
+        mouseUpHandler = () => {
             isPanning = false;
             mapContainer.style.cursor = mapZoomLevel > 1 ? 'grab' : 'default';
-        });
+        };
+        document.addEventListener('mouseup', mouseUpHandler);
         
-        mapContainer.addEventListener('mousemove', (e) => {
+        mouseMoveHandler = (e) => {
             if (!isPanning || mapZoomLevel <= 1) return;
             e.preventDefault();
             panX = e.clientX - panStartX;
             panY = e.clientY - panStartY;
-            applyZoom(); // This will update both zoom and pan
-        });
+            applyZoom();
+        };
+        document.addEventListener('mousemove', mouseMoveHandler);
+    }
+    
+    function removeMapZoomControls() {
+        if (!zoomControlsSetup) return;
+        
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
+        const zoomResetBtn = document.getElementById('zoom-reset-btn');
+        const mapContainer = document.getElementById('map-container');
+        const mapWrapper = document.getElementById('map-wrapper');
+        
+        if (zoomInBtn && zoomInHandler) zoomInBtn.removeEventListener('click', zoomInHandler);
+        if (zoomOutBtn && zoomOutHandler) zoomOutBtn.removeEventListener('click', zoomOutHandler);
+        if (zoomResetBtn && zoomResetHandler) zoomResetBtn.removeEventListener('click', zoomResetHandler);
+        if (mapWrapper && wheelHandler) mapWrapper.removeEventListener('wheel', wheelHandler);
+        if (mapContainer && mouseDownHandler) mapContainer.removeEventListener('mousedown', mouseDownHandler);
+        if (mapContainer && mouseLeaveHandler) mapContainer.removeEventListener('mouseleave', mouseLeaveHandler);
+        if (mouseUpHandler) document.removeEventListener('mouseup', mouseUpHandler);
+        if (mouseMoveHandler) document.removeEventListener('mousemove', mouseMoveHandler);
+        
+        // Reset handlers
+        zoomInHandler = zoomOutHandler = zoomResetHandler = wheelHandler = null;
+        mouseDownHandler = mouseLeaveHandler = mouseUpHandler = mouseMoveHandler = null;
+        zoomControlsSetup = false;
     }
     
     function applyZoom() {
