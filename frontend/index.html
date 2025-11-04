@@ -468,6 +468,9 @@
                     <a href="/members" id="nav-members" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-users mr-3"></i> Search Members
                     </a>
+                    <a href="/catalogue" id="nav-catalogue" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-magnifying-glass mr-3"></i> Search Catalogue
+                    </a>
                     <a href="/missing" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-flag mr-3"></i> Missing Countries
                     </a>
@@ -673,6 +676,63 @@
                             <!-- Unrecognized places will be rendered here -->
                         </div>
                         <div id="unrecognized-places-status" class="text-gray-400 mt-2 text-xs"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Catalogue Content -->
+            <div id="content-catalogue" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
+                <div class="max-w-7xl mx-auto">
+                    <h2 class="text-3xl font-bold text-white mb-6">Search Numista Catalogue</h2>
+                    <p class="text-gray-400 mb-6">Search for coins and banknotes from the Numista database and add them directly to your collection.</p>
+                    
+                    <!-- Search Form -->
+                    <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="flex-1">
+                                <label for="catalogue-search-input" class="block text-sm font-medium text-gray-400 mb-2">Search Term</label>
+                                <input type="text" id="catalogue-search-input" placeholder="e.g., 1 Rand, Silver Dollar, 1970" class="w-full bg-gray-700 border border-gray-600 rounded-md px-4 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                            <div class="md:w-48">
+                                <label for="catalogue-type-filter" class="block text-sm font-medium text-gray-400 mb-2">Type</label>
+                                <select id="catalogue-type-filter" class="w-full bg-gray-700 border border-gray-600 rounded-md px-4 py-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                                    <option value="coin">Coin</option>
+                                    <option value="banknote">Banknote</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button id="catalogue-search-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-md transition-colors w-full md:w-auto">
+                                    <i class="ph-bold ph-magnifying-glass mr-2"></i> Search
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading State -->
+                    <div id="catalogue-loading" class="hidden text-center py-8">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                        <p class="text-gray-400 mt-4">Searching Numista catalogue...</p>
+                    </div>
+                    
+                    <!-- Error Message -->
+                    <div id="catalogue-error" class="hidden bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
+                        <p class="text-red-200" id="catalogue-error-message"></p>
+                    </div>
+                    
+                    <!-- Results -->
+                    <div id="catalogue-results" class="hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold text-white" id="catalogue-results-count"></h3>
+                        </div>
+                        <div id="catalogue-results-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- Results will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <!-- No Results Message -->
+                    <div id="catalogue-no-results" class="hidden text-center py-12">
+                        <i class="ph-bold ph-magnifying-glass text-6xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400 text-lg">No results found. Try a different search term.</p>
                     </div>
                 </div>
             </div>
@@ -1818,6 +1878,7 @@
       '/collection': 'content-collection',
       '/map': 'content-map',
       '/members': 'content-members',
+      '/catalogue': 'content-catalogue',
       '/missing': 'content-missing',
       '/settings': 'content-settings',
     };
@@ -5414,9 +5475,190 @@
         if (!document.getElementById('content-members').classList.contains('hidden')) {
             renderMembers();
         }
+        if (!document.getElementById('content-catalogue').classList.contains('hidden')) {
+            setupCatalogueSearch();
+        }
+    }
+    
+    // Catalogue Search Functionality
+    function setupCatalogueSearch() {
+        const searchBtn = document.getElementById('catalogue-search-btn');
+        const searchInput = document.getElementById('catalogue-search-input');
         
-        // Apply sitewide currency settings
-        applySitewideCurrency();
+        if (searchBtn) {
+            searchBtn.addEventListener('click', handleCatalogueSearch);
+        }
+        
+        if (searchInput) {
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleCatalogueSearch();
+                }
+            });
+        }
+    }
+    
+    async function handleCatalogueSearch() {
+        const searchInput = document.getElementById('catalogue-search-input');
+        const typeFilter = document.getElementById('catalogue-type-filter');
+        const loadingDiv = document.getElementById('catalogue-loading');
+        const errorDiv = document.getElementById('catalogue-error');
+        const errorMessage = document.getElementById('catalogue-error-message');
+        const resultsDiv = document.getElementById('catalogue-results');
+        const resultsList = document.getElementById('catalogue-results-list');
+        const resultsCount = document.getElementById('catalogue-results-count');
+        const noResultsDiv = document.getElementById('catalogue-no-results');
+        
+        const query = searchInput.value.trim();
+        const itemType = typeFilter.value.toLowerCase();
+        
+        if (!query) {
+            showCustomConfirm('Please enter a search term.', () => {});
+            return;
+        }
+        
+        if (!isAuthenticated()) {
+            showCustomConfirm('Please sign in to search the catalogue.', () => {});
+            return;
+        }
+        
+        // Show loading, hide other states
+        loadingDiv.classList.remove('hidden');
+        errorDiv.classList.add('hidden');
+        resultsDiv.classList.add('hidden');
+        noResultsDiv.classList.add('hidden');
+        
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/search-numista?q=${encodeURIComponent(query)}&type=${itemType}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            loadingDiv.classList.add('hidden');
+            
+            if (data.error) {
+                errorMessage.textContent = data.error;
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (!data.results || data.results.length === 0) {
+                noResultsDiv.classList.remove('hidden');
+                return;
+            }
+            
+            // Display results
+            resultsCount.textContent = `Found ${data.results.length} result${data.results.length > 1 ? 's' : ''}`;
+            resultsList.innerHTML = '';
+            
+            data.results.forEach((result, index) => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-emerald-500 transition-colors';
+                card.innerHTML = `
+                    <div class="flex flex-col h-full">
+                        <h4 class="font-bold text-white text-lg mb-2">${escapeHtml(result.title || result.denomination || 'Untitled')}</h4>
+                        ${result.country ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Country:</span> ${escapeHtml(result.country)}</p>` : ''}
+                        ${result.year ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Year:</span> ${result.year}</p>` : ''}
+                        ${result.denomination && result.denomination !== result.title ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Denomination:</span> ${escapeHtml(result.denomination)}</p>` : ''}
+                        ${result.composition ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Composition:</span> ${escapeHtml(result.composition)}</p>` : ''}
+                        ${result.weight ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Weight:</span> ${escapeHtml(result.weight)}${result.weight.includes('g') ? '' : 'g'}</p>` : ''}
+                        ${result.description ? `<p class="text-xs text-gray-500 mt-2 line-clamp-2">${escapeHtml(result.description.substring(0, 100))}${result.description.length > 100 ? '...' : ''}</p>` : ''}
+                        <div class="mt-4 flex gap-2">
+                            <button class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm add-to-collection-btn" data-index="${index}">
+                                <i class="ph-bold ph-plus-circle mr-2"></i> Add to Collection
+                            </button>
+                            ${result.url ? `<a href="${result.url}" target="_blank" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm flex items-center justify-center" title="View on Numista">
+                                <i class="ph-bold ph-arrow-square-out"></i>
+                            </a>` : ''}
+                        </div>
+                    </div>
+                `;
+                resultsList.appendChild(card);
+            });
+            
+            // Add click handlers to "Add to Collection" buttons
+            resultsList.querySelectorAll('.add-to-collection-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(btn.dataset.index);
+                    const result = data.results[index];
+                    addCatalogueItemToCollection(result);
+                });
+            });
+            
+            resultsDiv.classList.remove('hidden');
+            
+        } catch (error) {
+            console.error('Catalogue search error:', error);
+            loadingDiv.classList.add('hidden');
+            errorMessage.textContent = 'Search failed. Please try again.';
+            errorDiv.classList.remove('hidden');
+        }
+    }
+    
+    function addCatalogueItemToCollection(result) {
+        // Clear the form first
+        clearItemForm();
+        
+        // Populate form with result data
+        if (result.country) {
+            document.getElementById('country').value = result.country;
+        }
+        if (result.year) {
+            document.getElementById('year').value = result.year;
+        }
+        if (result.denomination) {
+            document.getElementById('denomination').value = result.denomination;
+        } else if (result.title) {
+            document.getElementById('denomination').value = result.title;
+        }
+        if (result.type) {
+            const typeMap = {
+                'coin': 'Coin',
+                'banknote': 'Banknote'
+            };
+            const mappedType = typeMap[result.type.toLowerCase()] || result.type.charAt(0).toUpperCase() + result.type.slice(1);
+            document.getElementById('type').value = mappedType;
+        }
+        if (result.url) {
+            document.getElementById('referenceUrl').value = result.url;
+        }
+        
+        // Add additional details to notes
+        let notes = [];
+        if (result.description) {
+            notes.push(result.description);
+        }
+        if (result.composition) {
+            notes.push(`Composition: ${result.composition}`);
+        }
+        if (result.weight) {
+            notes.push(`Weight: ${result.weight}${result.weight.includes('g') ? '' : 'g'}`);
+        }
+        if (result.diameter) {
+            notes.push(`Diameter: ${result.diameter}`);
+        }
+        if (notes.length > 0) {
+            document.getElementById('notes').value = notes.join('\n');
+        }
+        
+        // Update modal title
+        document.getElementById('modal-title').innerText = 'Add Item from Numista';
+        
+        // Trigger bullion fields update if type changed
+        const typeValue = document.getElementById('type').value;
+        if (typeValue === 'Gold Bullion' || typeValue === 'Silver Bullion') {
+            document.getElementById('bullion-fields').style.display = 'block';
+        }
+        
+        // Open the modal
+        openModal('item-modal');
+        
+        // Show success message
+        showCustomConfirm(`Item "${result.title || result.denomination || 'Item'}" has been added to the form. Please review and save.`, () => {});
     }
 
     function handleUnauthorized(silent = false) {
@@ -5560,7 +5802,7 @@
     }
 
     function getCurrentView() {
-        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-catalogue', 'content-missing', 'content-settings', 'content-about'];
         for (const view of views) {
             const element = document.getElementById(view);
             if (element && !element.classList.contains('hidden')) {
@@ -5571,7 +5813,7 @@
     }
 
     function getNextView(currentView) {
-        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-catalogue', 'content-missing', 'content-settings', 'content-about'];
         const currentIndex = views.indexOf(currentView);
         if (currentIndex === -1 || currentIndex === views.length - 1) {
             return null; // Already at the end
@@ -5580,7 +5822,7 @@
     }
 
     function getPreviousView(currentView) {
-        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-missing', 'content-settings', 'content-about'];
+        const views = ['content-home', 'content-auth', 'content-dashboard', 'content-collection', 'content-map', 'content-members', 'content-catalogue', 'content-missing', 'content-settings', 'content-about'];
         const currentIndex = views.indexOf(currentView);
         if (currentIndex <= 0) {
             return null; // Already at the beginning
