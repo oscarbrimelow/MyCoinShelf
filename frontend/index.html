@@ -2971,21 +2971,21 @@
             <div class="flex-1 flex overflow-hidden">
                 <div class="w-full flex flex-col">
                     <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
-                        <table class="w-full text-left data-table" style="min-width: 100%; table-layout: auto;">
+                        <table class="w-full text-left data-table" style="min-width: 100%; table-layout: fixed;">
                             <thead class="bg-gray-700 sticky top-0" style="z-index: 20;">
                                 <tr>
-                                    <th class="p-2 font-semibold w-12" style="min-width: 50px;">
+                                    <th class="p-2 font-semibold" style="width: 50px;">
                                         <input type="checkbox" id="select-all-checkbox" class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-emerald-600 focus:ring-emerald-500" title="Select all items">
                                     </th>
-                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="id" style="min-width: 50px;">ID</th>
-                                    <th class="p-2 font-semibold" style="min-width: 80px;">Type</th>
-                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="country" style="min-width: 120px;">Country</th>
-                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="year" style="min-width: 70px;">Year</th>
-                                    <th class="p-2 font-semibold" style="min-width: 120px;">Denomination</th>
-                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="quantity" style="min-width: 50px;">Qty</th>
-                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="value" style="min-width: 100px;">Value</th>
-                                    <th class="p-2 font-semibold" style="min-width: 150px;">Notes & Ref.</th>
-                                    <th class="p-2 font-semibold" style="min-width: 120px; position: sticky; right: 0; background-color: #374151; z-index: 15;">Actions</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="id" style="width: 60px;">ID</th>
+                                    <th class="p-2 font-semibold" style="width: 100px;">Type</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="country" style="width: 140px;">Country</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="year" style="width: 80px;">Year</th>
+                                    <th class="p-2 font-semibold" style="width: 140px;">Denomination</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="quantity" style="width: 60px;">Qty</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="value" style="width: 120px;">Value</th>
+                                    <th class="p-2 font-semibold" style="width: 200px;">Notes & Ref.</th>
+                                    <th class="p-2 font-semibold" style="width: 140px; position: sticky; right: 0; background-color: #374151; z-index: 15;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="collection-table-body"></tbody>
@@ -3019,25 +3019,25 @@
         const tableBody = document.getElementById('collection-table-body');
         const tableRows = dataToRender.map(item => `
             <tr class="border-b border-gray-700" data-item-id="${item.id}">
-                <td class="p-2">
+                <td class="p-2" style="width: 50px;">
                     <input type="checkbox" class="item-checkbox w-4 h-4 rounded border-gray-600 bg-gray-700 text-emerald-600 focus:ring-emerald-500" data-item-id="${item.id}" title="Select item">
                 </td>
-                <td class="p-2">${item.id}</td>
-                <td class="p-2">${escapeHtml(item.type)}</td>
-                <td class="p-2">${escapeHtml(item.country)} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
-                <td class="p-2">${item.year || 'N/A'}</td>
-                <td class="p-2">${escapeHtml(item.denomination)}</td>
-                <td class="p-2">${item.quantity || 1}</td>
-                <td class="p-2">${formatCurrency(getItemValueInCurrency(item, currencySetting) * (item.quantity || 1), currencySetting)}</td>
-                <td class="p-2">
+                <td class="p-2" style="width: 60px;">${item.id}</td>
+                <td class="p-2" style="width: 100px;">${escapeHtml(item.type)}</td>
+                <td class="p-2" style="width: 140px;">${escapeHtml(item.country)} ${item.isHistorical ? '<span class="text-xs text-amber-400">(Historical)</span>' : ''}</td>
+                <td class="p-2" style="width: 80px;">${item.year || 'N/A'}</td>
+                <td class="p-2" style="width: 140px;">${escapeHtml(item.denomination)}</td>
+                <td class="p-2" style="width: 60px;">${item.quantity || 1}</td>
+                <td class="p-2" style="width: 120px;">${formatCurrency(getItemValueInCurrency(item, currencySetting) * (item.quantity || 1), currencySetting)}</td>
+                <td class="p-2" style="width: 200px;">
                     <div class="flex flex-col">
-                        <p class="text-xs text-gray-400 max-w-xs truncate" title="${item.notes ? escapeHtml(item.notes) : 'N/A'}">
+                        <p class="text-xs text-gray-400 truncate" title="${item.notes ? escapeHtml(item.notes) : 'N/A'}">
                             ${escapeHtml(item.notes || 'N/A')}
                         </p>
                         ${item.referenceUrl ? `<a href="${escapeHtml(item.referenceUrl)}" target="_blank" class="text-blue-400 hover:underline text-xs view-reference-link"><i class="ph-bold ph-link-simple-horizontal"></i> Reference Link</a>` : ''}
                     </div>
                 </td>
-                <td class="p-2" style="position: sticky; right: 0; background-color: #1f2937; z-index: 10;">
+                <td class="p-2" style="width: 140px; position: sticky; right: 0; background-color: #1f2937; z-index: 10;">
                      <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
                      <button class="duplicate-btn text-emerald-400 hover:text-emerald-300 mr-2" data-id="${item.id}" title="Duplicate Item"><i class="ph ph-copy"></i></button>
                      <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
