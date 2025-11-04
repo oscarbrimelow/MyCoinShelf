@@ -5485,17 +5485,23 @@
         const searchBtn = document.getElementById('catalogue-search-btn');
         const searchInput = document.getElementById('catalogue-search-input');
         
-        if (searchBtn) {
-            searchBtn.addEventListener('click', handleCatalogueSearch);
+        if (!searchBtn || !searchInput) {
+            console.warn('Catalogue search elements not found, skipping setup');
+            return;
         }
         
-        if (searchInput) {
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    handleCatalogueSearch();
-                }
-            });
-        }
+        // Remove existing listeners if any (to prevent duplicates)
+        const newSearchBtn = searchBtn.cloneNode(true);
+        searchBtn.parentNode.replaceChild(newSearchBtn, searchBtn);
+        newSearchBtn.addEventListener('click', handleCatalogueSearch);
+        
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+        newSearchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleCatalogueSearch();
+            }
+        });
     }
     
     async function handleCatalogueSearch() {
@@ -6112,6 +6118,12 @@
             console.log('Found nav-members');
             navMembers.addEventListener('click', (e) => { e.preventDefault(); showView('content-members'); });
         } else { console.error('nav-members not found!'); }
+
+        const navCatalogue = document.getElementById('nav-catalogue');
+        if (navCatalogue) {
+            console.log('Found nav-catalogue');
+            navCatalogue.addEventListener('click', (e) => { e.preventDefault(); showView('content-catalogue'); });
+        } else { console.error('nav-catalogue not found!'); }
 
         const navMissing = document.getElementById('nav-missing');
         if (navMissing) {
