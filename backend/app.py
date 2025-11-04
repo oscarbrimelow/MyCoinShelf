@@ -1181,20 +1181,44 @@ def search_numista(current_user):
             'limit': 10  # Limit results
         }
         
-        headers = {
-            'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
-            'Accept': 'application/json',
-            'Authorization': f'Numista {api_key}',
-            'X-Client-ID': str(client_id)
-        }
+        # Try multiple header formats - Numista API might be picky about the format
+        headers_variants = [
+            {
+                'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
+                'Accept': 'application/json',
+                'Authorization': f'Numista {api_key}',
+                'X-Client-ID': str(client_id)
+            },
+            {
+                'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {api_key}',
+                'X-Client-ID': str(client_id)
+            },
+            {
+                'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
+                'Accept': 'application/json',
+                'X-API-Key': api_key,
+                'X-Client-ID': str(client_id)
+            }
+        ]
         
-        print(f"DEBUG: Making request to {search_url} with header auth: Authorization=Numista {api_key[:10]}..., X-Client-ID={client_id}, q={query}")
-        response = requests.get(search_url, params=params, headers=headers, timeout=10)
-        print(f"DEBUG: Response status: {response.status_code}, content-type: {response.headers.get('content-type')}")
-        response_text = response.text if response.text else ""
+        response = None
+        response_text = ""
+        for i, headers in enumerate(headers_variants):
+            print(f"DEBUG: Trying header variant {i+1}: {list(headers.keys())}")
+            response = requests.get(search_url, params=params, headers=headers, timeout=10)
+            response_text = response.text if response.text else ""
+            print(f"DEBUG: Variant {i+1} - status: {response.status_code}, preview: {response_text[:200]}")
+            if response.status_code == 200:
+                print(f"DEBUG: Success with header variant {i+1}!")
+                break
+            if response.status_code != 401 and response.status_code != 403:
+                # If we get a different error, stop trying header variants
+                break
         
         # If that doesn't work, try with key in query params
-        if response.status_code == 401 or response.status_code == 403 or 'Missing API Key' in response_text or 'missing' in response_text.lower():
+        if not response or response.status_code == 401 or response.status_code == 403 or 'Missing API Key' in response_text or 'missing' in response_text.lower():
             print(f"DEBUG: Header auth failed, trying with 'key' in query params...")
             params = {
                 'key': api_key,
