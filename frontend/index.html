@@ -4150,6 +4150,18 @@
 
             const stats = profile.stats || {};
             const collection = profile.collection || [];
+            
+            // Get current currency setting
+            const currentCurrency = localStorage.getItem('currency') || 'USD';
+            
+            // Convert total value from USD to user's currency
+            const convertedTotalValue = convertToCurrency(stats.total_value || 0, 'USD', currentCurrency);
+            
+            // Convert collection item values
+            const convertedCollection = collection.map(item => {
+                const convertedValue = convertToCurrency(item.value || 0, 'USD', currentCurrency);
+                return { ...item, convertedValue };
+            });
 
             modalContent.innerHTML = `
                 <div class="space-y-6">
@@ -4168,7 +4180,7 @@
                         </div>
                         <div class="bg-gray-700 rounded-lg p-4">
                             <div class="text-sm text-gray-400 mb-1">Total Value</div>
-                            <div class="text-2xl font-bold text-emerald-400">${formatCurrency(stats.total_value || 0)}</div>
+                            <div class="text-2xl font-bold text-emerald-400">${formatCurrency(convertedTotalValue, currentCurrency)}</div>
                         </div>
                         <div class="bg-gray-700 rounded-lg p-4">
                             <div class="text-sm text-gray-400 mb-1">Countries</div>
@@ -4194,14 +4206,14 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            ${collection.map(item => `
+                                            ${convertedCollection.map(item => `
                                                 <tr class="border-t border-gray-600">
                                                     <td class="p-4 text-sm text-gray-300">${item.type}</td>
                                                     <td class="p-4 text-sm text-gray-300">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(H)</span>' : ''}</td>
                                                     <td class="p-4 text-sm text-gray-300">${item.year || 'N/A'}</td>
                                                     <td class="p-4 text-sm text-gray-300">${item.denomination}</td>
                                                     <td class="p-4 text-sm text-gray-300">${item.quantity || 1}</td>
-                                                    <td class="p-4 text-sm text-gray-300">${formatCurrency(item.value || 0)}</td>
+                                                    <td class="p-4 text-sm text-gray-300">${formatCurrency(item.convertedValue, currentCurrency)}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
