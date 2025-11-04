@@ -1260,55 +1260,16 @@ def search_numista(current_user):
         }
         category = category_map.get(item_type.lower(), 'coin')
         
-        # Try to detect if query is a country name and use issuer parameter for better results
-        # Common country to issuer code mappings (issuer codes are lowercase, no spaces/hyphens)
-        # Based on swagger.yaml examples, issuer codes are like: canada, south_africa, etc.
-        country_to_issuer = {
-            'south africa': 'south_africa',
-            'southafrica': 'south_africa',
-            'usa': 'united_states',
-            'united states': 'united_states',
-            'united kingdom': 'united_kingdom',
-            'uk': 'united_kingdom',
-            'canada': 'canada',
-            'australia': 'australia',
-            'germany': 'germany',
-            'france': 'france',
-            'italy': 'italy',
-            'spain': 'spain',
-            'portugal': 'portugal',
-            'netherlands': 'netherlands',
-            'belgium': 'belgium',
-            'switzerland': 'switzerland',
-            'austria': 'austria',
-            'japan': 'japan',
-            'china': 'china',
-            'india': 'india',
-            'brazil': 'brazil',
-            'argentina': 'argentina',
-            'mexico': 'mexico',
-            'russia': 'russia'
-        }
-        
-        # Normalize query for issuer lookup
-        query_lower = query.lower().strip()
-        issuer_code = country_to_issuer.get(query_lower)
-        
-        # Build search parameters - use issuer if we found a match, otherwise use q
+        # Build search parameters - always use text search (q parameter)
+        # The API will search in titles, countries, denominations, etc.
         params = {
+            'q': query,  # Text search query
             'category': category,
             'lang': 'en',
             'count': 50  # Get more results to filter better
         }
         
-        if issuer_code:
-            # Use issuer parameter for country-specific search (more accurate)
-            params['issuer'] = issuer_code
-            print(f"DEBUG: Using issuer code '{issuer_code}' for country-specific search")
-        else:
-            # Use text search query
-            params['q'] = query
-            print(f"DEBUG: Using text search query: '{query}'")
+        print(f"DEBUG: Using text search query: '{query}' with category: '{category}'")
         
         # Correct header format: Numista-API-Key (not Authorization, X-API-Key, etc.)
         headers = {
@@ -1363,17 +1324,27 @@ def search_numista(current_user):
                 items = data
             
             # Filter and score results for relevance
-            query_words = query.lower().split()
+            query_lower = query.lower().strip()
+            query_words = query_lower.split()
             scored_items = []
+            
+            # Detect if query looks like a country name (for better filtering)
+            common_countries = ['south africa', 'southafrica', 'usa', 'united states', 'united kingdom', 
+                               'uk', 'canada', 'australia', 'germany', 'france', 'italy', 'spain',
+                               'portugal', 'netherlands', 'belgium', 'switzerland', 'austria',
+                               'japan', 'china', 'india', 'brazil', 'argentina', 'mexico', 'russia']
+            is_country_search = query_lower in common_countries or any(country in query_lower for country in common_countries)
+            
+            # Detect if query looks like a denomination (contains currency terms)
+            currency_terms = ['rand', 'dollar', 'cent', 'euro', 'pound', 'yen', 'yuan', 'rupee', 'peso', 'real', 'franc']
+            is_denomination_search = any(term in query_lower for term in currency_terms)
             
             for item in items:
                 # Extract issuer/country name
                 country_name = ''
                 issuer = item.get('issuer', {})
-                issuer_code_result = ''
                 if isinstance(issuer, dict):
                     country_name = issuer.get('name', '') or issuer.get('en_name', '') or issuer.get('code', '')
-                    issuer_code_result = issuer.get('code', '')
                 elif isinstance(issuer, str):
                     country_name = issuer
                 
@@ -1381,13 +1352,49 @@ def search_numista(current_user):
                 score = 0
                 title_lower = item.get('title', '').lower()
                 country_lower = country_name.lower()
+                description_lower = (item.get('description', '') or '').lower()
                 
-                # Higher score for matches in country/issuer name
-                for word in query_words:
-                    if word in country_lower:
-                        score += 10
-                    if word in title_lower:
-                        score += 2
+                # Score based on query type
+                if is_country_search:
+                    # For country searches, heavily weight country matches
+                    for word in query_words:
+                        if word in country_lower:
+                            score += 20  # High weight for country matches
+                        elif word in title_lower:
+                            score += 3
+                        elif word in description_lower:
+                            score += 1
+                    
+                    # Penalize results that don't match the country at all
+                    if not any(word in country_lower for word in query_words):
+                        score -= 15  # Heavy penalty for non-matching countries
+                elif is_denomination_search:
+                    # For denomination searches, prioritize title matches (denomination usually in title)
+                    for word in query_words:
+                        if word in title_lower:
+                            score += 15  # High weight for title/denomination matches
+                        if word in country_lower:
+                            score += 5  # Medium weight for country if it matches
+                        elif word in description_lower:
+                            score += 2
+                    
+                    # For "1 Rand" type searches, prioritize South African results
+                    if 'rand' in query_lower and 'south' in country_lower or 'africa' in country_lower:
+                        score += 10  # Bonus for South Africa when searching Rand
+                    elif 'rand' in query_lower and 'south' not in country_lower and 'africa' not in country_lower:
+                        score -= 10  # Penalty for non-South African results when searching Rand
+                else:
+                    # General search - balanced scoring
+                    for word in query_words:
+                        if word in title_lower:
+                            score += 5
+                        if word in country_lower:
+                            score += 5
+                        elif word in description_lower:
+                            score += 2
+                
+                # Ensure score is not negative
+                score = max(0, score)
                 
                 # Extract year from min_year/max_year or year field
                 year = item.get('year') or item.get('min_year') or item.get('max_year')
@@ -1405,7 +1412,6 @@ def search_numista(current_user):
                 item_category = item.get('category', category)
                 
                 # Numista URL format from swagger.yaml example: https://en.numista.com/catalogue/pieces{id}.html
-                # Also try the shorter format: https://en.numista.com/{id} (both should work)
                 item_id = item.get('id')
                 numista_url = ''
                 if item_id:
@@ -1427,16 +1433,15 @@ def search_numista(current_user):
                     'diameter': item.get('size', '')  # Numista v3 uses 'size' for diameter
                 })
             
-            # Sort by relevance score (highest first) and take top 10
+            # Sort by relevance score (highest first)
             scored_items.sort(key=lambda x: x['score'], reverse=True)
             
-            # Filter out results with very low relevance (score < 2) if we used text search
-            # If we used issuer parameter, all results should be relevant
-            if not issuer_code:
-                # Text search - filter out irrelevant results
-                scored_items = [item for item in scored_items if item['score'] >= 2]
+            # Filter out results with low relevance (score < 5 for country searches, < 3 for others)
+            threshold = 5 if is_country_search else 3
+            scored_items = [item for item in scored_items if item['score'] >= threshold]
             
-            results = [item for item in scored_items[:10] if item['id']]  # Take top 10
+            # Take top 10 results
+            results = [item for item in scored_items[:10] if item['id']]
             
             # Remove score from results before returning
             for result in results:
