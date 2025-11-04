@@ -3081,6 +3081,10 @@
             const checkedBoxes = document.querySelectorAll('.item-checkbox:checked');
             const count = checkedBoxes.length;
             
+            if (!bulkActionsToolbar || !bulkSelectedCount) {
+                return; // Elements don't exist, skip
+            }
+            
             if (count > 0) {
                 bulkActionsToolbar.classList.remove('hidden');
                 bulkSelectedCount.textContent = `${count} item${count !== 1 ? 's' : ''} selected`;
@@ -3437,17 +3441,37 @@
     }
 
     function sortCollection(column, direction) {
-        // Use filtered results if available, otherwise use full collection
-        const dataToSort = currentFilteredResults.length > 0 ? currentFilteredResults : collectionData;
+        console.log('sortCollection called:', column, direction, 'currentSort:', currentSort);
+        
+        // ALWAYS sort from the original order, not from already-sorted data
+        // This ensures clicking again toggles between asc/desc correctly
+        let dataToSort;
+        if (originalFilteredOrder.length > 0) {
+            // Use the original filtered order as the base
+            dataToSort = [...originalFilteredOrder];
+            console.log('Using originalFilteredOrder, length:', dataToSort.length);
+        } else if (currentFilteredResults.length > 0) {
+            // If no original order stored, use current filtered results
+            dataToSort = [...currentFilteredResults];
+            console.log('Using currentFilteredResults, length:', dataToSort.length);
+        } else {
+            // Fallback to full collection
+            dataToSort = [...collectionData];
+            console.log('Using collectionData, length:', dataToSort.length);
+        }
         
         // If direction is null, restore original order
         if (direction === null) {
             if (originalFilteredOrder.length > 0) {
                 renderCollectionTable([...originalFilteredOrder]);
+                currentFilteredResults = [...originalFilteredOrder]; // Update filtered results
             } else {
                 renderCollectionTable([...dataToSort]);
+                currentFilteredResults = [...dataToSort];
             }
-            updateSortIndicators(); // Clear arrows when returning to original
+            setTimeout(() => {
+                updateSortIndicators(); // Clear arrows when returning to original
+            }, 50);
             return;
         }
 
@@ -3462,8 +3486,8 @@
                 // Ensure numbers are treated as numbers and handle N/A/null for sorting
                 valA = a[column];
                 valB = b[column];
-                valA = (valA === null || valA === 'N/A' || valA === undefined) ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valA);
-                valB = (valB === null || valB === 'N/A' || valB === undefined) ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valB);
+                valA = (valA === null || valA === 'N/A' || valA === undefined || valA === '') ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valA);
+                valB = (valB === null || valB === 'N/A' || valB === undefined || valB === '') ? (direction === 'asc' ? Infinity : -Infinity) : parseFloat(valB);
             } else if (column === 'country') {
                 // String comparison for country
                 valA = String(a[column] || '');
@@ -3481,7 +3505,11 @@
             }
         });
         
+        console.log('Sorted data length:', sortedData.length, 'First item:', sortedData[0]);
         renderCollectionTable(sortedData);
+        // Update filtered results to the sorted data so next sort works correctly
+        currentFilteredResults = [...sortedData];
+        
         // Update indicators after table is rendered
         setTimeout(() => {
             updateSortIndicators();
