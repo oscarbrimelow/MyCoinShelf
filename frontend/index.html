@@ -3249,16 +3249,25 @@
     
     // Update sort indicators on headers
     function updateSortIndicators() {
+        console.log('updateSortIndicators called, currentSort:', currentSort);
         const tableBody = document.getElementById('collection-table-body');
-        if (!tableBody) return;
+        if (!tableBody) {
+            console.warn('updateSortIndicators: table body not found');
+            return;
+        }
         
         const table = tableBody.closest('table');
-        if (!table) return;
+        if (!table) {
+            console.warn('updateSortIndicators: table not found');
+            return;
+        }
         
         const headers = table.querySelectorAll('th[data-sort-column]');
+        console.log('updateSortIndicators: found', headers.length, 'headers');
+        
         headers.forEach(header => {
             const column = header.getAttribute('data-sort-column');
-            const sortSpan = header.querySelector('.sort-indicator');
+            let sortSpan = header.querySelector('.sort-indicator');
             
             // Remove existing indicator
             if (sortSpan) {
@@ -3267,30 +3276,18 @@
             
             // Add indicator if this column is being sorted
             if (currentSort.column === column && currentSort.direction !== null) {
+                console.log('Adding indicator for column:', column, 'direction:', currentSort.direction);
                 const indicator = document.createElement('span');
-                indicator.className = 'sort-indicator ml-1 text-xs inline-block';
-                indicator.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+                indicator.className = 'sort-indicator';
+                indicator.textContent = currentSort.direction === 'asc' ? ' ↑' : ' ↓';
                 indicator.style.color = '#10b981'; // emerald-500
                 indicator.style.fontWeight = 'bold';
                 indicator.style.marginLeft = '4px';
+                indicator.style.display = 'inline-block';
                 
-                // For ID column, place after the text but before checkbox
-                // For other columns, append after text
-                if (column === 'id') {
-                    // Find the text node "ID" and insert after it
-                    const textNodes = Array.from(header.childNodes).filter(node => 
-                        node.nodeType === Node.TEXT_NODE && node.textContent.trim()
-                    );
-                    if (textNodes.length > 0) {
-                        const lastTextNode = textNodes[textNodes.length - 1];
-                        header.insertBefore(indicator, lastTextNode.nextSibling);
-                    } else {
-                        header.appendChild(indicator);
-                    }
-                } else {
-                    // For other columns, append to end
-                    header.appendChild(indicator);
-                }
+                // Simply append to the header - it will appear after the text
+                header.appendChild(indicator);
+                console.log('Indicator added to header:', column);
             }
         });
     }
@@ -3375,44 +3372,34 @@
             
             sortCollection(column, direction);
             currentSort = { column, direction };
-            updateSortIndicators(); // Update arrows after sorting
+            // Update indicators after a brief delay to ensure DOM is updated
+            setTimeout(() => {
+                updateSortIndicators();
+            }, 10);
         };
         
-        // Attach listeners directly to each header using mousedown to catch clicks earlier
+        // Attach listeners directly to each header - SIMPLE APPROACH
         headers.forEach((header, index) => {
             const column = header.getAttribute('data-sort-column');
             header.style.cursor = 'pointer';
-            header.style.userSelect = 'none'; // Prevent text selection
+            header.style.userSelect = 'none';
             header.title = `Click to sort by ${column}`;
             
-            // Remove any existing handler first
+            // Remove old handler if exists
             if (header._sortHandler) {
                 header.removeEventListener('click', header._sortHandler);
-                header.removeEventListener('mousedown', header._sortHandler);
             }
             
-            // Create handler function
+            // Simple click handler
             const headerClickHandler = function(e) {
-                // Don't trigger if clicking on checkbox
                 const target = e.target;
-                if (target && target.type === 'checkbox') {
+                
+                // Skip if clicking checkbox or button
+                if (target.type === 'checkbox' || target.tagName === 'BUTTON' || target.closest('input[type="checkbox"]') || target.closest('button')) {
                     return;
                 }
                 
-                // Don't trigger if clicking inside a checkbox
-                if (target && target.closest('input[type="checkbox"]')) {
-                    return;
-                }
-                
-                // Don't trigger on buttons
-                if (target && (target.tagName === 'BUTTON' || target.closest('button'))) {
-                    return;
-                }
-                
-                console.log('✓ Click on sortable header:', column, 'target:', target.tagName, target.className);
-                
-                e.preventDefault();
-                e.stopPropagation();
+                console.log('HEADER CLICKED:', column);
                 
                 let direction = 'asc';
                 if (currentSort.column === column) {
@@ -3425,36 +3412,24 @@
                     }
                 }
                 
-                console.log('✓ Sorting by:', column, 'direction:', direction);
+                console.log('SORTING:', column, direction);
                 sortCollection(column, direction);
                 currentSort = { column, direction };
-                updateSortIndicators(); // Update arrows after sorting
-                
-                return false
+                // Update indicators after a brief delay to ensure DOM is updated
+                setTimeout(() => {
+                    updateSortIndicators();
+                }, 10);
             };
             
-            // Store handler on the element
             header._sortHandler = headerClickHandler;
-            
-            // Attach to both click and mousedown for better reliability
-            header.addEventListener('click', headerClickHandler, true); // Use capture phase
-            header.addEventListener('mousedown', function(e) {
-                if (e.target && e.target.type !== 'checkbox' && !e.target.closest('input[type="checkbox"]')) {
-                    e.preventDefault(); // Prevent text selection
-                }
-            });
+            header.addEventListener('click', headerClickHandler);
         });
         
-        // Also attach to table as backup using event delegation with capture
-        table.addEventListener('click', sortHandler, true); // Use capture phase
+        // Also attach table-level delegation as backup
+        table.addEventListener('click', sortHandler);
         
-        // DEBUG: Log all clicks on table to see what's happening
-        table.addEventListener('click', function(e) {
-            console.log('DEBUG: Table click detected - target:', e.target.tagName, 'class:', e.target.className, 'id:', e.target.id);
-        }, false);
-        
-        console.log('✓ Sort event listeners attached: direct to', headers.length, 'headers (capture) + table delegation (capture)');
-        console.log('✓ Headers found:', Array.from(headers).map(h => h.getAttribute('data-sort-column')).join(', '));
+        console.log('✓ Sort listeners attached to', headers.length, 'headers');
+        console.log('✓ Headers:', Array.from(headers).map(h => h.getAttribute('data-sort-column')).join(', '));
     }
 
     function sortCollection(column, direction) {
@@ -3503,7 +3478,10 @@
         });
         
         renderCollectionTable(sortedData);
-        updateSortIndicators(); // Update arrows after rendering
+        // Update indicators after table is rendered
+        setTimeout(() => {
+            updateSortIndicators();
+        }, 50);
     }
 
 
