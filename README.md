@@ -161,7 +161,7 @@ When using mass import, use the following format:
 - **Email:** Resend API
 - **Authentication:** JWT tokens
 - **Charts:** Chart.js, Google Charts
-- **Deployment:** Render (Backend), Netlify (Frontend)
+- **Deployment:** Render (Backend and Frontend)
 
 ---
 
