@@ -3247,6 +3247,54 @@
     let sortHandler = null;
     let sortTableElement = null;
     
+    // Update sort indicators on headers
+    function updateSortIndicators() {
+        const tableBody = document.getElementById('collection-table-body');
+        if (!tableBody) return;
+        
+        const table = tableBody.closest('table');
+        if (!table) return;
+        
+        const headers = table.querySelectorAll('th[data-sort-column]');
+        headers.forEach(header => {
+            const column = header.getAttribute('data-sort-column');
+            const sortSpan = header.querySelector('.sort-indicator');
+            
+            // Remove existing indicator
+            if (sortSpan) {
+                sortSpan.remove();
+            }
+            
+            // Add indicator if this column is being sorted
+            if (currentSort.column === column && currentSort.direction !== null) {
+                const indicator = document.createElement('span');
+                indicator.className = 'sort-indicator ml-1 text-xs inline-block';
+                indicator.textContent = currentSort.direction === 'asc' ? '↑' : '↓';
+                indicator.style.color = '#10b981'; // emerald-500
+                indicator.style.fontWeight = 'bold';
+                indicator.style.marginLeft = '4px';
+                
+                // For ID column, place after the text but before checkbox
+                // For other columns, append after text
+                if (column === 'id') {
+                    // Find the text node "ID" and insert after it
+                    const textNodes = Array.from(header.childNodes).filter(node => 
+                        node.nodeType === Node.TEXT_NODE && node.textContent.trim()
+                    );
+                    if (textNodes.length > 0) {
+                        const lastTextNode = textNodes[textNodes.length - 1];
+                        header.insertBefore(indicator, lastTextNode.nextSibling);
+                    } else {
+                        header.appendChild(indicator);
+                    }
+                } else {
+                    // For other columns, append to end
+                    header.appendChild(indicator);
+                }
+            }
+        });
+    }
+    
     function attachSortEventListeners() {
         // Remove old listener if it exists
         if (sortTableElement && sortHandler) {
@@ -3276,6 +3324,9 @@
         console.log('Found', headers.length, 'sortable headers');
         
         sortTableElement = table;
+        
+        // Update sort indicators
+        updateSortIndicators();
         
         // Create handler using event delegation on the table
         sortHandler = function(event) {
@@ -3324,27 +3375,44 @@
             
             sortCollection(column, direction);
             currentSort = { column, direction };
+            updateSortIndicators(); // Update arrows after sorting
         };
         
-        // Attach listeners directly to each header
+        // Attach listeners directly to each header using mousedown to catch clicks earlier
         headers.forEach((header, index) => {
             const column = header.getAttribute('data-sort-column');
             header.style.cursor = 'pointer';
+            header.style.userSelect = 'none'; // Prevent text selection
             header.title = `Click to sort by ${column}`;
             
-            // Create a named function for this header so we can remove it later
+            // Remove any existing handler first
+            if (header._sortHandler) {
+                header.removeEventListener('click', header._sortHandler);
+                header.removeEventListener('mousedown', header._sortHandler);
+            }
+            
+            // Create handler function
             const headerClickHandler = function(e) {
                 // Don't trigger if clicking on checkbox
-                if (e.target && (e.target.type === 'checkbox' || e.target.tagName === 'INPUT')) {
+                const target = e.target;
+                if (target && target.type === 'checkbox') {
                     return;
                 }
                 
                 // Don't trigger if clicking inside a checkbox
-                if (e.target && e.target.closest('input[type="checkbox"]')) {
+                if (target && target.closest('input[type="checkbox"]')) {
                     return;
                 }
                 
-                console.log('✓ Direct click on header:', column, 'index:', index);
+                // Don't trigger on buttons
+                if (target && (target.tagName === 'BUTTON' || target.closest('button'))) {
+                    return;
+                }
+                
+                console.log('✓ Click on sortable header:', column, 'target:', target.tagName, target.className);
+                
+                e.preventDefault();
+                e.stopPropagation();
                 
                 let direction = 'asc';
                 if (currentSort.column === column) {
@@ -3360,16 +3428,33 @@
                 console.log('✓ Sorting by:', column, 'direction:', direction);
                 sortCollection(column, direction);
                 currentSort = { column, direction };
+                updateSortIndicators(); // Update arrows after sorting
+                
+                return false
             };
             
-            // Store handler on the element for potential removal later
+            // Store handler on the element
             header._sortHandler = headerClickHandler;
-            header.addEventListener('click', headerClickHandler);
+            
+            // Attach to both click and mousedown for better reliability
+            header.addEventListener('click', headerClickHandler, true); // Use capture phase
+            header.addEventListener('mousedown', function(e) {
+                if (e.target && e.target.type !== 'checkbox' && !e.target.closest('input[type="checkbox"]')) {
+                    e.preventDefault(); // Prevent text selection
+                }
+            });
         });
         
-        // Also attach to table as backup using event delegation
-        table.addEventListener('click', sortHandler);
-        console.log('✓ Sort event listeners attached: direct to', headers.length, 'headers + table delegation');
+        // Also attach to table as backup using event delegation with capture
+        table.addEventListener('click', sortHandler, true); // Use capture phase
+        
+        // DEBUG: Log all clicks on table to see what's happening
+        table.addEventListener('click', function(e) {
+            console.log('DEBUG: Table click detected - target:', e.target.tagName, 'class:', e.target.className, 'id:', e.target.id);
+        }, false);
+        
+        console.log('✓ Sort event listeners attached: direct to', headers.length, 'headers (capture) + table delegation (capture)');
+        console.log('✓ Headers found:', Array.from(headers).map(h => h.getAttribute('data-sort-column')).join(', '));
     }
 
     function sortCollection(column, direction) {
@@ -3383,6 +3468,7 @@
             } else {
                 renderCollectionTable([...dataToSort]);
             }
+            updateSortIndicators(); // Clear arrows when returning to original
             return;
         }
 
@@ -3417,6 +3503,7 @@
         });
         
         renderCollectionTable(sortedData);
+        updateSortIndicators(); // Update arrows after rendering
     }
 
 
