@@ -2422,7 +2422,7 @@
             // Map type to Numista format
             const numistaType = itemType.includes('banknote') ? 'banknote' : 'coin';
             
-            const response = await fetch(`/api/search-numista?q=${encodeURIComponent(query)}&type=${numistaType}`, {
+            const response = await fetch(`${API_BASE_URL}/search-numista?q=${encodeURIComponent(query)}&type=${numistaType}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -5567,7 +5567,7 @@
         
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`/api/search-numista?q=${encodeURIComponent(query)}&type=${itemType}`, {
+            const response = await fetch(`${API_BASE_URL}/search-numista?q=${encodeURIComponent(query)}&type=${itemType}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -7104,11 +7104,21 @@
     async function fetchMetalPrices(forceRefresh = false) {
         const now = Date.now();
         
+        // Ensure metalPrices object exists and has default values
+        if (!metalPrices || typeof metalPrices !== 'object') {
+            metalPrices = { 
+                gold_usd_per_oz: 2300, 
+                silver_usd_per_oz: 29.5,
+                gold_zar_per_oz: 2300 * zarExchangeRate,
+                silver_zar_per_oz: 29.5 * zarExchangeRate
+            };
+        }
+        
         // Check if we have cached prices that are still valid
         const timeSinceLastUpdate = now - lastPriceUpdate;
         console.log(`Cache check: ${timeSinceLastUpdate}ms since last update, cache duration: ${PRICE_CACHE_DURATION}ms`);
         
-        if (!forceRefresh && timeSinceLastUpdate < PRICE_CACHE_DURATION && metalPrices.gold_usd_per_oz > 0) {
+        if (!forceRefresh && timeSinceLastUpdate < PRICE_CACHE_DURATION && metalPrices.gold_usd_per_oz > 0 && metalPrices.silver_usd_per_oz > 0) {
             console.log('✅ Using cached metal prices (last updated:', new Date(lastPriceUpdate).toLocaleTimeString(), ')');
             renderBullionSection();
             return;
@@ -7128,17 +7138,29 @@
                 const data = await res.json();
                 metalPrices = {
                     gold_usd_per_oz: data.gold_usd_per_oz || 2300,
-                    silver_usd_per_oz: data.silver_usd_per_oz || 29.5
+                    silver_usd_per_oz: data.silver_usd_per_oz || 29.5,
+                    gold_zar_per_oz: data.gold_zar_per_oz || (data.gold_usd_per_oz ? data.gold_usd_per_oz * zarExchangeRate : 0),
+                    silver_zar_per_oz: data.silver_zar_per_oz || (data.silver_usd_per_oz ? data.silver_usd_per_oz * zarExchangeRate : 0)
                 };
                 lastPriceUpdate = now;
                 console.log(`Metal prices updated: Gold $${metalPrices.gold_usd_per_oz}/oz, Silver $${metalPrices.silver_usd_per_oz}/oz (Source: ${data.source || 'unknown'})`);
             } else {
                 console.warn('Failed to fetch metal prices, using fallback values');
-                metalPrices = { gold_usd_per_oz: 2300, silver_usd_per_oz: 29.5 };
+                metalPrices = { 
+                    gold_usd_per_oz: 2300, 
+                    silver_usd_per_oz: 29.5,
+                    gold_zar_per_oz: 2300 * zarExchangeRate,
+                    silver_zar_per_oz: 29.5 * zarExchangeRate
+                };
             }
         } catch (error) {
             console.error('Error fetching metal prices:', error);
-            metalPrices = { gold_usd_per_oz: 2300, silver_usd_per_oz: 29.5 };
+            metalPrices = { 
+                gold_usd_per_oz: 2300, 
+                silver_usd_per_oz: 29.5,
+                gold_zar_per_oz: 2300 * zarExchangeRate,
+                silver_zar_per_oz: 29.5 * zarExchangeRate
+            };
         } finally {
             isFetchingPrices = false; // Reset the flag
         }
@@ -7479,6 +7501,12 @@
             basePrice = metal === 'gold' ? metalPrices.gold_usd_per_oz : metalPrices.silver_usd_per_oz;
         } else if (currency === 'ZAR') {
             basePrice = metal === 'gold' ? metalPrices.gold_zar_per_oz : metalPrices.silver_zar_per_oz;
+        }
+        
+        // Handle undefined/null values - return default prices
+        if (!basePrice || isNaN(basePrice) || basePrice <= 0) {
+            // Default fallback prices
+            basePrice = metal === 'gold' ? 2300 : 29.5;
         }
         
         if (unit === 'g') {
