@@ -1667,6 +1667,48 @@ def clear_all_coins(current_user):
     return jsonify({'message': f'{num_deleted} coins deleted successfully.'}), 200
 
 # --- Wishlist API Endpoints ---
+def fetch_numista_item_image(numista_id):
+    """Fetch image URL from Numista API for a specific item ID"""
+    try:
+        api_key = app.config.get('NUMISTA_API_KEY')
+        if not api_key:
+            return None
+        
+        # Numista API endpoint to get individual type details: /types/{id}
+        item_url = f"https://api.numista.com/v3/types/{numista_id}"
+        headers = {
+            'Numista-API-Key': api_key,
+            'Accept': 'application/json'
+        }
+        
+        # Use cloudscraper if available, otherwise requests
+        if CLOUDSCRAPER_AVAILABLE:
+            scraper = cloudscraper.create_scraper()
+            response = scraper.get(item_url, headers=headers, timeout=5)
+        else:
+            response = requests.get(item_url, headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            # Extract image URLs - try both formats (top-level and nested)
+            # Format 1: Top-level fields (from search results)
+            obverse_thumbnail = data.get('obverse_thumbnail', '')
+            reverse_thumbnail = data.get('reverse_thumbnail', '')
+            # Format 2: Nested structure (from individual item details)
+            if not obverse_thumbnail and isinstance(data.get('obverse'), dict):
+                obverse_thumbnail = data.get('obverse', {}).get('thumbnail', '')
+            if not reverse_thumbnail and isinstance(data.get('reverse'), dict):
+                reverse_thumbnail = data.get('reverse', {}).get('thumbnail', '')
+            # Prefer obverse, fallback to reverse
+            image_url = obverse_thumbnail or reverse_thumbnail or ''
+            return image_url if image_url else None
+        else:
+            print(f"Failed to fetch Numista item {numista_id}: HTTP {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"Error fetching Numista image for item {numista_id}: {e}")
+        return None
+
 @app.route('/api/wishlist', methods=['GET'])
 @jwt_required
 def get_wishlist(current_user):
@@ -1689,6 +1731,20 @@ def get_wishlist(current_user):
         result = []
         for item in unique_items:
             try:
+                image_url = getattr(item, 'image_url', None)
+                numista_id = getattr(item, 'numista_id', None)
+                
+                # If item has numista_id but no image_url, try to fetch it
+                if numista_id and not image_url:
+                    print(f"Wishlist item {item.id} has numista_id {numista_id} but no image_url, fetching from Numista...")
+                    fetched_image_url = fetch_numista_item_image(numista_id)
+                    if fetched_image_url:
+                        # Update the database with the fetched image URL
+                        item.image_url = fetched_image_url
+                        db.session.commit()
+                        image_url = fetched_image_url
+                        print(f"Successfully fetched and saved image URL for wishlist item {item.id}")
+                
                 result.append({
                     'id': item.id,
                     'type': getattr(item, 'type', None),
@@ -1697,12 +1753,12 @@ def get_wishlist(current_user):
                     'denomination': getattr(item, 'denomination', None),
                     'notes': getattr(item, 'notes', None),
                     'referenceUrl': getattr(item, 'referenceUrl', None),
-                    'numista_id': getattr(item, 'numista_id', None),
+                    'numista_id': numista_id,
                     'description': getattr(item, 'description', None),
                     'composition': getattr(item, 'composition', None),
                     'weight': getattr(item, 'weight', None),
                     'diameter': getattr(item, 'diameter', None),
-                    'image_url': getattr(item, 'image_url', None),
+                    'image_url': image_url,
                     'created_at': item.created_at.isoformat() if hasattr(item, 'created_at') and item.created_at else None
                 })
             except Exception as item_error:
