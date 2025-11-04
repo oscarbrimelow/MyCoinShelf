@@ -659,17 +659,8 @@ def internal_error(error):
     return send_from_directory('frontend', 'index.html')
 
 # --- Routes ---
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve_spa(path):
-    # Don't intercept API routes - let them be handled by their specific routes
-    if path.startswith('api/'):
-        return jsonify({'error': 'API endpoint not found'}), 404
-    if path != "" and os.path.exists(os.path.join("frontend", path)):
-        return send_from_directory('frontend', path)
-    else:
-        return send_from_directory('frontend', 'index.html')
+# NOTE: All API routes must be defined BEFORE the catch-all route
+# Flask matches routes in order, so the catch-all route must come last
 
 @app.route('/api/test_email', methods=['POST'])
 def test_email():
@@ -1842,6 +1833,20 @@ def migrate_database():
         db.session.rollback()
         print(f"Migration error: {e}")
         return jsonify({'message': f'Migration failed: {str(e)}'}), 500
+
+# --- Catch-all route for SPA (MUST BE LAST) ---
+# This route must come after all API routes because Flask matches routes in order
+# If placed before API routes, it will intercept all requests including /api/*
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_spa(path):
+    # Don't intercept API routes - let them be handled by their specific routes
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    if path != "" and os.path.exists(os.path.join("frontend", path)):
+        return send_from_directory('frontend', path)
+    else:
+        return send_from_directory('frontend', 'index.html')
 
 # --- Database Initialization (Run once to create tables) ---
 # NOTE: @app.before_request is used instead of @app.before_first_request due to Flask version compatibility.
