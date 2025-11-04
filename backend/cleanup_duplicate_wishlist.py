@@ -6,8 +6,7 @@ Usage:
     python cleanup_duplicate_wishlist.py
 """
 
-from app import app, db
-from models import WishlistItem, User
+from app import app, db, WishlistItem, User
 
 def cleanup_duplicate_wishlist_items():
     """Remove duplicate wishlist items based on country, denomination, year, and numista_id"""
