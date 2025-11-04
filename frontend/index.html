@@ -1676,7 +1676,7 @@
 
             "netherlands": "Europe", "united kingdom": "Europe", "belgium": "Europe",
             "eu": "Europe", "ireland": "Europe", "spain": "Europe", "portugal": "Europe",
-            "isle of man": "Europe", "germany": "Germany", "bulgaria": "Europe",
+            "isle of man": "Europe", "germany": "Europe", "bulgaria": "Europe",
             "france": "Europe", "croatia": "Europe", "moldova": "Europe",
             "ukraine": "Europe", "denmark": "Europe", "finland": "Europe",
             "norway": "Europe", "san marino": "Europe", "switzerland": "Europe",
@@ -1719,7 +1719,7 @@
             "german democratic republic": "Ancient",
         };
         const normalizedCountry = countryName.toLowerCase().trim();
-        return countryToRegionMap.get(normalizedCountry, "Other");
+        return countryToRegionMap[normalizedCountry] || "Other";
     }
 
     // --- SECURITY UTILITIES ---
@@ -1901,8 +1901,10 @@
             // Region and isHistorical are now calculated by the backend upon add/update.
             // We just ensure the data is present in case older data exists or for consistency.
             collectionData.forEach(item => {
-                if (!item.region || item.region === "") { // Ensure region is not null/empty
-                    item.region = getRegionForCountry(item.country);
+                // Always ensure region is correct based on country (fixes incorrect regions like "Germany")
+                const correctRegion = getRegionForCountry(item.country);
+                if (!item.region || item.region === "" || item.region !== correctRegion) {
+                    item.region = correctRegion;
                 }
                 // If isHistorical is not explicitly set by backend or is missing
                 if (typeof item.isHistorical === 'undefined' || item.isHistorical === null) {
@@ -3231,26 +3233,48 @@
         }
     }
 
+    // Store sort handler to allow removal
+    let sortHandler = null;
+    
     function attachSortEventListeners() {
-        document.querySelectorAll('.data-table th[data-sort-column]').forEach(header => {
-            header.addEventListener('click', () => {
-                const column = header.dataset.sortColumn;
-                let direction = 'asc';
-
-                // Three-state toggle: asc -> desc -> original (null)
-                if (currentSort.column === column) {
-                    if (currentSort.direction === 'asc') {
-                        direction = 'desc';
-                    } else if (currentSort.direction === 'desc') {
-                        direction = null; // Original/unsorted
-                    } else {
-                        direction = 'asc'; // From null back to asc
-                    }
-                }
-
-                sortCollection(column, direction);
-                currentSort = { column, direction };
+        // Remove old listeners if they exist
+        if (sortHandler) {
+            document.querySelectorAll('.data-table th[data-sort-column]').forEach(header => {
+                header.removeEventListener('click', sortHandler);
             });
+        }
+        
+        // Create new handler
+        sortHandler = function(event) {
+            // Don't trigger if clicking on checkbox inside header
+            if (event.target.type === 'checkbox') {
+                return;
+            }
+            
+            const header = event.currentTarget;
+            const column = header.dataset.sortColumn;
+            if (!column) return;
+            
+            let direction = 'asc';
+
+            // Three-state toggle: asc -> desc -> original (null)
+            if (currentSort.column === column) {
+                if (currentSort.direction === 'asc') {
+                    direction = 'desc';
+                } else if (currentSort.direction === 'desc') {
+                    direction = null; // Original/unsorted
+                } else {
+                    direction = 'asc'; // From null back to asc
+                }
+            }
+
+            sortCollection(column, direction);
+            currentSort = { column, direction };
+        };
+        
+        // Attach to all sortable headers
+        document.querySelectorAll('.data-table th[data-sort-column]').forEach(header => {
+            header.addEventListener('click', sortHandler);
         });
     }
 
