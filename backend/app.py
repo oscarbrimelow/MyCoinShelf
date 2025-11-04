@@ -1224,23 +1224,35 @@ def search_numista(current_user):
             'limit': 10  # Limit results
         }
         
+        # Numista is protected by Cloudflare - need browser-like headers to bypass challenge
+        # Use realistic browser headers to avoid Cloudflare bot detection
+        browser_headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Referer': 'https://en.numista.com/',
+            'Origin': 'https://en.numista.com',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin'
+        }
+        
         # Try multiple header formats - Numista API might be picky about the format
         headers_variants = [
             {
-                'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
-                'Accept': 'application/json',
+                **browser_headers,
                 'Authorization': f'Numista {api_key}',
                 'X-Client-ID': str(client_id)
             },
             {
-                'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
-                'Accept': 'application/json',
+                **browser_headers,
                 'Authorization': f'Bearer {api_key}',
                 'X-Client-ID': str(client_id)
             },
             {
-                'User-Agent': 'CoinShelf/1.0 (OscarBrimelow)',
-                'Accept': 'application/json',
+                **browser_headers,
                 'X-API-Key': api_key,
                 'X-Client-ID': str(client_id)
             }
@@ -1253,6 +1265,10 @@ def search_numista(current_user):
             response = requests.get(search_url, params=params, headers=headers, timeout=10)
             response_text = response.text if response.text else ""
             print(f"DEBUG: Variant {i+1} - status: {response.status_code}, preview: {response_text[:200]}")
+            # Check if we got Cloudflare challenge page
+            if '<!DOCTYPE html>' in response_text and 'Just a moment' in response_text:
+                print(f"DEBUG: Variant {i+1} - Got Cloudflare challenge page, trying next...")
+                continue
             if response.status_code == 200:
                 print(f"DEBUG: Success with header variant {i+1}!")
                 break
@@ -1261,7 +1277,7 @@ def search_numista(current_user):
                 break
         
         # If that doesn't work, try with key in query params
-        if not response or response.status_code == 401 or response.status_code == 403 or 'Missing API Key' in response_text or 'missing' in response_text.lower():
+        if not response or response.status_code == 401 or response.status_code == 403 or 'Missing API Key' in response_text or 'missing' in response_text.lower() or ('<!DOCTYPE html>' in response_text and 'Just a moment' in response_text):
             print(f"DEBUG: Header auth failed, trying with 'key' in query params...")
             params = {
                 'key': api_key,
