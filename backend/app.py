@@ -311,8 +311,12 @@ def send_email(to_email, subject, html_content, text_content=None):
     """Send email using Resend or fallback to SMTP"""
     try:
         if RESEND_AVAILABLE:
-            # Use Resend
-            resend.api_key = os.environ.get('RESEND_API_KEY', 're_iuKwsuj8_ANTNfGNb2w5BwHQqCtz1DxvL')
+            # Use Resend - require API key from environment variable for security
+            resend_api_key = os.environ.get('RESEND_API_KEY')
+            if not resend_api_key:
+                print("Warning: RESEND_API_KEY not set in environment variables. Email functionality disabled.")
+                return False
+            resend.api_key = resend_api_key
             from_email = os.environ.get('RESEND_FROM_EMAIL', 'noreply@mycoinshelf.com')
             
             params = {

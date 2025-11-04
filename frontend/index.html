@@ -1722,6 +1722,85 @@
         return countryToRegionMap.get(normalizedCountry, "Other");
     }
 
+    // --- SECURITY UTILITIES ---
+    // Escape HTML to prevent XSS attacks
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // Sanitize input by trimming and escaping
+    function sanitizeInput(input) {
+        if (typeof input !== 'string') return input;
+        return escapeHtml(input.trim());
+    }
+
+    // Validate email format
+    function validateEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    // Validate password strength
+    function validatePassword(password) {
+        if (!password) return { valid: false, message: 'Password is required' };
+        if (password.length < 6) return { valid: false, message: 'Password must be at least 6 characters long' };
+        return { valid: true, message: '' };
+    }
+
+    // Validate URL format
+    function validateUrl(url) {
+        if (!url) return true; // URL is optional
+        try {
+            new URL(url);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    // Sanitize text content for safe display (prevents XSS)
+    function safeSetTextContent(element, text) {
+        if (element) {
+            element.textContent = text || '';
+        }
+    }
+
+    // Safe innerHTML with sanitization
+    function safeSetInnerHTML(element, html) {
+        if (element && html) {
+            // Basic sanitization - escape all HTML
+            element.textContent = html;
+        }
+    }
+
+    // --- LOADING STATE MANAGEMENT ---
+    function setLoadingState(elementId, isLoading, loadingText = 'Loading...') {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        
+        if (isLoading) {
+            element.disabled = true;
+            const originalText = element.dataset.originalText || element.textContent;
+            element.dataset.originalText = originalText;
+            element.innerHTML = `<span class="inline-flex items-center"><svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>${loadingText}</span>`;
+        } else {
+            element.disabled = false;
+            const originalText = element.dataset.originalText;
+            if (originalText) {
+                element.textContent = originalText;
+                delete element.dataset.originalText;
+            }
+        }
+    }
+
     // Custom confirmation modal instead of alert/confirm
     function showCustomConfirm(message, onConfirmCallback) {
         const confirmModal = document.getElementById('custom-confirm-modal');
@@ -1736,7 +1815,8 @@
         const newConfirmCancelBtn = document.getElementById('confirm-cancel');
 
 
-        confirmMessage.innerText = message;
+        // Use textContent instead of innerText for security (prevents XSS)
+        safeSetTextContent(confirmMessage, message);
         confirmModal.classList.remove('hidden');
         confirmModal.classList.add('flex');
         setTimeout(() => {
@@ -1989,35 +2069,96 @@
             return;
         }
 
+        const submitBtn = e.target.closest('form')?.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            setLoadingState(submitBtn.id || 'submit-btn', true, 'Saving...');
+        }
+
+        // Validation (before async operations)
         const itemId = document.getElementById('item-id').value;
-        const countryValue = document.getElementById('country').value.trim();
+        const countryValue = sanitizeInput(document.getElementById('country').value);
         const typeValue = document.getElementById('type').value;
         const isBullion = (typeValue === 'Gold Bullion' || typeValue === 'Silver Bullion');
 
-        // For bullion, only country is required (denomination is auto-set to type)
+        // Validation: Country is required
         if (!countryValue) {
+            if (submitBtn) setLoadingState(submitBtn.id || 'submit-btn', false);
             showCustomConfirm('Country is a required field.', () => {});
             return;
         }
 
-        // For non-bullion items, denomination is required
-        if (!isBullion && !document.getElementById('denomination').value.trim()) {
+        // Validation: Denomination required for non-bullion items
+        const denominationValue = sanitizeInput(document.getElementById('denomination').value);
+        if (!isBullion && !denominationValue) {
+            if (submitBtn) setLoadingState(submitBtn.id || 'submit-btn', false);
             showCustomConfirm('Country and Denomination are required fields.', () => {});
             return;
+        }
+
+        // Validation: Year must be valid if provided
+        const yearValue = document.getElementById('year').value;
+        let year = null;
+        if (yearValue) {
+            year = parseInt(yearValue);
+            if (isNaN(year) || year < 0 || year > new Date().getFullYear() + 10) {
+                if (submitBtn) setLoadingState(submitBtn.id || 'submit-btn', false);
+                showCustomConfirm('Please enter a valid year.', () => {});
+                return;
+            }
+        }
+
+        // Validation: Quantity must be positive
+        const quantityValue = parseInt(document.getElementById('quantity').value) || 1;
+        if (quantityValue < 1) {
+            if (submitBtn) setLoadingState(submitBtn.id || 'submit-btn', false);
+            showCustomConfirm('Quantity must be at least 1.', () => {});
+            return;
+        }
+
+        // Validation: Value must be non-negative
+        const valueValue = parseFloat(document.getElementById('value').value) || 0;
+        if (valueValue < 0) {
+            if (submitBtn) setLoadingState(submitBtn.id || 'submit-btn', false);
+            showCustomConfirm('Value cannot be negative.', () => {});
+            return;
+        }
+
+        // Validation: Reference URL format
+        const referenceUrlValue = sanitizeInput(document.getElementById('referenceUrl').value);
+        if (referenceUrlValue && !validateUrl(referenceUrlValue)) {
+            if (submitBtn) setLoadingState(submitBtn.id || 'submit-btn', false);
+            showCustomConfirm('Please enter a valid URL for the reference link.', () => {});
+            return;
+        }
+
+        // Validation: Weight and purity for bullion
+        const weightGrams = document.getElementById('weight_grams').value;
+        const purityPercent = document.getElementById('purity_percent').value;
+        if (isBullion) {
+            if (weightGrams && (parseFloat(weightGrams) <= 0 || parseFloat(weightGrams) > 100000)) {
+                if (submitBtn) setLoadingState(submitBtn.id || 'submit-btn', false);
+                showCustomConfirm('Please enter a valid weight in grams (0-100000).', () => {});
+                return;
+            }
+            if (purityPercent && (parseFloat(purityPercent) <= 0 || parseFloat(purityPercent) > 100)) {
+                if (submitBtn) setLoadingState(submitBtn.id || 'submit-btn', false);
+                showCustomConfirm('Please enter a valid purity percentage (0-100).', () => {});
+                return;
+            }
         }
 
         const itemData = {
             type: typeValue,
             country: countryValue,
-            year: document.getElementById('year').value ? parseInt(document.getElementById('year').value) : null,
-            denomination: isBullion ? typeValue : document.getElementById('denomination').value.trim(),
-            value: parseFloat(document.getElementById('value').value) || 0,
-            quantity: parseInt(document.getElementById('quantity').value) || 1,
-            notes: document.getElementById('notes').value.trim(),
-            referenceUrl: document.getElementById('referenceUrl').value.trim(),
-            localImagePath: document.getElementById('localImagePath').value.trim() || "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image",
-            weight_grams: parseFloat(document.getElementById('weight_grams').value) || null,
-            purity_percent: parseFloat(document.getElementById('purity_percent').value) || null
+            year: year,
+            denomination: isBullion ? typeValue : denominationValue,
+            value: valueValue,
+            quantity: quantityValue,
+            notes: sanitizeInput(document.getElementById('notes').value),
+            referenceUrl: referenceUrlValue,
+            localImagePath: sanitizeInput(document.getElementById('localImagePath').value) || "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image",
+            weight_grams: weightGrams ? parseFloat(weightGrams) : null,
+            purity_percent: purityPercent ? parseFloat(purityPercent) : null
         };
 
         const method = itemId ? 'PUT' : 'POST';
@@ -2047,8 +2188,13 @@
             loadCollectionFromBackend(); // Reload data after successful save
         } catch (error) {
             console.error("Error saving item:", error);
-            showCustomConfirm(`Failed to save item: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+            // Sanitize error message to prevent XSS
+            const errorMessage = error.message || 'An unexpected error occurred';
+            showCustomConfirm(`Failed to save item: ${escapeHtml(errorMessage)}. Please check your connection and try again.`, () => {});
         } finally {
+            if (submitBtn) {
+                setLoadingState(submitBtn.id || 'submit-btn', false);
+            }
             closeModal(document.getElementById('item-modal'), document.getElementById('item-modal').querySelector('div'));
             clearItemForm();
         }
@@ -2557,9 +2703,9 @@
         const totalItemsInCountry = itemsInCountry.reduce((sum, item) => sum + (item.quantity || 1), 0);
         const totalValueInCountry = itemsInCountry.reduce((sum, item) => sum + (getItemValueInCurrency(item, currencySetting) * (item.quantity || 1)), 0);
 
-        countryDetailsTitle.innerText = `${countryName} Collection Details`;
-        countryTotalItems.innerText = totalItemsInCountry;
-        countryTotalValue.innerText = formatCurrency(totalValueInCountry, currencySetting);
+        safeSetTextContent(countryDetailsTitle, `${escapeHtml(countryName)} Collection Details`);
+        safeSetTextContent(countryTotalItems, String(totalItemsInCountry));
+        safeSetTextContent(countryTotalValue, formatCurrency(totalValueInCountry, currencySetting));
 
         itemsInCountry.sort((a, b) => {
             const yearCompare = (a.year || Infinity) - (b.year || Infinity); // Sort by year, N/A last
@@ -2569,16 +2715,17 @@
 
         const tableRows = itemsInCountry.map(item => `
             <tr class="border-b border-gray-700">
-                <td class="p-4">${item.id}</td>
-                <td class="p-4">${item.type}</td>
-                <td class="p-4">${item.year || 'N/A'}</td>
-                <td class="p-4">${item.denomination}</td>
+                <td class="p-4">${escapeHtml(item.id)}</td>
+                <td class="p-4">${escapeHtml(item.type)}</td>
+                <td class="p-4">${item.year ? escapeHtml(String(item.year)) : 'N/A'}</td>
+                <td class="p-4">${escapeHtml(item.denomination)}</td>
                 <td class="p-4">${item.quantity || 1}</td>
                 <td class="p-4">${formatCurrency(getItemValueInCurrency(item, currencySetting) * (item.quantity || 1), currencySetting)}</td>
-                <td class="p-4 text-xs">${item.notes || 'N/A'}</td>
+                <td class="p-4 text-xs">${escapeHtml(item.notes || 'N/A')}</td>
             </tr>
         `).join('');
-        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="7" class="p-4 text-center text-gray-500">No items found for ${countryName}.</td></tr>`;
+        const safeCountryName = escapeHtml(countryName);
+        countryItemsTableBody.innerHTML = tableRows.length > 0 ? tableRows : `<tr><td colspan="7" class="p-4 text-center text-gray-500">No items found for ${safeCountryName}.</td></tr>`;
 
         openModal('country-details-modal');
     }
@@ -2673,7 +2820,8 @@
                         loadCollectionFromBackend(); // Reload data after deletion
                     } catch (error) {
                         console.error("Error deleting item:", error);
-                        showCustomConfirm(`Failed to delete item: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+                        const safeMessage = escapeHtml(error.message || 'An unexpected error occurred');
+                        showCustomConfirm(`Failed to delete item: ${safeMessage}. Please check your connection and try again.`, () => {});
                     }
                 });
             });
@@ -4019,7 +4167,8 @@
                         loadCollectionFromBackend(); // Reload data after successful import
                     } catch (error) {
                         console.error("Error during bulk import:", error);
-                        showCustomConfirm(`Failed to import data: ${error.message}. Please ensure the backend is running and you are logged in.`, () => {});
+                        const safeMessage = escapeHtml(error.message || 'An unexpected error occurred');
+                        showCustomConfirm(`Failed to import data: ${safeMessage}. Please check your connection and try again.`, () => {});
                     } finally {
                         closeModal(document.getElementById('import-modal'), document.getElementById('import-modal').querySelector('div'));
                     }
@@ -4405,10 +4554,37 @@
             console.log('Found login-form');
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                console.log('Login form submitted');
-                const email = document.getElementById('login-email').value;
-                const password = document.getElementById('login-password').value;
+                const submitBtn = loginForm.querySelector('button[type="submit"]');
+                const emailInput = document.getElementById('login-email');
+                const passwordInput = document.getElementById('login-password');
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
                 const rememberMe = document.getElementById('remember-me').checked;
+
+                // Client-side validation
+                if (!email) {
+                    showCustomConfirm('Please enter your email address.', () => {});
+                    emailInput.focus();
+                    return;
+                }
+
+                if (!validateEmail(email)) {
+                    showCustomConfirm('Please enter a valid email address.', () => {});
+                    emailInput.focus();
+                    return;
+                }
+
+                if (!password) {
+                    showCustomConfirm('Please enter your password.', () => {});
+                    passwordInput.focus();
+                    return;
+                }
+
+                // Set loading state
+                if (submitBtn) {
+                    setLoadingState(submitBtn.id || 'login-submit', true, 'Signing in...');
+                }
+
                 try {
                     const response = await fetch(`${API_BASE_URL}/login`, {
                         method: 'POST',
@@ -4417,8 +4593,9 @@
                     });
 
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Login failed.');
+                        const errorData = await response.json().catch(() => ({}));
+                        // Don't expose specific error details to prevent user enumeration
+                        throw new Error(errorData.message || 'Invalid email or password. Please try again.');
                     }
 
                     const result = await response.json();
@@ -4435,7 +4612,12 @@
                     history.replaceState(null, '', window.location.pathname); // Clear public URL param
                 } catch (error) {
                     console.error("Login error:", error.message);
-                    showCustomConfirm(`Login failed: ${error.message}`, () => {});
+                    const safeMessage = escapeHtml(error.message || 'Login failed. Please try again.');
+                    showCustomConfirm(safeMessage, () => {});
+                } finally {
+                    if (submitBtn) {
+                        setLoadingState(submitBtn.id || 'login-submit', false);
+                    }
                 }
             });
         } else { console.error('login-form not found during attachGlobalEventListeners!'); }
@@ -4444,13 +4626,34 @@
         if (signupBtn) {
             console.log('Found signup-btn');
             signupBtn.addEventListener('click', async () => {
-                console.log('Sign Up button clicked');
-                const email = document.getElementById('login-email').value;
-                const password = document.getElementById('login-password').value;
-                if (!email || !password) {
-                    showCustomConfirm('Please enter both email and password to sign up.', () => {});
+                const emailInput = document.getElementById('login-email');
+                const passwordInput = document.getElementById('login-password');
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
+
+                // Client-side validation
+                if (!email) {
+                    showCustomConfirm('Please enter your email address.', () => {});
+                    emailInput.focus();
                     return;
                 }
+
+                if (!validateEmail(email)) {
+                    showCustomConfirm('Please enter a valid email address.', () => {});
+                    emailInput.focus();
+                    return;
+                }
+
+                const passwordValidation = validatePassword(password);
+                if (!passwordValidation.valid) {
+                    showCustomConfirm(passwordValidation.message, () => {});
+                    passwordInput.focus();
+                    return;
+                }
+
+                // Set loading state
+                setLoadingState(signupBtn.id || 'signup-btn', true, 'Creating account...');
+
                 try {
                     const response = await fetch(`${API_BASE_URL}/register`, {
                         method: 'POST',
@@ -4459,8 +4662,10 @@
                     });
 
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Signup failed.');
+                        const errorData = await response.json().catch(() => ({}));
+                        // Generic error message to prevent user enumeration
+                        const errorMessage = errorData.message || 'Unable to create account. This email may already be registered.';
+                        throw new Error(errorMessage);
                     }
 
                     const result = await response.json();
@@ -4470,7 +4675,10 @@
                     });
                 } catch (error) {
                     console.error("Sign-up error:", error.message);
-                    showCustomConfirm(`Sign-up failed: ${error.message}`, () => {});
+                    const safeMessage = escapeHtml(error.message || 'Sign-up failed. Please try again.');
+                    showCustomConfirm(safeMessage, () => {});
+                } finally {
+                    setLoadingState(signupBtn.id || 'signup-btn', false);
                 }
             });
         } else { console.error('signup-btn not found during attachGlobalEventListeners!'); }
@@ -5140,7 +5348,8 @@
                     loadCollectionFromBackend(); // Reload data after deletion
                 } catch (error) {
                     console.error("Error deleting bullion item:", error);
-                    showCustomConfirm(`Failed to delete item: ${error.message}`, () => {});
+                    const safeMessage = escapeHtml(error.message || 'An unexpected error occurred');
+                    showCustomConfirm(`Failed to delete item: ${safeMessage}. Please check your connection and try again.`, () => {});
                 }
             }
         );
