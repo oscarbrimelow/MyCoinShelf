@@ -407,9 +407,6 @@
             border: 1px solid #e5e7eb !important;
             color: #1f2937 !important;
         }
-        html.light #auth-status {
-            color: #374151;
-        }
         html.light #home-signup-btn, html.light #home-learn-more-btn {
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
@@ -484,24 +481,6 @@
                 </button>
             </div>
 
-            <!-- Authentication Section: flex-shrink-0 and mt-auto to ensure it stays at the very bottom -->
-            <div class="p-4 border-t border-gray-700 mt-auto flex-shrink-0">
-                <div id="auth-status" class="text-center text-sm mb-2"></div>
-                <div id="auth-form-container">
-                    <form id="login-form" class="space-y-3">
-                        <input type="email" id="login-email" placeholder="Email" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
-                        <input type="password" id="login-password" placeholder="Password" class="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
-                        <div class="flex items-center">
-                          <input type="checkbox" id="remember-me" class="mr-2">
-                          <label for="remember-me" class="text-gray-400 text-xs">Remember Me</label>
-                        </div>
-                        <button type="submit" id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors">Sign In</button>
-                        <button type="button" id="signup-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors">Sign Up</button>
-                        <button type="button" id="forgot-password-btn" class="w-full text-blue-400 hover:text-blue-300 text-xs underline transition-colors">Forgot Password?</button>
-                    </form>
-                    <button type="button" id="logout-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md text-sm mt-3 hidden transition-colors">Sign Out</button>
-                </div>
-            </div>
         </aside>
 
         <!-- Main Content -->
@@ -5025,9 +5004,6 @@
 
     function updateAuthUI(loggedIn) {
         console.log('Updating Auth UI. Logged In:', loggedIn);
-        const authStatusDiv = document.getElementById('auth-status');
-        const loginForm = document.getElementById('login-form');
-        const logoutBtn = document.getElementById('logout-btn');
         const quickAddBtn = document.getElementById('quick-add-btn');
         const importDataBtn = document.getElementById('import-data-btn');
         const exportDataBtn = document.getElementById('export-data-btn'); // New
@@ -5035,18 +5011,12 @@
         const shareCollectionBtn = document.getElementById('share-collection-btn'); // New
 
         if (loggedIn) {
-            authStatusDiv.innerHTML = `<span class="text-emerald-400 font-semibold">Logged in!</span>`;
-            if (loginForm) loginForm.classList.add('hidden');
-            if (logoutBtn) logoutBtn.classList.remove('hidden');
             if (quickAddBtn) quickAddBtn.classList.remove('hidden'); // Show Quick Add
             if (importDataBtn) importDataBtn.classList.remove('hidden'); // Show Import Data
             if (exportDataBtn) exportDataBtn.classList.remove('hidden'); // Show Export Data
             if (clearAllBtn) clearAllBtn.classList.remove('hidden'); // Show Clear All
             if (shareCollectionBtn) shareCollectionBtn.classList.remove('hidden'); // Show Share Collection
         } else {
-            authStatusDiv.innerHTML = `<span class="text-red-400 font-semibold">Not logged in.</span>`;
-            if (loginForm) loginForm.classList.remove('hidden');
-            if (logoutBtn) logoutBtn.classList.add('hidden');
             if (quickAddBtn) quickAddBtn.classList.add('hidden'); // Hide Quick Add
             if (importDataBtn) importDataBtn.classList.add('hidden'); // Hide Import Data
             if (exportDataBtn) exportDataBtn.classList.add('hidden'); // Hide Export Data
@@ -6315,162 +6285,9 @@
 
         setupAuthPage();
 
-        // --- AUTHENTICATION EVENT LISTENERS (OLD SIDEBAR FORM - KEEPING FOR BACKWARDS COMPATIBILITY) ---
-        const loginForm = document.getElementById('login-form');
-        if (loginForm) {
-            console.log('Found login-form');
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const submitBtn = loginForm.querySelector('button[type="submit"]');
-                const emailInput = document.getElementById('login-email');
-                const passwordInput = document.getElementById('login-password');
-                const email = emailInput.value.trim();
-                const password = passwordInput.value;
-                const rememberMe = document.getElementById('remember-me').checked;
-
-                // Client-side validation
-                if (!email) {
-                    showCustomConfirm('Please enter your email address.', () => {});
-                    emailInput.focus();
-                    return;
-                }
-
-                if (!validateEmail(email)) {
-                    showCustomConfirm('Please enter a valid email address.', () => {});
-                    emailInput.focus();
-                    return;
-                }
-
-                if (!password) {
-                    showCustomConfirm('Please enter your password.', () => {});
-                    passwordInput.focus();
-                    return;
-                }
-
-                // Set loading state
-                if (submitBtn) {
-                    setLoadingState(submitBtn.id || 'login-submit', true, 'Signing in...');
-                }
-
-                try {
-                    const response = await fetch(`${API_BASE_URL}/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        // Don't expose specific error details to prevent user enumeration
-                        throw new Error(errorData.message || 'Invalid email or password. Please try again.');
-                    }
-
-                    const result = await response.json();
-                    if (rememberMe) {
-                      localStorage.setItem('jwt_token', result.token);
-                      sessionStorage.removeItem('jwt_token');
-                    } else {
-                      sessionStorage.setItem('jwt_token', result.token);
-                      localStorage.removeItem('jwt_token');
-                    }
-                    
-                    // Check if user needs to set username
-                    if (result.needs_username) {
-                        showUsernameModal();
-                    } else {
-                        showCustomConfirm('Signed in successfully!', () => {});
-                    }
-                    
-                    updateAuthUI(true);
-                    loadCollectionFromBackend(); // Load data after successful login
-                    history.replaceState(null, '', window.location.pathname); // Clear public URL param
-                } catch (error) {
-                    console.error("Login error:", error.message);
-                    const safeMessage = escapeHtml(error.message || 'Login failed. Please try again.');
-                    showCustomConfirm(safeMessage, () => {});
-                } finally {
-                    if (submitBtn) {
-                        setLoadingState(submitBtn.id || 'login-submit', false);
-                    }
-                }
-            });
-        } else { console.error('login-form not found during attachGlobalEventListeners!'); }
-
-        const signupBtn = document.getElementById('signup-btn');
-        if (signupBtn) {
-            console.log('Found signup-btn');
-            signupBtn.addEventListener('click', async () => {
-                const emailInput = document.getElementById('login-email');
-                const passwordInput = document.getElementById('login-password');
-                const email = emailInput.value.trim();
-                const password = passwordInput.value;
-
-                // Client-side validation
-                if (!email) {
-                    showCustomConfirm('Please enter your email address.', () => {});
-                    emailInput.focus();
-                    return;
-                }
-
-                if (!validateEmail(email)) {
-                    showCustomConfirm('Please enter a valid email address.', () => {});
-                    emailInput.focus();
-                    return;
-                }
-
-                const passwordValidation = validatePassword(password);
-                if (!passwordValidation.valid) {
-                    showCustomConfirm(passwordValidation.message, () => {});
-                    passwordInput.focus();
-                    return;
-                }
-
-                // Set loading state
-                setLoadingState(signupBtn.id || 'signup-btn', true, 'Creating account...');
-
-                try {
-                    const response = await fetch(`${API_BASE_URL}/register`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        // Generic error message to prevent user enumeration
-                        const errorMessage = errorData.message || 'Unable to create account. This email may already be registered.';
-                        throw new Error(errorMessage);
-                    }
-
-                    const result = await response.json();
-                    showCustomConfirm(result.message || 'Signed up successfully! Please log in.', () => {
-                        // Optionally auto-login after signup if desired, but
-                        // for explicit flow, user logs in separately
-                    });
-                } catch (error) {
-                    console.error("Sign-up error:", error.message);
-                    const safeMessage = escapeHtml(error.message || 'Sign-up failed. Please try again.');
-                    showCustomConfirm(safeMessage, () => {});
-                } finally {
-                    setLoadingState(signupBtn.id || 'signup-btn', false);
-                }
-            });
-        } else { console.error('signup-btn not found during attachGlobalEventListeners!'); }
-
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            console.log('Found logout-btn');
-            logoutBtn.addEventListener('click', () => {
-                console.log('Logout button clicked');
-                localStorage.removeItem('jwt_token');
-                sessionStorage.removeItem('jwt_token');
-                updateAuthUI(false);
-                collectionData = []; // Clear data when logged out
-                history.replaceState(null, '', window.location.pathname); // Clear public URL param on logout
-                renderAllViews();
-                showCustomConfirm('Signed out successfully!', () => {});
-            });
-        } else { console.error('logout-btn not found during attachGlobalEventListeners!'); }
+        // --- AUTHENTICATION EVENT LISTENERS (OLD SIDEBAR FORM - REMOVED, NO LONGER NEEDED) ---
+        // Old login form code removed - all authentication now happens on dedicated /auth page
+        // Logout functionality can be accessed through Account Settings page
 
         // Currency update button
         const updateCurrencyBtn = document.getElementById('update-currency-btn');
