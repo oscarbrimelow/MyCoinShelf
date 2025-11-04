@@ -1683,35 +1683,70 @@ def add_to_wishlist(current_user):
     if not data.get('country') or not data.get('denomination'):
         return jsonify({'message': 'Country and Denomination are required fields.'}), 400
     
-    # Check if item already exists in wishlist (optional - could allow duplicates)
-    existing = WishlistItem.query.filter_by(
-        user_id=current_user.id,
-        country=data.get('country').strip(),
-        denomination=data.get('denomination').strip(),
-        year=data.get('year'),
-        numista_id=data.get('numista_id')
-    ).first()
+    # Normalize data for duplicate checking
+    country = data.get('country', '').strip()
+    denomination = data.get('denomination', '').strip()
+    year = data.get('year')
+    numista_id = data.get('numista_id')
     
+    # Check if item already exists in wishlist
+    # Use a more comprehensive check that handles race conditions
+    query = WishlistItem.query.filter_by(
+        user_id=current_user.id,
+        country=country,
+        denomination=denomination
+    )
+    
+    # Add year to query if provided
+    if year:
+        query = query.filter_by(year=year)
+    else:
+        query = query.filter_by(year=None)
+    
+    # If numista_id is provided, also check for it (most reliable)
+    if numista_id:
+        existing_by_numista = query.filter_by(numista_id=numista_id).first()
+        if existing_by_numista:
+            return jsonify({'message': 'This item is already in your wishlist.', 'id': existing_by_numista.id}), 200
+    
+    # Check for duplicates without numista_id (in case of race condition)
+    existing = query.filter_by(numista_id=numista_id).first()
     if existing:
         return jsonify({'message': 'This item is already in your wishlist.', 'id': existing.id}), 200
     
-    new_item = WishlistItem(
-        user_id=current_user.id,
-        type=data.get('type', 'Coin'),
-        country=data.get('country').strip(),
-        year=data.get('year'),
-        denomination=data.get('denomination').strip(),
-        notes=data.get('notes'),
-        referenceUrl=data.get('referenceUrl'),
-        numista_id=data.get('numista_id'),
-        description=data.get('description'),
-        composition=data.get('composition'),
-        weight=data.get('weight'),
-        diameter=data.get('diameter')
-    )
-    db.session.add(new_item)
-    db.session.commit()
-    return jsonify({'message': 'Item added to wishlist successfully!', 'id': new_item.id}), 201
+    # Create new item with proper error handling
+    try:
+        new_item = WishlistItem(
+            user_id=current_user.id,
+            type=data.get('type', 'Coin'),
+            country=country,
+            year=year,
+            denomination=denomination,
+            notes=data.get('notes'),
+            referenceUrl=data.get('referenceUrl'),
+            numista_id=numista_id,
+            description=data.get('description'),
+            composition=data.get('composition'),
+            weight=data.get('weight'),
+            diameter=data.get('diameter')
+        )
+        db.session.add(new_item)
+        db.session.commit()
+        return jsonify({'message': 'Item added to wishlist successfully!', 'id': new_item.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        # Check if the error is due to a duplicate (race condition)
+        existing = WishlistItem.query.filter_by(
+            user_id=current_user.id,
+            country=country,
+            denomination=denomination,
+            year=year,
+            numista_id=numista_id
+        ).first()
+        if existing:
+            return jsonify({'message': 'This item is already in your wishlist.', 'id': existing.id}), 200
+        print(f"Error adding to wishlist: {e}")
+        return jsonify({'message': 'Failed to add item to wishlist. Please try again.'}), 500
 
 @app.route('/api/wishlist/<int:item_id>', methods=['DELETE'])
 @jwt_required

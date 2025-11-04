@@ -5788,13 +5788,28 @@
         showCustomConfirm(`Item "${result.title || result.denomination || 'Item'}" has been added to the form. Please review and save.`, () => {});
     }
     
+    // Track ongoing wishlist additions to prevent duplicates
+    const wishlistAddInProgress = new Set();
+    
     async function addCatalogueItemToWishlist(result) {
+        // Create a unique key for this item to prevent duplicate requests
+        const itemKey = `${result.country || ''}_${result.denomination || result.title || ''}_${result.year || 'null'}_${result.id || 'null'}`;
+        
+        // Check if this item is already being added
+        if (wishlistAddInProgress.has(itemKey)) {
+            console.log('Already adding this item to wishlist, skipping duplicate request');
+            return;
+        }
+        
         try {
             const token = getAuthToken();
             if (!token) {
                 showCustomConfirm('Please sign in to add items to your wishlist.', () => {});
                 return;
             }
+            
+            // Mark as in progress
+            wishlistAddInProgress.add(itemKey);
             
             const wishlistData = {
                 type: result.type || 'Coin',
@@ -5829,6 +5844,11 @@
         } catch (error) {
             console.error('Error adding to wishlist:', error);
             showCustomConfirm('An error occurred while adding to wishlist. Please try again.', () => {});
+        } finally {
+            // Remove from in-progress set after a delay to allow for UI updates
+            setTimeout(() => {
+                wishlistAddInProgress.delete(itemKey);
+            }, 1000);
         }
     }
     
