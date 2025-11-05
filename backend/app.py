@@ -1389,29 +1389,34 @@ def reset_password():
 @app.route('/api/coins', methods=['GET'])
 @jwt_required
 def get_coins(current_user):
-    coins = Coin.query.filter_by(user_id=current_user.id).all()
-    # Serialize coins, including calculated region and isHistorical
-    output = []
-    for coin in coins:
-        coin_data = {
-            'id': coin.id,
-            'type': coin.type,
-            'country': coin.country,
-            'year': coin.year,
-            'denomination': coin.denomination,
-            'value': coin.value,
-            'quantity': coin.quantity, # Include quantity from DB
-            'notes': coin.notes,
-            'referenceUrl': coin.referenceUrl,
-            'localImagePath': coin.localImagePath,
-            'region': coin.region, # Include region from DB
-            'isHistorical': coin.isHistorical, # Include isHistorical from DB
-            'weight_grams': coin.weight_grams, # Include weight for bullion
-            'purity_percent': coin.purity_percent, # Include purity for bullion
-            'is_favorite': getattr(coin, 'is_favorite', False) # Include favorite status
-        }
-        output.append(coin_data)
-    return jsonify(output), 200
+    try:
+        coins = Coin.query.filter_by(user_id=current_user.id).all()
+        # Serialize coins, including calculated region and isHistorical
+        output = []
+        for coin in coins:
+            coin_data = {
+                'id': coin.id,
+                'type': coin.type,
+                'country': coin.country,
+                'year': coin.year,
+                'denomination': coin.denomination,
+                'value': coin.value,
+                'quantity': coin.quantity, # Include quantity from DB
+                'notes': coin.notes,
+                'referenceUrl': coin.referenceUrl,
+                'localImagePath': coin.localImagePath,
+                'region': coin.region, # Include region from DB
+                'isHistorical': coin.isHistorical, # Include isHistorical from DB
+                'weight_grams': coin.weight_grams, # Include weight for bullion
+                'purity_percent': coin.purity_percent, # Include purity for bullion
+                'is_favorite': getattr(coin, 'is_favorite', False) # Include favorite status
+            }
+            output.append(coin_data)
+        return jsonify(output), 200
+    except Exception as e:
+        print(f"Error loading coins: {e}")
+        print(traceback.format_exc())
+        return jsonify({'error': 'Failed to load collection', 'message': str(e)}), 500
 
 @app.route('/api/test-numista', methods=['GET'])
 @jwt_required
@@ -2678,6 +2683,18 @@ def create_tables():
                 # Add quantity column with default value 1
                 db.session.execute(text("ALTER TABLE coin ADD COLUMN quantity INTEGER DEFAULT 1"))
                 print("Added quantity column to coin table")
+            
+            # Check if is_favorite column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'coin' AND column_name = 'is_favorite'
+            """))
+            
+            if not result.fetchone():
+                # Add is_favorite column with default value false
+                db.session.execute(text("ALTER TABLE coin ADD COLUMN is_favorite BOOLEAN DEFAULT FALSE"))
+                print("Added is_favorite column to coin table")
             
             # Check and add user profile columns
             # Check if username column exists
