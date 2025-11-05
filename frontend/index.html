@@ -6421,14 +6421,24 @@
                 });
                 
                 if (collectionSearchInput && collectionTableBody) {
-                    collectionSearchInput.addEventListener('input', (e) => {
-                        const searchTerm = e.target.value.toLowerCase().trim();
+                    // Function to perform search
+                    const performSearch = () => {
+                        const searchTerm = collectionSearchInput.value.toLowerCase().trim();
                         const allRows = collectionTableBody.querySelectorAll('.collection-item-row');
                         
-                        console.log('Modal: Search triggered:', { searchTerm, rowCount: allRows.length });
+                        console.log('Modal: Search triggered:', { 
+                            searchTerm, 
+                            rowCount: allRows.length,
+                            firstRowSearchText: allRows.length > 0 ? allRows[0].getAttribute('data-search-text') : 'no rows'
+                        });
+                        
+                        if (allRows.length === 0) {
+                            console.warn('Modal: No collection rows found!');
+                            return;
+                        }
                         
                         let visibleCount = 0;
-                        allRows.forEach((row) => {
+                        allRows.forEach((row, index) => {
                             const searchText = row.getAttribute('data-search-text') || '';
                             
                             if (searchTerm === '' || searchText.includes(searchTerm)) {
@@ -6440,14 +6450,16 @@
                         });
                         
                         console.log('Modal: Visible rows after search:', visibleCount, 'out of', allRows.length);
-                    });
+                    };
+                    
+                    // Attach input event listener
+                    collectionSearchInput.addEventListener('input', performSearch);
                     
                     // Also handle Enter key for better UX
                     collectionSearchInput.addEventListener('keypress', (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            // Trigger input event to ensure search runs
-                            collectionSearchInput.dispatchEvent(new Event('input'));
+                            performSearch();
                         }
                     });
                     
@@ -6805,14 +6817,24 @@
                 });
                 
                 if (collectionSearchInput && collectionTableBody) {
-                    collectionSearchInput.addEventListener('input', (e) => {
-                        const searchTerm = e.target.value.toLowerCase().trim();
+                    // Function to perform search
+                    const performSearch = () => {
+                        const searchTerm = collectionSearchInput.value.toLowerCase().trim();
                         const allRows = collectionTableBody.querySelectorAll('.collection-item-row');
                         
-                        console.log('Search triggered:', { searchTerm, rowCount: allRows.length });
+                        console.log('Search triggered:', { 
+                            searchTerm, 
+                            rowCount: allRows.length,
+                            firstRowSearchText: allRows.length > 0 ? allRows[0].getAttribute('data-search-text') : 'no rows'
+                        });
+                        
+                        if (allRows.length === 0) {
+                            console.warn('No collection rows found!');
+                            return;
+                        }
                         
                         let visibleCount = 0;
-                        allRows.forEach((row) => {
+                        allRows.forEach((row, index) => {
                             const searchText = row.getAttribute('data-search-text') || '';
                             
                             if (searchTerm === '' || searchText.includes(searchTerm)) {
@@ -6824,14 +6846,16 @@
                         });
                         
                         console.log('Visible rows after search:', visibleCount, 'out of', allRows.length);
-                    });
+                    };
+                    
+                    // Attach input event listener
+                    collectionSearchInput.addEventListener('input', performSearch);
                     
                     // Also handle Enter key for better UX
                     collectionSearchInput.addEventListener('keypress', (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            // Trigger input event to ensure search runs
-                            collectionSearchInput.dispatchEvent(new Event('input'));
+                            performSearch();
                         }
                     });
                     
