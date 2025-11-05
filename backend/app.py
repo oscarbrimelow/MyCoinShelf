@@ -991,15 +991,33 @@ def update_profile(current_user):
     
     # Update display_name
     if 'display_name' in data:
-        current_user.display_name = data.get('display_name', '').strip() or None
+        display_name_value = data.get('display_name')
+        if display_name_value is None:
+            current_user.display_name = None
+        elif isinstance(display_name_value, str):
+            current_user.display_name = display_name_value.strip() or None
+        else:
+            current_user.display_name = None
     
     # Update bio
     if 'bio' in data:
-        current_user.bio = data.get('bio', '').strip() or None
+        bio_value = data.get('bio')
+        if bio_value is None:
+            current_user.bio = None
+        elif isinstance(bio_value, str):
+            current_user.bio = bio_value.strip() or None
+        else:
+            current_user.bio = None
     
     # Update profile picture URL
     if 'profile_picture_url' in data:
-        current_user.profile_picture_url = data.get('profile_picture_url', '').strip() or None
+        profile_picture_value = data.get('profile_picture_url')
+        if profile_picture_value is None:
+            current_user.profile_picture_url = None
+        elif isinstance(profile_picture_value, str):
+            current_user.profile_picture_url = profile_picture_value.strip() or None
+        else:
+            current_user.profile_picture_url = None
     
     # Update privacy settings
     if 'profile_public' in data:
