@@ -3316,7 +3316,8 @@
                                       (item.year && item.year.toString().includes(searchTerm));
                 const matchesRegion = selectedRegion === '' || item.region === selectedRegion;
                 const matchesType = selectedType === '' || item.type === selectedType;
-                return matchesSearch && matchesRegion && matchesType;
+                const matchesFavorite = currentFilter !== 'favorites' || (item.is_favorite === true);
+                return matchesSearch && matchesRegion && matchesType && matchesFavorite;
             });
             
             currentFilteredResults = filtered; // Store for export
@@ -3331,6 +3332,12 @@
             searchInput.value = '';
             regionFilter.value = '';
             typeFilter.value = '';
+            currentFilter = null;
+            const favoritesBtn = document.getElementById('favorites-filter-btn');
+            if (favoritesBtn) {
+                favoritesBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+                favoritesBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+            }
             updateClearSearchButton();
             applyFilters();
         };
@@ -3362,6 +3369,25 @@
         if (clearFiltersBtn) {
             clearFiltersBtn.addEventListener('click', clearAllFilters);
         }
+        
+        // Favorites filter button
+        const favoritesBtn = document.getElementById('favorites-filter-btn');
+        if (favoritesBtn) {
+            favoritesBtn.addEventListener('click', () => {
+                if (currentFilter === 'favorites') {
+                    // Turn off favorites filter
+                    currentFilter = null;
+                    favoritesBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+                    favoritesBtn.classList.add('bg-gray-700', 'hover:bg-gray-600');
+                } else {
+                    // Turn on favorites filter
+                    currentFilter = 'favorites';
+                    favoritesBtn.classList.remove('bg-gray-700', 'hover:bg-gray-600');
+                    favoritesBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+                }
+                applyFilters();
+            });
+        }
 
         // Initial update
         updateResultCount(collectionData.length, collectionData.length);
@@ -3369,6 +3395,67 @@
     }
 
     function initializeActionButtons() {
+        // Favorite toggle functionality
+        document.querySelectorAll('.favorite-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = parseInt(button.dataset.id);
+                const currentFavorite = button.dataset.favorite === 'true';
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/coins/${id}/toggle-favorite`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to toggle favorite');
+                    }
+                    
+                    const result = await response.json();
+                    const newFavoriteStatus = result.is_favorite;
+                    
+                    // Update the item in collectionData
+                    const item = collectionData.find(d => d.id === id);
+                    if (item) {
+                        item.is_favorite = newFavoriteStatus;
+                    }
+                    
+                    // Update button appearance
+                    button.dataset.favorite = newFavoriteStatus;
+                    const icon = button.querySelector('i');
+                    if (newFavoriteStatus) {
+                        button.classList.remove('text-gray-400');
+                        button.classList.add('text-yellow-400');
+                        button.title = 'Remove from Favorites';
+                        if (icon) {
+                            icon.classList.remove('ph-star');
+                            icon.classList.add('ph-star-fill');
+                        }
+                    } else {
+                        button.classList.remove('text-yellow-400');
+                        button.classList.add('text-gray-400');
+                        button.title = 'Add to Favorites';
+                        if (icon) {
+                            icon.classList.remove('ph-star-fill');
+                            icon.classList.add('ph-star');
+                        }
+                    }
+                    
+                    // If favorites filter is active, reapply filters
+                    if (currentFilter === 'favorites') {
+                        applyFilters();
+                    }
+                } catch (error) {
+                    console.error('Error toggling favorite:', error);
+                    showCustomConfirm('Failed to update favorite status', () => {});
+                }
+            });
+        });
+
         document.querySelectorAll('.edit-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -3461,6 +3548,7 @@
     // --- COLLECTION RENDERING ---
     let currentSort = { column: null, direction: null }; // null = original/unsorted
     let originalFilteredOrder = []; // Store original order for reset
+    let currentFilter = null; // Track active filter ('favorites' or null)
 
     function renderCollection(filteredData = collectionData) {
         console.log('Rendering collection with data:', filteredData);
@@ -3492,6 +3580,9 @@
                     </div>
                     <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
                     <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                    <button id="favorites-filter-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-md transition-colors text-sm" title="Show only favorites">
+                        <i class="ph ph-star mr-1"></i> Favorites
+                    </button>
                     <button id="clear-filters-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-md transition-colors text-sm" title="Clear all filters">
                         <i class="ph ph-x-circle mr-1"></i> Clear
                     </button>
@@ -3596,6 +3687,7 @@
                     </div>
                 </td>
                 <td class="p-2" style="width: 140px; position: sticky; right: 0; background-color: #1f2937; z-index: 10;">
+                     <button class="favorite-btn ${item.is_favorite ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-300 mr-2" data-id="${item.id}" data-favorite="${item.is_favorite || false}" title="${item.is_favorite ? 'Remove from Favorites' : 'Add to Favorites'}"><i class="ph ${item.is_favorite ? 'ph-star-fill' : 'ph-star'}"></i></button>
                      <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
                      <button class="duplicate-btn text-emerald-400 hover:text-emerald-300 mr-2" data-id="${item.id}" title="Duplicate Item"><i class="ph ph-copy"></i></button>
                      <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
@@ -4752,11 +4844,15 @@
         modalContent.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div><p class="text-gray-400">Loading profile...</p></div>';
 
         try {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (isAuthenticated()) {
+                headers['Authorization'] = `Bearer ${getAuthToken()}`;
+            }
             const response = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}`, {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: headers
             });
 
             if (!response.ok) {
@@ -4797,9 +4893,31 @@
                 <div class="space-y-6">
                     <!-- Profile Info -->
                     <div class="bg-gray-700 rounded-lg p-6">
-                        <h3 class="text-xl font-bold text-white mb-4">${profile.display_name || profile.username}</h3>
-                        <p class="text-sm text-gray-400 mb-2">${renderUsername(profile.username)}</p>
-                        ${profile.bio ? `<p class="text-gray-300 mt-4">${escapeHtml(profile.bio)}</p>` : ''}
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold text-white mb-2">${profile.display_name || profile.username}</h3>
+                                <p class="text-sm text-gray-400 mb-2">${renderUsername(profile.username)}</p>
+                                ${profile.bio ? `<p class="text-gray-300 mt-4">${escapeHtml(profile.bio)}</p>` : ''}
+                            </div>
+                            ${isAuthenticated() ? `
+                                <button id="follow-btn" class="ml-4 px-4 py-2 rounded-md transition-colors ${profile.is_following ? 'bg-gray-600 hover:bg-gray-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white font-semibold" data-username="${escapeHtml(profile.username)}" data-following="${profile.is_following || false}">
+                                    ${profile.is_following ? 'Unfollow' : 'Follow'}
+                                </button>
+                            ` : ''}
+                        </div>
+                        <div class="flex items-center space-x-6 mt-4">
+                            <button id="followers-link" class="text-gray-300 hover:text-white transition-colors cursor-pointer" data-username="${escapeHtml(profile.username)}" data-type="followers">
+                                <span class="font-semibold">${profile.stats?.follower_count || 0}</span> <span class="text-sm">Followers</span>
+                            </button>
+                            <button id="following-link" class="text-gray-300 hover:text-white transition-colors cursor-pointer" data-username="${escapeHtml(profile.username)}" data-type="following">
+                                <span class="font-semibold">${profile.stats?.following_count || 0}</span> <span class="text-sm">Following</span>
+                            </button>
+                            ${isAuthenticated() ? `
+                                <button id="compare-collections-btn" class="text-gray-300 hover:text-white transition-colors cursor-pointer" data-username="${escapeHtml(profile.username)}">
+                                    <i class="ph ph-compare"></i> <span class="text-sm">Compare Collections</span>
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
 
                     <!-- Stats -->
@@ -4911,8 +5029,36 @@
                             <p class="text-gray-400">Collection is private</p>
                         </div>
                     `}
+                    
+                    <!-- Comments Section -->
+                    ${profile.collection_public ? `
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-4">Comments</h3>
+                            <div id="comments-container" class="space-y-4">
+                                <!-- Comments will be loaded here -->
+                            </div>
+                            ${isAuthenticated() ? `
+                                <div class="mt-4">
+                                    <textarea id="comment-input" placeholder="Add a comment..." class="w-full bg-gray-700 text-white rounded-md p-3 border border-gray-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" rows="3"></textarea>
+                                    <button id="submit-comment-btn" class="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md transition-colors" data-username="${escapeHtml(profile.username)}">
+                                        Post Comment
+                                    </button>
+                                </div>
+                            ` : `
+                                <p class="text-gray-400 text-sm mt-4">Sign in to leave a comment</p>
+                            `}
+                        </div>
+                    ` : ''}
                 </div>
             `;
+            
+            // Load comments
+            if (profile.collection_public) {
+                loadComments(profile.username);
+            }
+            
+            // Attach event handlers
+            attachProfileEventHandlers(profile);
 
             // Add click handler for wishlist toggle
             const wishlistStatCard = document.getElementById('wishlist-stat-card');
@@ -4948,6 +5094,310 @@
                     <p class="text-gray-500">${escapeHtml(error.message || 'Failed to load user profile')}</p>
                 </div>
             `;
+        }
+    }
+    
+    // Helper function to load comments
+    async function loadComments(username) {
+        const commentsContainer = document.getElementById('comments-container');
+        if (!commentsContainer) return;
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/comments?collection_owner_username=${encodeURIComponent(username)}`);
+            if (!response.ok) throw new Error('Failed to load comments');
+            
+            const data = await response.json();
+            const comments = data.comments || [];
+            
+            if (comments.length === 0) {
+                commentsContainer.innerHTML = '<p class="text-gray-400 text-sm">No comments yet. Be the first to comment!</p>';
+            } else {
+                commentsContainer.innerHTML = comments.map(comment => `
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div>
+                                <span class="font-semibold text-white">${escapeHtml(comment.display_name || comment.username)}</span>
+                                <span class="text-gray-400 text-sm ml-2">@${escapeHtml(comment.username)}</span>
+                            </div>
+                            <span class="text-gray-500 text-xs">${new Date(comment.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <p class="text-gray-300">${escapeHtml(comment.content)}</p>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading comments:', error);
+            commentsContainer.innerHTML = '<p class="text-gray-400 text-sm">Failed to load comments</p>';
+        }
+    }
+    
+    // Helper function to attach profile event handlers
+    function attachProfileEventHandlers(profile) {
+        // Follow/Unfollow button
+        const followBtn = document.getElementById('follow-btn');
+        if (followBtn) {
+            followBtn.addEventListener('click', async () => {
+                const username = followBtn.dataset.username;
+                const isFollowing = followBtn.dataset.following === 'true';
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}/follow`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to toggle follow');
+                    
+                    const result = await response.json();
+                    const newFollowingStatus = result.is_following;
+                    
+                    // Update button
+                    followBtn.dataset.following = newFollowingStatus;
+                    if (newFollowingStatus) {
+                        followBtn.textContent = 'Unfollow';
+                        followBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+                        followBtn.classList.add('bg-gray-600', 'hover:bg-gray-500');
+                    } else {
+                        followBtn.textContent = 'Follow';
+                        followBtn.classList.remove('bg-gray-600', 'hover:bg-gray-500');
+                        followBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+                    }
+                    
+                    // Update follower count
+                    const followersLink = document.getElementById('followers-link');
+                    if (followersLink) {
+                        const currentCount = parseInt(followersLink.querySelector('.font-semibold').textContent);
+                        followersLink.querySelector('.font-semibold').textContent = newFollowingStatus ? currentCount + 1 : Math.max(0, currentCount - 1);
+                    }
+                    
+                    showCustomConfirm(result.message, () => {});
+                } catch (error) {
+                    console.error('Error toggling follow:', error);
+                    showCustomConfirm('Failed to update follow status', () => {});
+                }
+            });
+        }
+        
+        // Followers/Following links
+        const followersLink = document.getElementById('followers-link');
+        const followingLink = document.getElementById('following-link');
+        
+        if (followersLink) {
+            followersLink.addEventListener('click', () => {
+                showFollowersFollowingList(profile.username, 'followers');
+            });
+        }
+        
+        if (followingLink) {
+            followingLink.addEventListener('click', () => {
+                showFollowersFollowingList(profile.username, 'following');
+            });
+        }
+        
+        // Compare collections button
+        const compareBtn = document.getElementById('compare-collections-btn');
+        if (compareBtn) {
+            compareBtn.addEventListener('click', () => {
+                showCollectionComparison(profile.username);
+            });
+        }
+        
+        // Submit comment button
+        const submitCommentBtn = document.getElementById('submit-comment-btn');
+        if (submitCommentBtn) {
+            submitCommentBtn.addEventListener('click', async () => {
+                const commentInput = document.getElementById('comment-input');
+                const content = commentInput?.value.trim();
+                
+                if (!content) {
+                    showCustomConfirm('Please enter a comment', () => {});
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`${API_BASE_URL}/comments`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getAuthToken()}`
+                        },
+                        body: JSON.stringify({
+                            collection_owner_username: profile.username,
+                            content: content
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to post comment');
+                    
+                    commentInput.value = '';
+                    showCustomConfirm('Comment posted successfully', () => {});
+                    loadComments(profile.username);
+                } catch (error) {
+                    console.error('Error posting comment:', error);
+                    showCustomConfirm('Failed to post comment', () => {});
+                }
+            });
+        }
+    }
+    
+    // Show followers/following list modal
+    async function showFollowersFollowingList(username, type) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}/${type}`);
+            if (!response.ok) throw new Error(`Failed to load ${type}`);
+            
+            const data = await response.json();
+            const users = data[type] || [];
+            
+            const modalContent = `
+                <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-white">${type === 'followers' ? 'Followers' : 'Following'}</h3>
+                        <button id="close-followers-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <div class="max-h-96 overflow-y-auto">
+                        ${users.length === 0 ? `
+                            <p class="text-gray-400 text-center py-8">No ${type} yet</p>
+                        ` : `
+                            <div class="space-y-2">
+                                ${users.map(user => `
+                                    <div class="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-colors cursor-pointer" onclick="viewUserProfile('${escapeHtml(user.username)}'); document.getElementById('close-followers-modal')?.click();">
+                                        <div class="font-semibold text-white">${escapeHtml(user.display_name || user.username)}</div>
+                                        <div class="text-sm text-gray-400">@${escapeHtml(user.username)}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+            
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 z-[110] flex items-center justify-center modal-backdrop';
+            modal.innerHTML = modalContent;
+            document.body.appendChild(modal);
+            
+            // Close button
+            modal.querySelector('#close-followers-modal')?.addEventListener('click', () => {
+                modal.remove();
+            });
+            
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        } catch (error) {
+            console.error(`Error loading ${type}:`, error);
+            showCustomConfirm(`Failed to load ${type}`, () => {});
+        }
+    }
+    
+    // Show collection comparison
+    async function showCollectionComparison(otherUsername) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/users/compare?username2=${encodeURIComponent(otherUsername)}`, {
+                headers: {
+                    'Authorization': `Bearer ${getAuthToken()}`
+                }
+            });
+            
+            if (!response.ok) throw new Error('Failed to compare collections');
+            
+            const data = await response.json();
+            const user1 = data.user1;
+            const user2 = data.user2;
+            const currentCurrency = localStorage.getItem('currency') || 'USD';
+            
+            const user1Value = convertToCurrency(user1.total_value || 0, 'USD', currentCurrency);
+            const user2Value = convertToCurrency(user2.total_value || 0, 'USD', currentCurrency);
+            
+            const modalContent = `
+                <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 w-full max-w-2xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-white">Collection Comparison</h3>
+                        <button id="close-comparison-modal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <h4 class="font-semibold text-white mb-3">${escapeHtml(user1.username)}</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Items:</span>
+                                    <span class="text-white font-semibold">${user1.item_count}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Total Value:</span>
+                                    <span class="text-emerald-400 font-semibold">${formatCurrency(user1Value, currentCurrency)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Countries:</span>
+                                    <span class="text-white font-semibold">${user1.unique_countries}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <h4 class="font-semibold text-white mb-3">${escapeHtml(user2.username)}</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Items:</span>
+                                    <span class="text-white font-semibold">${user2.item_count}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Total Value:</span>
+                                    <span class="text-emerald-400 font-semibold">${formatCurrency(user2Value, currentCurrency)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">Countries:</span>
+                                    <span class="text-white font-semibold">${user2.unique_countries}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 grid grid-cols-3 gap-4 text-center">
+                        <div class="bg-gray-700 rounded-lg p-3">
+                            <div class="text-xs text-gray-400 mb-1">Difference</div>
+                            <div class="text-lg font-semibold ${user1.item_count > user2.item_count ? 'text-emerald-400' : user1.item_count < user2.item_count ? 'text-red-400' : 'text-gray-400'}">
+                                ${user1.item_count > user2.item_count ? '+' : ''}${user1.item_count - user2.item_count}
+                            </div>
+                        </div>
+                        <div class="bg-gray-700 rounded-lg p-3">
+                            <div class="text-xs text-gray-400 mb-1">Value Diff</div>
+                            <div class="text-lg font-semibold ${user1Value > user2Value ? 'text-emerald-400' : user1Value < user2Value ? 'text-red-400' : 'text-gray-400'}">
+                                ${user1Value > user2Value ? '+' : ''}${formatCurrency(user1Value - user2Value, currentCurrency)}
+                            </div>
+                        </div>
+                        <div class="bg-gray-700 rounded-lg p-3">
+                            <div class="text-xs text-gray-400 mb-1">Countries Diff</div>
+                            <div class="text-lg font-semibold ${user1.unique_countries > user2.unique_countries ? 'text-emerald-400' : user1.unique_countries < user2.unique_countries ? 'text-red-400' : 'text-gray-400'}">
+                                ${user1.unique_countries > user2.unique_countries ? '+' : ''}${user1.unique_countries - user2.unique_countries}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 z-[110] flex items-center justify-center modal-backdrop';
+            modal.innerHTML = modalContent;
+            document.body.appendChild(modal);
+            
+            // Close button
+            modal.querySelector('#close-comparison-modal')?.addEventListener('click', () => {
+                modal.remove();
+            });
+            
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        } catch (error) {
+            console.error('Error comparing collections:', error);
+            showCustomConfirm('Failed to compare collections', () => {});
         }
     }
 
