@@ -173,6 +173,9 @@
 
     <!-- Phosphor Icons for a clean icon set -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Offline Database -->
+    <script src="offline-db.js"></script>
 
     <style>
         /* Custom styles for a more polished look */
@@ -479,9 +482,14 @@
         <!-- Sidebar Navigation -->
         <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 border-r border-gray-700 flex flex-col
                                   transform -translate-x-full md:translate-x-0 md:flex-shrink-0 transition-transform duration-300 ease-in-out">
-            <div class="h-16 flex items-center justify-center border-b border-gray-700 flex-shrink-0">
-                <i class="ph-bold ph-coins text-3xl text-emerald-400"></i>
-                <h1 class="text-xl font-bold ml-2">CoinShelf by Oscar</h1>
+            <div class="h-16 flex items-center justify-between px-4 border-b border-gray-700 flex-shrink-0">
+                <div class="flex items-center">
+                    <i class="ph-bold ph-coins text-3xl text-emerald-400"></i>
+                    <h1 class="text-xl font-bold ml-2">CoinShelf by Oscar</h1>
+                </div>
+                <div id="online-status-indicator" class="text-emerald-400" title="Online">
+                    <i class="ph-bold ph-wifi"></i>
+                </div>
             </div>
             <!-- Wrapped navigation links in a separate div with overflow-y-auto and flex-grow -->
             <div class="flex-grow overflow-y-auto">
@@ -2180,6 +2188,294 @@
     // This will be updated later with your actual Render backend URL
     const API_BASE_URL = 'https://mycoinshelf.onrender.com/api';
 
+    // --- PWA & Offline Support ---
+    let isOnline = navigator.onLine;
+    let offlineDBReady = false;
+
+    // Initialize offline database
+    async function initOfflineDB() {
+        try {
+            await offlineDB.init();
+            offlineDBReady = true;
+            console.log('Offline database initialized');
+            
+            // Load cached data if offline
+            if (!isOnline) {
+                await loadCachedData();
+            }
+        } catch (error) {
+            console.error('Failed to initialize offline database:', error);
+        }
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', async () => {
+            try {
+                const registration = await navigator.serviceWorker.register('/service-worker.js');
+                console.log('Service Worker registered:', registration);
+                
+                // Check for updates
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New update available
+                            showOfflineNotification('New version available! Refresh to update.', 'info');
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Service Worker registration failed:', error);
+            }
+        });
+    }
+
+    // Monitor online/offline status
+    window.addEventListener('online', async () => {
+        isOnline = true;
+        updateOnlineStatus();
+        showOfflineNotification('Back online! Syncing changes...', 'success');
+        await syncPendingOperations();
+    });
+
+    window.addEventListener('offline', () => {
+        isOnline = false;
+        updateOnlineStatus();
+        showOfflineNotification('You are offline. Changes will sync when you reconnect.', 'warning');
+    });
+
+    // Update online status indicator
+    function updateOnlineStatus() {
+        const statusIndicator = document.getElementById('online-status-indicator');
+        if (statusIndicator) {
+            if (isOnline) {
+                statusIndicator.innerHTML = '<i class="ph-bold ph-wifi text-emerald-400" title="Online"></i>';
+                statusIndicator.classList.remove('text-red-400');
+                statusIndicator.classList.add('text-emerald-400');
+            } else {
+                statusIndicator.innerHTML = '<i class="ph-bold ph-wifi-slash text-red-400" title="Offline"></i>';
+                statusIndicator.classList.remove('text-emerald-400');
+                statusIndicator.classList.add('text-red-400');
+            }
+        }
+    }
+
+    // Show offline notification
+    function showOfflineNotification(message, type = 'info') {
+        // Create or update notification element
+        let notification = document.getElementById('offline-notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'offline-notification';
+            notification.className = 'fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border max-w-sm';
+            document.body.appendChild(notification);
+        }
+
+        const colors = {
+            success: 'bg-emerald-600 border-emerald-500 text-white',
+            warning: 'bg-amber-600 border-amber-500 text-white',
+            info: 'bg-blue-600 border-blue-500 text-white',
+            error: 'bg-red-600 border-red-500 text-white'
+        };
+
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border max-w-sm ${colors[type]}`;
+        notification.innerHTML = `
+            <div class="flex items-center gap-2">
+                <i class="ph-bold ${type === 'success' ? 'ph-check-circle' : type === 'warning' ? 'ph-warning' : 'ph-info'}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-white hover:text-gray-200">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+        `;
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    // Offline-aware fetch wrapper
+    async function offlineFetch(url, options = {}) {
+        const isAPIRequest = url.includes('/api/');
+        
+        try {
+            const response = await fetch(url, options);
+            
+            // Cache successful GET responses
+            if (response.ok && options.method === 'GET' && isAPIRequest && offlineDBReady) {
+                try {
+                    const data = await response.clone().json();
+                    await offlineDB.cacheAPIResponse(url, data);
+                } catch (e) {
+                    // If response is not JSON, skip caching
+                    console.log('Response is not JSON, skipping cache');
+                }
+            }
+            
+            return response;
+        } catch (error) {
+            // If offline and it's a GET request, try cache
+            if (!isOnline && options.method === 'GET' && isAPIRequest && offlineDBReady) {
+                const cached = await offlineDB.getCachedAPIResponse(url);
+                if (cached && cached.data) {
+                    console.log('Serving from cache:', url);
+                    return new Response(JSON.stringify(cached.data), {
+                        status: 200,
+                        statusText: 'OK',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            }
+            
+            // For POST/PUT/DELETE requests, queue for sync
+            if (!isOnline && ['POST', 'PUT', 'DELETE'].includes(options.method) && isAPIRequest && offlineDBReady) {
+                await queueOperationForSync(url, options);
+                
+                // Also save to local DB if it's a collection/wishlist item
+                if (options.body && (url.includes('/coins') || url.includes('/wishlist'))) {
+                    try {
+                        const bodyData = JSON.parse(options.body);
+                        if (options.method === 'POST' && url.includes('/coins')) {
+                            await saveCollectionItemOffline(bodyData);
+                        } else if (options.method === 'POST' && url.includes('/wishlist')) {
+                            await offlineDB.saveWishlistItem(bodyData);
+                        }
+                    } catch (e) {
+                        console.log('Could not save to offline DB:', e);
+                    }
+                }
+                
+                return new Response(JSON.stringify({ 
+                    message: 'Queued for sync when online',
+                    queued: true 
+                }), {
+                    status: 202,
+                    statusText: 'Accepted',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+            
+            throw error;
+        }
+    }
+
+    // Queue operation for sync
+    async function queueOperationForSync(url, options) {
+        if (!offlineDBReady) return;
+        
+        try {
+            const body = options.body ? JSON.parse(options.body) : null;
+            await offlineDB.addToSyncQueue({
+                url: url,
+                method: options.method,
+                headers: options.headers,
+                body: body,
+                type: url.includes('/coins') ? 'collection' : url.includes('/wishlist') ? 'wishlist' : 'other'
+            });
+            console.log('Operation queued for sync:', url);
+        } catch (error) {
+            console.error('Failed to queue operation:', error);
+        }
+    }
+
+    // Sync pending operations
+    async function syncPendingOperations() {
+        if (!isOnline || !offlineDBReady) return;
+        
+        try {
+            const queue = await offlineDB.getSyncQueue();
+            if (queue.length === 0) return;
+            
+            console.log(`Syncing ${queue.length} pending operations...`);
+            showOfflineNotification(`Syncing ${queue.length} pending changes...`, 'info');
+            
+            const token = getAuthToken();
+            if (!token) {
+                console.log('Not authenticated, skipping sync');
+                return;
+            }
+            
+            for (const item of queue) {
+                try {
+                    const response = await fetch(item.url, {
+                        method: item.method,
+                        headers: {
+                            ...item.headers,
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: item.body ? JSON.stringify(item.body) : undefined
+                    });
+                    
+                    if (response.ok) {
+                        await offlineDB.removeFromSyncQueue(item.id);
+                        console.log('Synced operation:', item.url);
+                    } else {
+                        item.attempts = (item.attempts || 0) + 1;
+                        if (item.attempts >= 3) {
+                            await offlineDB.removeFromSyncQueue(item.id);
+                            console.error('Failed to sync after 3 attempts:', item.url);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error syncing operation:', error);
+                    item.attempts = (item.attempts || 0) + 1;
+                }
+            }
+            
+            const remaining = await offlineDB.getSyncQueue();
+            if (remaining.length === 0) {
+                showOfflineNotification('All changes synced successfully!', 'success');
+            } else {
+                showOfflineNotification(`${remaining.length} items failed to sync`, 'error');
+            }
+        } catch (error) {
+            console.error('Error syncing pending operations:', error);
+        }
+    }
+
+            // Load cached data when offline
+    async function loadCachedData() {
+        if (!offlineDBReady) return;
+        
+        try {
+            // Load cached collection
+            const cachedCollection = await offlineDB.getCollectionItems();
+            if (cachedCollection.length > 0) {
+                collectionData = cachedCollection;
+                console.log('Loaded cached collection:', cachedCollection.length, 'items');
+                // Trigger UI update
+                renderAllViews();
+            }
+            
+            // Load cached wishlist
+            const cachedWishlist = await offlineDB.getWishlistItems();
+            if (cachedWishlist.length > 0) {
+                console.log('Loaded cached wishlist:', cachedWishlist.length, 'items');
+            }
+        } catch (error) {
+            console.error('Error loading cached data:', error);
+        }
+    }
+
+    // Save collection item to offline DB
+    async function saveCollectionItemOffline(item) {
+        if (!offlineDBReady) return;
+        try {
+            await offlineDB.saveCollectionItem(item);
+        } catch (error) {
+            console.error('Error saving to offline DB:', error);
+        }
+    }
+
+    // Initialize offline support on load
+    initOfflineDB();
+    updateOnlineStatus();
+
     // --- SPA Routing for Pretty URLs ---
     const pathToSection = {
       '/': 'content-home',
@@ -2533,7 +2829,7 @@
         console.log('Authenticated, attempting to load collection data from backend...');
         showLoading('Loading your collection...');
         try {
-            const response = await fetch(`${API_BASE_URL}/coins`, {
+            const response = await offlineFetch(`${API_BASE_URL}/coins`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2549,6 +2845,19 @@
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             collectionData = await response.json();
+            
+            // Save to offline DB if online
+            if (isOnline && offlineDBReady) {
+                try {
+                    for (const item of collectionData) {
+                        item.synced = true; // Mark as synced
+                        await saveCollectionItemOffline(item);
+                    }
+                } catch (e) {
+                    console.error('Error saving collection to offline DB:', e);
+                }
+            }
+            
             // Normalize is_favorite to boolean for all items
             collectionData = collectionData.map(item => {
                 // Handle all possible formats from backend
