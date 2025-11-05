@@ -477,8 +477,11 @@
                     <a href="/missing" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
                         <i class="ph-bold ph-flag mr-3"></i> Missing Countries
                     </a>
+                    <a href="/profile" id="nav-profile" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
+                        <i class="ph-bold ph-user mr-3"></i> Profile
+                    </a>
                     <a href="/settings" id="nav-settings" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-gear mr-3"></i> Account Settings
+                        <i class="ph-bold ph-gear mr-3"></i> Settings
                     </a>
                 </nav>
             </div>
@@ -830,6 +833,99 @@
                         <button id="show-donate-modal-missing" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4 py-2 rounded-md transition-colors">
                             <i class="ph-bold ph-heart mr-2"></i>Say Thanks
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Content -->
+            <div id="content-profile" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto relative hidden">
+                <div class="max-w-4xl mx-auto">
+                    <div id="profile-unauthenticated-overlay" class="unauthenticated-overlay hidden">
+                        <p class="text-xl text-red-400">Please sign in to view your profile.</p>
+                    </div>
+
+                    <div id="profile-content" class="hidden">
+                        <!-- Profile Header (Instagram-style) -->
+                        <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+                            <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
+                                <!-- Profile Picture Placeholder (can be enhanced later) -->
+                                <div class="flex-shrink-0">
+                                    <div class="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-white text-4xl md:text-5xl font-bold">
+                                        <span id="profile-initial">U</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Profile Info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex flex-col md:flex-row md:items-center gap-4 mb-4">
+                                        <h1 id="profile-username-header" class="text-2xl md:text-3xl font-bold text-white"></h1>
+                                        <div class="flex gap-2">
+                                            <button id="edit-profile-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-md transition-colors text-sm">
+                                                Edit Profile
+                                            </button>
+                                            <button id="profile-settings-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-md transition-colors text-sm flex items-center">
+                                                <i class="ph-bold ph-gear mr-2"></i> Settings
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Follower/Following/Posts Stats (Instagram-style) -->
+                                    <div class="flex gap-6 mb-4">
+                                        <button id="profile-collection-count" class="cursor-pointer hover:opacity-80 transition-opacity">
+                                            <span class="font-semibold text-white" id="profile-collection-number">0</span>
+                                            <span class="text-gray-400 ml-1">items</span>
+                                        </button>
+                                        <button id="profile-followers-link" class="cursor-pointer hover:opacity-80 transition-opacity">
+                                            <span class="font-semibold text-white" id="profile-followers-count">0</span>
+                                            <span class="text-gray-400 ml-1">followers</span>
+                                        </button>
+                                        <button id="profile-following-link" class="cursor-pointer hover:opacity-80 transition-opacity">
+                                            <span class="font-semibold text-white" id="profile-following-count">0</span>
+                                            <span class="text-gray-400 ml-1">following</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Display Name and Bio -->
+                                    <div>
+                                        <h2 id="profile-display-name-header" class="text-lg font-semibold text-white mb-2"></h2>
+                                        <p id="profile-bio-text" class="text-gray-300 whitespace-pre-wrap"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Profile Stats Grid -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                                <div class="text-sm text-gray-400 mb-1">Collection Items</div>
+                                <div class="text-2xl font-bold text-white" id="profile-stats-collection">0</div>
+                            </div>
+                            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                                <div class="text-sm text-gray-400 mb-1">Total Value</div>
+                                <div class="text-2xl font-bold text-emerald-400" id="profile-stats-value">$0</div>
+                            </div>
+                            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                                <div class="text-sm text-gray-400 mb-1">Countries</div>
+                                <div class="text-2xl font-bold text-white" id="profile-stats-countries">0</div>
+                            </div>
+                            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                                <div class="text-sm text-gray-400 mb-1">Wishlist</div>
+                                <div class="text-2xl font-bold text-pink-400" id="profile-stats-wishlist">0</div>
+                            </div>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div id="profile-loading" class="text-center py-12">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div>
+                            <p class="text-gray-400">Loading profile...</p>
+                        </div>
+
+                        <!-- Error State -->
+                        <div id="profile-error" class="hidden text-center py-12">
+                            <i class="ph-bold ph-warning-circle text-6xl text-red-400 mb-4"></i>
+                            <p class="text-xl text-red-400 mb-2">Error loading profile</p>
+                            <p class="text-gray-500" id="profile-error-message"></p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1999,6 +2095,7 @@
       '/catalogue': 'content-catalogue',
       '/wishlist': 'content-wishlist',
       '/missing': 'content-missing',
+      '/profile': 'content-profile',
       '/settings': 'content-settings',
     };
 
@@ -4823,6 +4920,31 @@
         }
     }
 
+    // --- PROFILE PAGE RENDERING ---
+    function renderProfile() {
+        const profileDiv = document.getElementById('content-profile');
+        const profileContent = document.getElementById('profile-content');
+        const profileOverlay = document.getElementById('profile-unauthenticated-overlay');
+        const profileLoading = document.getElementById('profile-loading');
+        const profileError = document.getElementById('profile-error');
+
+        if (!isAuthenticated()) {
+            profileContent.classList.add('hidden');
+            profileOverlay.classList.remove('hidden');
+            profileLoading.classList.add('hidden');
+            profileError.classList.add('hidden');
+            return;
+        } else {
+            profileContent.classList.add('hidden'); // Keep hidden until data loads
+            profileOverlay.classList.add('hidden');
+            profileLoading.classList.remove('hidden');
+            profileError.classList.add('hidden');
+        }
+
+        // Load profile data
+        loadProfilePage();
+    }
+
     // --- PROFILE FUNCTIONS ---
     async function loadProfile() {
         if (!isAuthenticated()) return;
@@ -4862,6 +4984,146 @@
         } catch (error) {
             console.error('Error loading profile:', error);
             // Don't show error to user on initial load, just log it
+        }
+    }
+
+    async function loadProfilePage() {
+        if (!isAuthenticated()) return;
+
+        const profileLoading = document.getElementById('profile-loading');
+        const profileError = document.getElementById('profile-error');
+        const profileErrorMessage = document.getElementById('profile-error-message');
+        const profileContent = document.getElementById('profile-content');
+
+        try {
+            profileLoading.classList.remove('hidden');
+            profileError.classList.add('hidden');
+
+            const response = await fetch(`${API_BASE_URL}/profile`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    handleUnauthorized();
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const profile = await response.json();
+            const stats = profile.stats || {};
+
+            // Get current currency setting
+            const currentCurrency = localStorage.getItem('currency') || 'USD';
+            const convertedTotalValue = convertToCurrency(stats.total_value || 0, 'USD', currentCurrency);
+
+            // Update profile header
+            const usernameHeader = document.getElementById('profile-username-header');
+            const displayNameHeader = document.getElementById('profile-display-name-header');
+            const bioText = document.getElementById('profile-bio-text');
+            const profileInitial = document.getElementById('profile-initial');
+
+            if (usernameHeader) {
+                usernameHeader.textContent = profile.username || 'User';
+            }
+            if (displayNameHeader) {
+                displayNameHeader.textContent = profile.display_name || '';
+                if (!profile.display_name) {
+                    displayNameHeader.style.display = 'none';
+                } else {
+                    displayNameHeader.style.display = 'block';
+                }
+            }
+            if (bioText) {
+                bioText.textContent = profile.bio || '';
+                if (!profile.bio) {
+                    bioText.style.display = 'none';
+                } else {
+                    bioText.style.display = 'block';
+                }
+            }
+            if (profileInitial) {
+                const initial = (profile.display_name || profile.username || 'U').charAt(0).toUpperCase();
+                profileInitial.textContent = initial;
+            }
+
+            // Update follower/following counts
+            const followersCount = document.getElementById('profile-followers-count');
+            const followingCount = document.getElementById('profile-following-count');
+            const collectionNumber = document.getElementById('profile-collection-number');
+
+            if (followersCount) followersCount.textContent = stats.follower_count || 0;
+            if (followingCount) followingCount.textContent = stats.following_count || 0;
+            if (collectionNumber) collectionNumber.textContent = stats.coin_count || 0;
+
+            // Update stats grid
+            const statsCollection = document.getElementById('profile-stats-collection');
+            const statsValue = document.getElementById('profile-stats-value');
+            const statsCountries = document.getElementById('profile-stats-countries');
+            const statsWishlist = document.getElementById('profile-stats-wishlist');
+
+            if (statsCollection) statsCollection.textContent = stats.coin_count || 0;
+            if (statsValue) statsValue.textContent = formatCurrency(convertedTotalValue, currentCurrency);
+            if (statsCountries) statsCountries.textContent = stats.unique_countries || 0;
+            if (statsWishlist) statsWishlist.textContent = stats.wishlist_count || 0;
+
+            // Hide loading, show content
+            profileLoading.classList.add('hidden');
+            profileContent.classList.remove('hidden');
+
+            // Attach event handlers
+            attachProfilePageHandlers(profile.username);
+
+        } catch (error) {
+            console.error('Error loading profile page:', error);
+            profileLoading.classList.add('hidden');
+            profileError.classList.remove('hidden');
+            if (profileErrorMessage) {
+                profileErrorMessage.textContent = error.message || 'Failed to load profile';
+            }
+        }
+    }
+
+    function attachProfilePageHandlers(username) {
+        // Edit Profile button - redirects to settings
+        const editProfileBtn = document.getElementById('edit-profile-btn');
+        if (editProfileBtn) {
+            editProfileBtn.removeEventListener('click', () => {});
+            editProfileBtn.addEventListener('click', () => {
+                showView('content-settings');
+            });
+        }
+
+        // Settings button - redirects to settings
+        const settingsBtn = document.getElementById('profile-settings-btn');
+        if (settingsBtn) {
+            settingsBtn.removeEventListener('click', () => {});
+            settingsBtn.addEventListener('click', () => {
+                showView('content-settings');
+            });
+        }
+
+        // Followers link
+        const followersLink = document.getElementById('profile-followers-link');
+        if (followersLink) {
+            followersLink.removeEventListener('click', () => {});
+            followersLink.addEventListener('click', () => {
+                showFollowersModal(username);
+            });
+        }
+
+        // Following link
+        const followingLink = document.getElementById('profile-following-link');
+        if (followingLink) {
+            followingLink.removeEventListener('click', () => {});
+            followingLink.addEventListener('click', () => {
+                showFollowingModal(username);
+            });
         }
     }
 
@@ -5416,6 +5678,15 @@
         }
     }
     
+    // Wrapper functions for profile page
+    async function showFollowersModal(username) {
+        showFollowersFollowingList(username, 'followers');
+    }
+
+    async function showFollowingModal(username) {
+        showFollowersFollowingList(username, 'following');
+    }
+
     // Show followers/following list modal
     async function showFollowersFollowingList(username, type) {
         try {
@@ -6242,6 +6513,9 @@
             if (!document.getElementById('content-settings').classList.contains('hidden')) {
                 renderSettings();
             }
+            if (!document.getElementById('content-profile').classList.contains('hidden')) {
+                renderProfile();
+            }
         } else {
             // If not authenticated, ensure these views show their respective unauthenticated overlays
             if (!document.getElementById('content-dashboard').classList.contains('hidden')) {
@@ -6271,6 +6545,10 @@
             // For settings, it has its own internal overlay that renderSettings will handle
             if (!document.getElementById('content-settings').classList.contains('hidden')) {
                 renderSettings(); // Calls renderSettings, which handles its own overlay
+            }
+            // For profile, it has its own internal overlay that renderProfile will handle
+            if (!document.getElementById('content-profile').classList.contains('hidden')) {
+                renderProfile(); // Calls renderProfile, which handles its own overlay
             }
         }
         
@@ -7373,6 +7651,12 @@
             console.log('Found nav-missing');
             navMissing.addEventListener('click', (e) => { e.preventDefault(); showView('content-missing'); });
         } else { console.error('nav-missing not found!'); }
+
+        const navProfile = document.getElementById('nav-profile');
+        if (navProfile) {
+            console.log('Found nav-profile');
+            navProfile.addEventListener('click', (e) => { e.preventDefault(); showView('content-profile'); });
+        } else { console.error('nav-profile not found!'); }
 
         const navSettings = document.getElementById('nav-settings');
         if (navSettings) {

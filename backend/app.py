@@ -942,13 +942,35 @@ def set_username(current_user):
 @jwt_required
 def get_profile(current_user):
     """Get current user's profile information"""
+    # Get follower/following counts
+    follower_count = Follow.query.filter_by(following_id=current_user.id).count()
+    following_count = Follow.query.filter_by(follower_id=current_user.id).count()
+    
+    # Get collection stats
+    coins = Coin.query.filter_by(user_id=current_user.id).all()
+    coin_count = len(coins)
+    total_value = sum(coin.value * coin.quantity for coin in coins if coin.value)
+    unique_countries = len(set(coin.country for coin in coins))
+    
+    # Get wishlist stats
+    wishlist_items = WishlistItem.query.filter_by(user_id=current_user.id).all()
+    wishlist_count = len(wishlist_items)
+    
     return jsonify({
         'username': current_user.username,
         'display_name': current_user.display_name,
         'bio': current_user.bio,
         'profile_public': current_user.profile_public,
         'collection_public': current_user.collection_public,
-        'email': current_user.email
+        'email': current_user.email,
+        'stats': {
+            'follower_count': follower_count,
+            'following_count': following_count,
+            'coin_count': coin_count,
+            'total_value': total_value,
+            'unique_countries': unique_countries,
+            'wishlist_count': wishlist_count
+        }
     }), 200
 
 @app.route('/api/profile', methods=['PUT'])
