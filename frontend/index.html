@@ -7958,6 +7958,7 @@
                             <thead class="bg-gray-700 sticky top-0">
                                 <tr>
                                     <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
+                                    <th class="p-4 font-semibold">Photo</th>
                                     <th class="p-4 font-semibold">Type</th>
                                     <th class="p-4 font-semibold cursor-pointer" data-sort-column="country">Country</th>
                                     <th class="p-4 font-semibold cursor-pointer" data-sort-column="year">Year</th>
@@ -7979,7 +7980,7 @@
             const tableBody = document.getElementById('collection-table-body');
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="p-8 text-center text-gray-500">
+                    <td colspan="10" class="p-8 text-center text-gray-500">
                         <div class="flex flex-col items-center space-y-4">
                             <i class="ph ph-coin text-4xl"></i>
                             <p class="text-lg">Your collection is empty</p>
