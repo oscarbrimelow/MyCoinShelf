@@ -6265,15 +6265,6 @@
                                 </button>
                             </div>
                             <div id="public-collection-section">
-                                <!-- Search Bar -->
-                                <div class="mb-4">
-                                    <div class="relative">
-                                        <input type="text" id="public-collection-search" 
-                                               placeholder="Search collection by type, country, denomination..." 
-                                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 pl-10 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                                        <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                    </div>
-                                </div>
                                 <div class="bg-gray-700 rounded-lg overflow-hidden">
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left">
@@ -6411,78 +6402,6 @@
                     });
                 }
 
-                // Add search functionality for collection
-                const collectionSearchInput = document.getElementById('public-collection-search');
-                const collectionTableBody = document.getElementById('public-collection-table-body');
-                
-                console.log('Modal: Setting up collection search:', {
-                    hasInput: !!collectionSearchInput,
-                    hasTableBody: !!collectionTableBody
-                });
-                
-                if (collectionSearchInput && collectionTableBody) {
-                    // Function to perform search
-                    const performSearch = () => {
-                        const searchTerm = collectionSearchInput.value.toLowerCase().trim();
-                        // Try multiple selectors to find rows
-                        let allRows = collectionTableBody.querySelectorAll('.collection-item-row');
-                        if (allRows.length === 0) {
-                            allRows = collectionTableBody.querySelectorAll('tr[data-search-text]');
-                        }
-                        
-                        console.log('Modal: Search triggered:', { 
-                            searchTerm, 
-                            rowCount: allRows.length
-                        });
-                        
-                        if (allRows.length === 0) {
-                            console.warn('Modal: No collection rows found!');
-                            return;
-                        }
-                        
-                        let visibleCount = 0;
-                        allRows.forEach((row) => {
-                            const searchText = (row.getAttribute('data-search-text') || '').toLowerCase();
-                            
-                            if (searchTerm === '' || searchText.includes(searchTerm)) {
-                                row.style.display = '';
-                                row.style.display = 'table-row';
-                                visibleCount++;
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        });
-                        
-                        console.log('Modal: Search complete - visible rows:', visibleCount, 'out of', allRows.length);
-                    };
-                    
-                    // Attach input event listener with immediate execution
-                    collectionSearchInput.addEventListener('input', (e) => {
-                        console.log('Modal: Input event fired');
-                        performSearch();
-                    });
-                    
-                    // Also handle keyup for better responsiveness
-                    collectionSearchInput.addEventListener('keyup', (e) => {
-                        console.log('Modal: Keyup event fired');
-                        performSearch();
-                    });
-                    
-                    // Handle Enter key
-                    collectionSearchInput.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            performSearch();
-                        }
-                    });
-                    
-                    console.log('Modal: Collection search handler attached successfully');
-                } else {
-                    console.warn('Modal: Collection search not attached:', {
-                        hasInput: !!collectionSearchInput,
-                        hasTableBody: !!collectionTableBody
-                    });
-                }
             }, 200); // Increased delay to ensure DOM is ready
 
         } catch (error) {
@@ -6674,15 +6593,6 @@
                                 </button>
                             </div>
                             <div id="public-collection-section">
-                                <!-- Search Bar -->
-                                <div class="mb-4">
-                                    <div class="relative">
-                                        <input type="text" id="public-collection-search" 
-                                               placeholder="Search collection by type, country, denomination..." 
-                                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 pl-10 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                                        <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                    </div>
-                                </div>
                                 <div class="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left">
@@ -6820,78 +6730,6 @@
                     });
                 }
 
-                // Add search functionality for collection
-                const collectionSearchInput = document.getElementById('public-collection-search');
-                const collectionTableBody = document.getElementById('public-collection-table-body');
-                
-                console.log('Setting up collection search:', {
-                    hasInput: !!collectionSearchInput,
-                    hasTableBody: !!collectionTableBody
-                });
-                
-                if (collectionSearchInput && collectionTableBody) {
-                    // Function to perform search
-                    const performSearch = () => {
-                        const searchTerm = collectionSearchInput.value.toLowerCase().trim();
-                        // Try multiple selectors to find rows
-                        let allRows = collectionTableBody.querySelectorAll('.collection-item-row');
-                        if (allRows.length === 0) {
-                            allRows = collectionTableBody.querySelectorAll('tr[data-search-text]');
-                        }
-                        
-                        console.log('Search triggered:', { 
-                            searchTerm, 
-                            rowCount: allRows.length
-                        });
-                        
-                        if (allRows.length === 0) {
-                            console.warn('No collection rows found!');
-                            return;
-                        }
-                        
-                        let visibleCount = 0;
-                        allRows.forEach((row) => {
-                            const searchText = (row.getAttribute('data-search-text') || '').toLowerCase();
-                            
-                            if (searchTerm === '' || searchText.includes(searchTerm)) {
-                                row.style.display = '';
-                                row.style.display = 'table-row';
-                                visibleCount++;
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        });
-                        
-                        console.log('Search complete - visible rows:', visibleCount, 'out of', allRows.length);
-                    };
-                    
-                    // Attach input event listener with immediate execution
-                    collectionSearchInput.addEventListener('input', (e) => {
-                        console.log('Input event fired');
-                        performSearch();
-                    });
-                    
-                    // Also handle keyup for better responsiveness
-                    collectionSearchInput.addEventListener('keyup', (e) => {
-                        console.log('Keyup event fired');
-                        performSearch();
-                    });
-                    
-                    // Handle Enter key
-                    collectionSearchInput.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            performSearch();
-                        }
-                    });
-                    
-                    console.log('Collection search handler attached successfully');
-                } else {
-                    console.warn('Collection search not attached:', {
-                        hasInput: !!collectionSearchInput,
-                        hasTableBody: !!collectionTableBody
-                    });
-                }
             }, 200); // Increased delay to ensure DOM is ready
 
         } catch (error) {
