@@ -5522,16 +5522,35 @@
             }
 
             membersList.classList.remove('hidden');
-            membersList.innerHTML = users.map(user => `
+            membersList.innerHTML = users.map(user => {
+                const initial = (user.display_name || user.username || 'U').charAt(0).toUpperCase();
+                const hasProfilePicture = user.profile_picture_url && user.profile_picture_url.trim() !== '';
+                
+                return `
                 <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-emerald-500 transition-colors cursor-pointer user-card" data-username="${user.username}">
-                    <div class="flex items-start justify-between mb-4">
-                        <div class="flex-1">
-                            <h3 class="text-xl font-bold text-white mb-1">
-                                ${user.display_name || user.username}
-                            </h3>
-                            <p class="text-sm text-gray-400">${renderUsername(user.username)}</p>
+                    <div class="flex items-start gap-4 mb-4">
+                        <!-- Profile Picture -->
+                        <div class="flex-shrink-0">
+                            ${hasProfilePicture ? `
+                                <img src="${escapeHtml(user.profile_picture_url)}" alt="${escapeHtml(user.display_name || user.username)}" 
+                                     class="w-16 h-16 rounded-full object-cover border-2 border-gray-600">
+                            ` : `
+                                <div class="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-white text-xl font-bold">
+                                    ${initial}
+                                </div>
+                            `}
                         </div>
-                        <i class="ph-bold ph-arrow-right text-emerald-400 text-xl"></i>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-xl font-bold text-white mb-1 truncate">
+                                        ${user.display_name || user.username}
+                                    </h3>
+                                    <p class="text-sm text-gray-400">${renderUsername(user.username)}</p>
+                                </div>
+                                <i class="ph-bold ph-arrow-right text-emerald-400 text-xl flex-shrink-0 ml-2"></i>
+                            </div>
+                        </div>
                     </div>
                     ${user.bio ? `<p class="text-gray-300 text-sm mb-4 line-clamp-2">${escapeHtml(user.bio)}</p>` : ''}
                     <div class="flex items-center space-x-4 text-sm">
@@ -5547,7 +5566,8 @@
                         ` : ''}
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
 
             // Add click handlers to user cards
             document.querySelectorAll('.user-card').forEach(card => {

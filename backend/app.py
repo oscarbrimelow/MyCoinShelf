@@ -1055,6 +1055,7 @@ def search_users():
                 'username': user.username,
                 'display_name': user.display_name,
                 'bio': user.bio,
+                'profile_picture_url': user.profile_picture_url,
                 'profile_public': user.profile_public,
                 'collection_public': user.collection_public,
                 'coin_count': coin_count
