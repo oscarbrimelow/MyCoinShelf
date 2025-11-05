@@ -6421,14 +6421,6 @@
                 });
                 
                 if (collectionSearchInput && collectionTableBody) {
-                    // Store original display style for each row
-                    const rows = collectionTableBody.querySelectorAll('.collection-item-row');
-                    rows.forEach(row => {
-                        if (!row.dataset.originalDisplay) {
-                            row.dataset.originalDisplay = window.getComputedStyle(row).display || 'table-row';
-                        }
-                    });
-                    
                     collectionSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
                         const allRows = collectionTableBody.querySelectorAll('.collection-item-row');
@@ -6438,10 +6430,9 @@
                         let visibleCount = 0;
                         allRows.forEach((row) => {
                             const searchText = row.getAttribute('data-search-text') || '';
-                            const originalDisplay = row.dataset.originalDisplay || 'table-row';
                             
                             if (searchTerm === '' || searchText.includes(searchTerm)) {
-                                row.style.display = originalDisplay;
+                                row.style.display = 'table-row';
                                 visibleCount++;
                             } else {
                                 row.style.display = 'none';
@@ -6814,14 +6805,6 @@
                 });
                 
                 if (collectionSearchInput && collectionTableBody) {
-                    // Store original display style for each row
-                    const rows = collectionTableBody.querySelectorAll('.collection-item-row');
-                    rows.forEach(row => {
-                        if (!row.dataset.originalDisplay) {
-                            row.dataset.originalDisplay = window.getComputedStyle(row).display || 'table-row';
-                        }
-                    });
-                    
                     collectionSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
                         const allRows = collectionTableBody.querySelectorAll('.collection-item-row');
@@ -6831,10 +6814,9 @@
                         let visibleCount = 0;
                         allRows.forEach((row) => {
                             const searchText = row.getAttribute('data-search-text') || '';
-                            const originalDisplay = row.dataset.originalDisplay || 'table-row';
                             
                             if (searchTerm === '' || searchText.includes(searchTerm)) {
-                                row.style.display = originalDisplay;
+                                row.style.display = 'table-row';
                                 visibleCount++;
                             } else {
                                 row.style.display = 'none';
