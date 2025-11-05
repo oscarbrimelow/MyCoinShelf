@@ -4776,6 +4776,7 @@
 
             const stats = profile.stats || {};
             const collection = profile.collection || [];
+            const wishlist = profile.wishlist || [];
             
             // Get current currency setting
             const currentCurrency = localStorage.getItem('currency') || 'USD';
@@ -4812,8 +4813,11 @@
                             <div class="text-sm text-gray-400 mb-1">Countries</div>
                             <div class="text-2xl font-bold text-white">${stats.unique_countries || 0}</div>
                         </div>
-                        <div class="bg-gray-700 rounded-lg p-4">
-                            <div class="text-sm text-gray-400 mb-1">Wishlist Items</div>
+                        <div class="bg-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-600 transition-colors" id="wishlist-stat-card" data-wishlist-expanded="false">
+                            <div class="text-sm text-gray-400 mb-1 flex items-center justify-between">
+                                <span>Wishlist Items</span>
+                                ${wishlist.length > 0 ? `<i class="ph-bold ph-caret-down text-pink-400" id="wishlist-toggle-icon"></i>` : ''}
+                            </div>
                             <div class="text-2xl font-bold text-pink-400">${stats.wishlist_count || 0}</div>
                             ${(stats.coin_count || 0) > 0 && (stats.wishlist_count || 0) > 0 ? `
                                 <div class="text-xs text-gray-500 mt-1">
@@ -4821,6 +4825,45 @@
                                 </div>
                             ` : ''}
                         </div>
+                    </div>
+
+                    <!-- Wishlist Items (collapsible) -->
+                    <div id="public-wishlist-section" class="hidden">
+                        <h3 class="text-xl font-bold text-white mb-4">Wishlist</h3>
+                        ${wishlist.length > 0 ? `
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="public-wishlist-items">
+                                ${wishlist.map(item => `
+                                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-pink-500 transition-colors">
+                                        <div class="flex flex-col h-full">
+                                            <div class="mb-3 flex justify-center">
+                                                ${item.image_url ? `
+                                                    <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.denomination || 'Item')}" 
+                                                         class="max-w-full h-32 object-contain rounded-md bg-gray-700 p-2" 
+                                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                    <div class="hidden max-w-full h-32 rounded-md bg-gray-700 p-2 items-center justify-center">
+                                                        <i class="ph-bold ph-image text-4xl text-gray-500"></i>
+                                                    </div>
+                                                ` : `
+                                                    <div class="max-w-full h-32 rounded-md bg-gray-700 p-2 flex items-center justify-center">
+                                                        <i class="ph-bold ph-image text-4xl text-gray-500"></i>
+                                                    </div>
+                                                `}
+                                            </div>
+                                            <h4 class="font-bold text-white text-lg mb-2">${escapeHtml(item.denomination || 'Untitled')}</h4>
+                                            ${item.country ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Country:</span> ${escapeHtml(item.country)}</p>` : ''}
+                                            ${item.year ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Year:</span> ${escapeHtml(item.year.toString())}</p>` : ''}
+                                            ${item.type ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Type:</span> ${escapeHtml(item.type)}</p>` : ''}
+                                            ${item.composition ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Composition:</span> ${escapeHtml(item.composition)}</p>` : ''}
+                                            ${item.description ? `<p class="text-sm text-gray-400 mt-2 line-clamp-2">${escapeHtml(item.description)}</p>` : ''}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="bg-gray-700 rounded-lg p-6 text-center">
+                                <p class="text-gray-400">No items in wishlist yet</p>
+                            </div>
+                        `}
                     </div>
 
                     <!-- Collection -->
@@ -4867,6 +4910,31 @@
                     `}
                 </div>
             `;
+
+            // Add click handler for wishlist toggle
+            const wishlistStatCard = document.getElementById('wishlist-stat-card');
+            const wishlistSection = document.getElementById('public-wishlist-section');
+            const wishlistToggleIcon = document.getElementById('wishlist-toggle-icon');
+            
+            if (wishlistStatCard && wishlistSection && wishlist.length > 0) {
+                wishlistStatCard.addEventListener('click', () => {
+                    const isExpanded = wishlistStatCard.getAttribute('data-wishlist-expanded') === 'true';
+                    
+                    if (isExpanded) {
+                        wishlistSection.classList.add('hidden');
+                        wishlistStatCard.setAttribute('data-wishlist-expanded', 'false');
+                        if (wishlistToggleIcon) {
+                            wishlistToggleIcon.className = 'ph-bold ph-caret-down text-pink-400';
+                        }
+                    } else {
+                        wishlistSection.classList.remove('hidden');
+                        wishlistStatCard.setAttribute('data-wishlist-expanded', 'true');
+                        if (wishlistToggleIcon) {
+                            wishlistToggleIcon.className = 'ph-bold ph-caret-up text-pink-400';
+                        }
+                    }
+                });
+            }
 
         } catch (error) {
             console.error('Error loading user profile:', error);

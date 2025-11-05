@@ -1032,6 +1032,27 @@ def get_user_profile(username):
                 'isHistorical': coin.isHistorical
             })
     
+    # Get wishlist items (if profile is public, show wishlist items)
+    wishlist_items_data = []
+    if user.profile_public:
+        for item in wishlist_items:
+            wishlist_items_data.append({
+                'id': item.id,
+                'type': item.type,
+                'country': item.country,
+                'year': item.year,
+                'denomination': item.denomination,
+                'notes': item.notes,
+                'referenceUrl': item.referenceUrl,
+                'numista_id': item.numista_id,
+                'description': item.description,
+                'composition': item.composition,
+                'weight': item.weight,
+                'diameter': item.diameter,
+                'image_url': item.image_url,
+                'created_at': item.created_at.isoformat() if item.created_at else None
+            })
+    
     return jsonify({
         'username': user.username,
         'display_name': user.display_name,
@@ -1044,7 +1065,8 @@ def get_user_profile(username):
             'unique_countries': unique_countries,
             'wishlist_count': wishlist_count
         },
-        'collection': collection_items if user.collection_public else None
+        'collection': collection_items if user.collection_public else None,
+        'wishlist': wishlist_items_data if user.profile_public else None
     }), 200
 
 @app.route('/api/forgot_password', methods=['POST'])
