@@ -3307,7 +3307,14 @@
             const selectedRegion = regionFilter.value;
             const selectedType = typeFilter.value;
 
-            const filtered = collectionData.filter(item => {
+            // First, sort favorites to top before filtering
+            const sortedCollectionData = [...collectionData].sort((a, b) => {
+                if (a.is_favorite && !b.is_favorite) return -1;
+                if (!a.is_favorite && b.is_favorite) return 1;
+                return 0;
+            });
+
+            const filtered = sortedCollectionData.filter(item => {
                 const matchesSearch = searchTerm === '' ||
                                       String(item.id).toLowerCase().includes(searchTerm) ||
                                       (item.country && item.country.toLowerCase().includes(searchTerm)) || // Added null check
@@ -3424,7 +3431,7 @@
                         item.is_favorite = newFavoriteStatus;
                     }
                     
-                    // Update button appearance
+                    // Update button appearance immediately
                     button.dataset.favorite = newFavoriteStatus;
                     const icon = button.querySelector('i');
                     if (newFavoriteStatus) {
@@ -3445,9 +3452,66 @@
                         }
                     }
                     
-                    // If favorites filter is active, reapply filters
-                    if (currentFilter === 'favorites') {
-                        applyFilters();
+                    // Sort favorites to the top - favorites first, then others
+                    const sortedData = [...collectionData].sort((a, b) => {
+                        // Favorites first
+                        if (a.is_favorite && !b.is_favorite) return -1;
+                        if (!a.is_favorite && b.is_favorite) return 1;
+                        // Keep original order for items with same favorite status
+                        return 0;
+                    });
+                    
+                    // Update originalFilteredOrder to maintain the new order
+                    if (originalFilteredOrder.length > 0) {
+                        // Re-sort the filtered results too
+                        const sortedFiltered = [...originalFilteredOrder].sort((a, b) => {
+                            if (a.is_favorite && !b.is_favorite) return -1;
+                            if (!a.is_favorite && b.is_favorite) return 1;
+                            return 0;
+                        });
+                        originalFilteredOrder = sortedFiltered;
+                    }
+                    
+                    // Re-render the table with favorites at top
+                    const tableBody = document.getElementById('collection-table-body');
+                    if (tableBody) {
+                        // Get current filtered data if filters are active
+                        let dataToRender = sortedData;
+                        if (currentFilter === 'favorites') {
+                            // If favorites filter is active, show only favorites (already sorted to top)
+                            dataToRender = sortedData.filter(item => item.is_favorite === true);
+                        } else {
+                            // Apply other active filters (region, type, search)
+                            const searchInput = document.getElementById('search-input');
+                            const regionFilter = document.getElementById('region-filter');
+                            const typeFilter = document.getElementById('type-filter');
+                            
+                            if (searchInput || regionFilter || typeFilter) {
+                                const searchTerm = searchInput?.value.toLowerCase() || '';
+                                const selectedRegion = regionFilter?.value || '';
+                                const selectedType = typeFilter?.value || '';
+                                
+                                dataToRender = sortedData.filter(item => {
+                                    const matchesSearch = searchTerm === '' ||
+                                                          String(item.id).toLowerCase().includes(searchTerm) ||
+                                                          (item.country && item.country.toLowerCase().includes(searchTerm)) ||
+                                                          (item.denomination && item.denomination.toLowerCase().includes(searchTerm)) ||
+                                                          (item.notes && item.notes.toLowerCase().includes(searchTerm)) ||
+                                                          (item.year && item.year.toString().includes(searchTerm));
+                                    const matchesRegion = selectedRegion === '' || item.region === selectedRegion;
+                                    const matchesType = selectedType === '' || item.type === selectedType;
+                                    return matchesSearch && matchesRegion && matchesType;
+                                });
+                            }
+                        }
+                        
+                        // Update currentFilteredResults
+                        currentFilteredResults = [...dataToRender];
+                        originalFilteredOrder = [...dataToRender];
+                        
+                        // Re-render the table
+                        renderCollectionTable(dataToRender);
+                        updateResultCount(dataToRender.length, collectionData.length);
                     }
                 } catch (error) {
                     console.error('Error toggling favorite:', error);
@@ -3640,9 +3704,15 @@
                 </tr>
             `;
         } else {
-            originalFilteredOrder = [...filteredData]; // Store original order on initial render
-            currentFilteredResults = currentFilteredResults.length > 0 ? currentFilteredResults : [...filteredData]; // Initialize if empty
-            renderCollectionTable(filteredData);
+            // Sort favorites to top before rendering
+            const sortedData = [...filteredData].sort((a, b) => {
+                if (a.is_favorite && !b.is_favorite) return -1;
+                if (!a.is_favorite && b.is_favorite) return 1;
+                return 0;
+            });
+            originalFilteredOrder = [...sortedData]; // Store original order on initial render
+            currentFilteredResults = currentFilteredResults.length > 0 ? currentFilteredResults : [...sortedData]; // Initialize if empty
+            renderCollectionTable(sortedData);
         }
         attachSortEventListeners();
         updateCollectionStats();
