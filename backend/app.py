@@ -950,7 +950,7 @@ def get_profile(current_user):
     
     # Get collection stats
     coins = Coin.query.filter_by(user_id=current_user.id).all()
-    coin_count = len(coins)
+    coin_count = sum(coin.quantity or 1 for coin in coins)  # Sum quantities instead of counting records
     total_value = sum(coin.value * coin.quantity for coin in coins if coin.value)
     unique_countries = len(set(coin.country for coin in coins))
     
@@ -1063,8 +1063,9 @@ def search_users():
     # Build response with user info and collection stats
     result = []
     for user in users:
-        # Count public coins
-        coin_count = Coin.query.filter_by(user_id=user.id).count()
+        # Count public coins (sum quantities)
+        coins = Coin.query.filter_by(user_id=user.id).all()
+        coin_count = sum(coin.quantity or 1 for coin in coins)  # Sum quantities instead of counting records
         
         # Only include if they have items or if searching
         if coin_count > 0 or query:
@@ -1103,7 +1104,7 @@ def get_user_profile(username):
     
     # Get collection stats
     coins = Coin.query.filter_by(user_id=user.id).all()
-    coin_count = len(coins)
+    coin_count = sum(coin.quantity or 1 for coin in coins)  # Sum quantities instead of counting records
     
     # Calculate collection value
     total_value = sum(coin.value * coin.quantity for coin in coins if coin.value)
