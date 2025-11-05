@@ -5284,16 +5284,25 @@
             const profilePublic = document.getElementById('profile-public').checked;
             const collectionPublic = document.getElementById('collection-public').checked;
 
+            const profilePictureUrl = document.getElementById('profile-picture-input')?.dataset.currentUrl || null;
+            
+            // Check if token exists before making request
+            const token = getAuthToken();
+            if (!token) {
+                handleUnauthorized();
+                return;
+            }
+            
             const response = await fetch(`${API_BASE_URL}/profile`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getAuthToken()}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     display_name: displayName,
                     bio: bio,
-                    profile_picture_url: document.getElementById('profile-picture-input')?.dataset.currentUrl || null,
+                    profile_picture_url: profilePictureUrl,
                     profile_public: profilePublic,
                     collection_public: collectionPublic
                 })
@@ -5304,8 +5313,17 @@
                     handleUnauthorized();
                     return;
                 }
-                const errorData = await response.json();
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                
+                // Try to get error message from response
+                let errorMessage = `HTTP error! status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    // If response is not JSON, use status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+                throw new Error(errorMessage);
             }
 
             const result = await response.json();
@@ -5372,27 +5390,60 @@
                     return;
                 }
                 
-                // Convert to base64
+                // Compress and convert to base64
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    const base64Image = event.target.result;
-                    
-                    // Update preview
-                    if (preview) {
-                        preview.src = base64Image;
-                        preview.classList.remove('hidden');
-                    }
-                    if (placeholder) {
-                        placeholder.classList.add('hidden');
-                    }
-                    if (removeBtn) {
-                        removeBtn.classList.remove('hidden');
-                    }
-                    
-                    // Store in dataset for form submission
-                    if (freshFileInput) {
-                        freshFileInput.dataset.currentUrl = base64Image;
-                    }
+                    const img = new Image();
+                    img.onload = () => {
+                        // Create canvas to compress image
+                        const canvas = document.createElement('canvas');
+                        const maxWidth = 400;
+                        const maxHeight = 400;
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Calculate new dimensions
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = (height * maxWidth) / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width = (width * maxHeight) / height;
+                                height = maxHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Convert to base64 with compression
+                        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+                        
+                        // Update preview
+                        if (preview) {
+                            preview.src = base64Image;
+                            preview.classList.remove('hidden');
+                        }
+                        if (placeholder) {
+                            placeholder.classList.add('hidden');
+                        }
+                        if (removeBtn) {
+                            removeBtn.classList.remove('hidden');
+                        }
+                        
+                        // Store in dataset for form submission
+                        if (freshFileInput) {
+                            freshFileInput.dataset.currentUrl = base64Image;
+                        }
+                    };
+                    img.onerror = () => {
+                        showCustomConfirm('Failed to load image. Please try another file.', () => {});
+                    };
+                    img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
             });

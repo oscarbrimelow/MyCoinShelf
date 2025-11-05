@@ -301,7 +301,8 @@ def jwt_required(f):
         except Exception as e:
             print(f"DEBUG: Fatal error in jwt_required wrapper: {e}")
             traceback.print_exc()
-            response = jsonify({'message': 'Fatal authentication error'})
+            error_msg = f'Fatal authentication error: {str(e)}'
+            response = jsonify({'message': error_msg})
             response.headers['Content-Type'] = 'application/json'
             return response, 500
     return decorated
@@ -979,7 +980,14 @@ def get_profile(current_user):
 @jwt_required
 def update_profile(current_user):
     """Update current user's profile information"""
-    data = request.get_json()
+    try:
+        data = request.get_json()
+    except Exception as e:
+        print(f"Error parsing JSON in update_profile: {e}")
+        return jsonify({'message': f'Invalid request data: {str(e)}'}), 400
+    
+    if not data:
+        return jsonify({'message': 'Request body is required'}), 400
     
     # Update display_name
     if 'display_name' in data:
