@@ -184,6 +184,8 @@ class Coin(db.Model):
     # New fields for bullion tracking
     weight_grams = db.Column(db.Float, nullable=True) # Weight in grams for bullion
     purity_percent = db.Column(db.Float, nullable=True) # Purity percentage for bullion (e.g., 99.9)
+    # Favorites feature
+    is_favorite = db.Column(db.Boolean, default=False) # True if marked as favorite
 
     def __repr__(self):
         return f'<Coin {self.denomination} from {self.country} ({self.year})>'
@@ -230,6 +232,30 @@ class PasswordResetToken(db.Model):
 
     def __repr__(self):
         return f'<PasswordResetToken for User: {self.user_id}>'
+
+# New: Model for User Follows (Social Features)
+class Follow(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    follower_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    following_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    
+    # Prevent duplicate follows
+    __table_args__ = (db.UniqueConstraint('follower_id', 'following_id', name='unique_follow'),)
+    
+    def __repr__(self):
+        return f'<Follow {self.follower_id} -> {self.following_id}>'
+
+# New: Model for Comments on Public Collections
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Commenter
+    collection_owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Collection owner
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Comment by User {self.user_id} on Collection {self.collection_owner_id}>'
 
 # --- JWT Authentication Decorator ---
 def jwt_required(f):
@@ -1002,6 +1028,18 @@ def search_users():
 @app.route('/api/users/<username>', methods=['GET'])
 def get_user_profile(username):
     """Get public profile and collection for a specific user by username"""
+    # Try to get current user (optional authentication)
+    current_user = None
+    try:
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(" ")[1]
+                data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
+                current_user = User.query.get(data['user_id'])
+    except:
+        pass  # Not authenticated, continue without current_user
+    
     user = User.query.filter_by(username=username, profile_public=True).first()
     
     if not user:
@@ -1060,6 +1098,18 @@ def get_user_profile(username):
                 'created_at': item.created_at.isoformat() if item.created_at else None
             })
     
+    # Get follower/following counts
+    follower_count = Follow.query.filter_by(following_id=user.id).count()
+    following_count = Follow.query.filter_by(follower_id=user.id).count()
+    
+    # Check if current user is following this user (handle both authenticated and unauthenticated)
+    is_following = False
+    try:
+        if current_user and hasattr(current_user, 'id'):
+            is_following = Follow.query.filter_by(follower_id=current_user.id, following_id=user.id).first() is not None
+    except:
+        pass  # If not authenticated, is_following remains False
+    
     return jsonify({
         'username': user.username,
         'display_name': user.display_name,
@@ -1070,10 +1120,180 @@ def get_user_profile(username):
             'coin_count': coin_count,
             'total_value': total_value,
             'unique_countries': unique_countries,
-            'wishlist_count': wishlist_count
+            'wishlist_count': wishlist_count,
+            'follower_count': follower_count,
+            'following_count': following_count
         },
+        'is_following': is_following,
         'collection': collection_items if user.collection_public else None,
         'wishlist': wishlist_items_data if user.profile_public else None
+    }), 200
+
+@app.route('/api/users/<username>/follow', methods=['POST'])
+@jwt_required
+def follow_user(current_user, username):
+    """Follow or unfollow a user"""
+    target_user = User.query.filter_by(username=username).first()
+    if not target_user:
+        return jsonify({'message': 'User not found'}), 404
+    
+    if target_user.id == current_user.id:
+        return jsonify({'message': 'Cannot follow yourself'}), 400
+    
+    existing_follow = Follow.query.filter_by(follower_id=current_user.id, following_id=target_user.id).first()
+    
+    if existing_follow:
+        # Unfollow
+        db.session.delete(existing_follow)
+        db.session.commit()
+        return jsonify({'message': f'Unfollowed {username}', 'is_following': False}), 200
+    else:
+        # Follow
+        new_follow = Follow(follower_id=current_user.id, following_id=target_user.id)
+        db.session.add(new_follow)
+        db.session.commit()
+        return jsonify({'message': f'Now following {username}', 'is_following': True}), 200
+
+@app.route('/api/users/<username>/followers', methods=['GET'])
+def get_followers(username):
+    """Get list of users following this user"""
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    
+    followers = Follow.query.filter_by(following_id=user.id).all()
+    follower_list = []
+    for follow in followers:
+        follower_user = User.query.get(follow.follower_id)
+        if follower_user:
+            follower_list.append({
+                'username': follower_user.username,
+                'display_name': follower_user.display_name
+            })
+    
+    return jsonify({'followers': follower_list}), 200
+
+@app.route('/api/users/<username>/following', methods=['GET'])
+def get_following(username):
+    """Get list of users this user is following"""
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    
+    following = Follow.query.filter_by(follower_id=user.id).all()
+    following_list = []
+    for follow in following:
+        following_user = User.query.get(follow.following_id)
+        if following_user:
+            following_list.append({
+                'username': following_user.username,
+                'display_name': following_user.display_name
+            })
+    
+    return jsonify({'following': following_list}), 200
+
+@app.route('/api/comments', methods=['POST'])
+@jwt_required
+def add_comment(current_user):
+    """Add a comment on a user's public collection"""
+    data = request.get_json()
+    collection_owner_username = data.get('collection_owner_username')
+    content = data.get('content', '').strip()
+    
+    if not collection_owner_username or not content:
+        return jsonify({'message': 'Collection owner username and content are required'}), 400
+    
+    collection_owner = User.query.filter_by(username=collection_owner_username).first()
+    if not collection_owner:
+        return jsonify({'message': 'Collection owner not found'}), 404
+    
+    if not collection_owner.collection_public:
+        return jsonify({'message': 'This collection is not public'}), 403
+    
+    new_comment = Comment(
+        user_id=current_user.id,
+        collection_owner_id=collection_owner.id,
+        content=content
+    )
+    db.session.add(new_comment)
+    db.session.commit()
+    
+    commenter = User.query.get(current_user.id)
+    return jsonify({
+        'message': 'Comment added successfully',
+        'comment': {
+            'id': new_comment.id,
+            'username': commenter.username,
+            'display_name': commenter.display_name,
+            'content': new_comment.content,
+            'created_at': new_comment.created_at.isoformat()
+        }
+    }), 201
+
+@app.route('/api/comments', methods=['GET'])
+def get_comments():
+    """Get comments for a user's public collection"""
+    collection_owner_username = request.args.get('collection_owner_username')
+    
+    if not collection_owner_username:
+        return jsonify({'message': 'Collection owner username is required'}), 400
+    
+    collection_owner = User.query.filter_by(username=collection_owner_username).first()
+    if not collection_owner:
+        return jsonify({'message': 'Collection owner not found'}), 404
+    
+    comments = Comment.query.filter_by(collection_owner_id=collection_owner.id).order_by(Comment.created_at.desc()).all()
+    comment_list = []
+    for comment in comments:
+        commenter = User.query.get(comment.user_id)
+        if commenter:
+            comment_list.append({
+                'id': comment.id,
+                'username': commenter.username,
+                'display_name': commenter.display_name,
+                'content': comment.content,
+                'created_at': comment.created_at.isoformat()
+            })
+    
+    return jsonify({'comments': comment_list}), 200
+
+@app.route('/api/users/compare', methods=['GET'])
+@jwt_required
+def compare_collections(current_user):
+    """Compare current user's collection with another user's collection (anonymous stats)"""
+    other_username = request.args.get('username2')
+    if not other_username:
+        return jsonify({'message': 'username2 parameter is required'}), 400
+    
+    other_user = User.query.filter_by(username=other_username, collection_public=True).first()
+    if not other_user:
+        return jsonify({'message': 'User not found or collection is not public'}), 404
+    
+    # Current user stats
+    my_coins = Coin.query.filter_by(user_id=current_user.id).all()
+    my_count = len(my_coins)
+    my_value = sum(coin.value * coin.quantity for coin in my_coins if coin.value)
+    my_countries = len(set(coin.country for coin in my_coins))
+    
+    # Other user stats
+    other_coins = Coin.query.filter_by(user_id=other_user.id).all()
+    other_count = len(other_coins)
+    other_value = sum(coin.value * coin.quantity for coin in other_coins if coin.value)
+    other_countries = len(set(coin.country for coin in other_coins))
+    
+    return jsonify({
+        'user1': {
+            'username': current_user.username,
+            'item_count': my_count,
+            'total_value': my_value,
+            'unique_countries': my_countries
+        },
+        'user2': {
+            'username': other_username,
+            'item_count': other_count,
+            'total_value': other_value,
+            'unique_countries': other_countries
+        }
     }), 200
 
 @app.route('/api/forgot_password', methods=['POST'])
@@ -1187,7 +1407,8 @@ def get_coins(current_user):
             'region': coin.region, # Include region from DB
             'isHistorical': coin.isHistorical, # Include isHistorical from DB
             'weight_grams': coin.weight_grams, # Include weight for bullion
-            'purity_percent': coin.purity_percent # Include purity for bullion
+            'purity_percent': coin.purity_percent, # Include purity for bullion
+            'is_favorite': getattr(coin, 'is_favorite', False) # Include favorite status
         }
         output.append(coin_data)
     return jsonify(output), 200
@@ -1696,6 +1917,22 @@ def clear_all_coins(current_user):
     num_deleted = Coin.query.filter_by(user_id=current_user.id).delete()
     db.session.commit()
     return jsonify({'message': f'{num_deleted} coins deleted successfully.'}), 200
+
+@app.route('/api/coins/<int:coin_id>/toggle-favorite', methods=['POST'])
+@jwt_required
+def toggle_favorite(current_user, coin_id):
+    """Toggle favorite status of a coin"""
+    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
+    if not coin:
+        return jsonify({'message': 'Coin not found or unauthorized'}), 404
+    
+    coin.is_favorite = not getattr(coin, 'is_favorite', False)
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Favorite status updated successfully!',
+        'is_favorite': coin.is_favorite
+    }), 200
 
 # --- Wishlist API Endpoints ---
 def fetch_numista_item_image(numista_id):
@@ -2317,6 +2554,20 @@ def migrate_database():
             print("Added quantity column to coin table")
         else:
             print("quantity column already exists")
+        
+        # Check if is_favorite column exists
+        result = db.session.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'coin' AND column_name = 'is_favorite'
+        """))
+        
+        if not result.fetchone():
+            # Add is_favorite column with default value false
+            db.session.execute(text("ALTER TABLE coin ADD COLUMN is_favorite BOOLEAN DEFAULT FALSE"))
+            print("Added is_favorite column to coin table")
+        else:
+            print("is_favorite column already exists")
         
         db.session.commit()
         print("Database migration completed successfully!")
