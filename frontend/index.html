@@ -5008,6 +5008,9 @@
             profileForm.removeEventListener('submit', handleUpdateProfile);
             profileForm.addEventListener('submit', handleUpdateProfile);
         }
+        
+        // Setup profile picture upload handlers
+        setupProfilePictureUpload();
     }
 
     // --- PROFILE PAGE RENDERING ---
@@ -5329,12 +5332,31 @@
         const preview = document.getElementById('profile-picture-preview');
         const placeholder = document.getElementById('profile-picture-placeholder');
         
-        if (uploadBtn && fileInput) {
-            uploadBtn.addEventListener('click', () => {
-                fileInput.click();
+        if (!uploadBtn || !fileInput) {
+            console.log('Profile picture upload elements not found');
+            return;
+        }
+        
+        // Remove existing listeners to prevent duplicates
+        const newUploadBtn = uploadBtn.cloneNode(true);
+        uploadBtn.parentNode.replaceChild(newUploadBtn, uploadBtn);
+        
+        const newFileInput = fileInput.cloneNode(true);
+        fileInput.parentNode.replaceChild(newFileInput, fileInput);
+        
+        // Get fresh references after cloning
+        const freshUploadBtn = document.getElementById('profile-picture-upload-btn');
+        const freshFileInput = document.getElementById('profile-picture-input');
+        
+        if (freshUploadBtn && freshFileInput) {
+            freshUploadBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('Upload button clicked');
+                freshFileInput.click();
             });
             
-            fileInput.addEventListener('change', (e) => {
+            freshFileInput.addEventListener('change', (e) => {
+                console.log('File input changed');
                 const file = e.target.files[0];
                 if (!file) return;
                 
@@ -5368,8 +5390,8 @@
                     }
                     
                     // Store in dataset for form submission
-                    if (fileInput) {
-                        fileInput.dataset.currentUrl = base64Image;
+                    if (freshFileInput) {
+                        freshFileInput.dataset.currentUrl = base64Image;
                     }
                 };
                 reader.readAsDataURL(file);
@@ -5377,20 +5399,28 @@
         }
         
         if (removeBtn) {
-            removeBtn.addEventListener('click', () => {
-                if (preview) {
-                    preview.src = '';
-                    preview.classList.add('hidden');
-                }
-                if (placeholder) {
-                    placeholder.classList.remove('hidden');
-                }
-                removeBtn.classList.add('hidden');
-                if (fileInput) {
-                    fileInput.value = '';
-                    fileInput.dataset.currentUrl = null;
-                }
-            });
+            // Remove existing listener
+            const newRemoveBtn = removeBtn.cloneNode(true);
+            removeBtn.parentNode.replaceChild(newRemoveBtn, removeBtn);
+            const freshRemoveBtn = document.getElementById('profile-picture-remove-btn');
+            
+            if (freshRemoveBtn) {
+                freshRemoveBtn.addEventListener('click', () => {
+                    const currentFileInput = document.getElementById('profile-picture-input');
+                    if (preview) {
+                        preview.src = '';
+                        preview.classList.add('hidden');
+                    }
+                    if (placeholder) {
+                        placeholder.classList.remove('hidden');
+                    }
+                    freshRemoveBtn.classList.add('hidden');
+                    if (currentFileInput) {
+                        currentFileInput.value = '';
+                        currentFileInput.dataset.currentUrl = null;
+                    }
+                });
+            }
         }
     }
 
