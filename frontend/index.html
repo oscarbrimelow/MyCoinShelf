@@ -6344,73 +6344,104 @@
             // Attach event handlers
             attachProfileEventHandlers(profile);
 
-            // Add click handler for wishlist toggle
-            const wishlistStatCard = document.getElementById('wishlist-stat-card');
-            const wishlistSection = document.getElementById('public-wishlist-section');
-            const wishlistToggleIcon = document.getElementById('wishlist-toggle-icon');
-            
-            if (wishlistStatCard && wishlistSection && wishlist.length > 0) {
-                wishlistStatCard.addEventListener('click', () => {
-                    const isExpanded = wishlistStatCard.getAttribute('data-wishlist-expanded') === 'true';
-                    
-                    if (isExpanded) {
-                        wishlistSection.classList.add('hidden');
-                        wishlistStatCard.setAttribute('data-wishlist-expanded', 'false');
-                        if (wishlistToggleIcon) {
-                            wishlistToggleIcon.className = 'ph-bold ph-caret-down text-pink-400';
-                        }
-                    } else {
-                        wishlistSection.classList.remove('hidden');
-                        wishlistStatCard.setAttribute('data-wishlist-expanded', 'true');
-                        if (wishlistToggleIcon) {
-                            wishlistToggleIcon.className = 'ph-bold ph-caret-up text-pink-400';
-                        }
-                    }
-                });
-            }
-
-            // Add click handler for collection toggle
-            const collectionToggleBtn = document.getElementById('collection-toggle-btn');
-            const collectionSection = document.getElementById('public-collection-section');
-            const collectionToggleIcon = document.getElementById('collection-toggle-icon');
-            
-            if (collectionToggleBtn && collectionSection && collection.length > 0) {
-                collectionToggleBtn.addEventListener('click', () => {
-                    const isExpanded = collectionToggleBtn.getAttribute('data-collection-expanded') === 'true';
-                    
-                    if (isExpanded) {
-                        collectionSection.classList.add('hidden');
-                        collectionToggleBtn.setAttribute('data-collection-expanded', 'false');
-                        if (collectionToggleIcon) {
-                            collectionToggleIcon.className = 'ph-bold ph-caret-down text-xl';
-                        }
-                    } else {
-                        collectionSection.classList.remove('hidden');
-                        collectionToggleBtn.setAttribute('data-collection-expanded', 'true');
-                        if (collectionToggleIcon) {
-                            collectionToggleIcon.className = 'ph-bold ph-caret-up text-xl';
-                        }
-                    }
-                });
-            }
-
-            // Add search functionality for collection
-            const collectionSearchInput = document.getElementById('public-collection-search');
-            if (collectionSearchInput) {
-                collectionSearchInput.addEventListener('input', (e) => {
-                    const searchTerm = e.target.value.toLowerCase().trim();
-                    const rows = document.querySelectorAll('.collection-item-row');
-                    
-                    rows.forEach(row => {
-                        const searchText = row.getAttribute('data-search-text') || '';
-                        if (searchText.includes(searchTerm)) {
-                            row.style.display = '';
+            // Use setTimeout to ensure DOM is fully updated before attaching handlers
+            setTimeout(() => {
+                // Add click handler for wishlist toggle
+                const wishlistStatCard = document.getElementById('wishlist-stat-card');
+                const wishlistSection = document.getElementById('public-wishlist-section');
+                const wishlistToggleIcon = document.getElementById('wishlist-toggle-icon');
+                
+                if (wishlistStatCard && wishlistSection && wishlist.length > 0) {
+                    wishlistStatCard.addEventListener('click', () => {
+                        const isExpanded = wishlistStatCard.getAttribute('data-wishlist-expanded') === 'true';
+                        
+                        if (isExpanded) {
+                            wishlistSection.classList.add('hidden');
+                            wishlistStatCard.setAttribute('data-wishlist-expanded', 'false');
+                            if (wishlistToggleIcon) {
+                                wishlistToggleIcon.className = 'ph-bold ph-caret-down text-pink-400';
+                            }
                         } else {
-                            row.style.display = 'none';
+                            wishlistSection.classList.remove('hidden');
+                            wishlistStatCard.setAttribute('data-wishlist-expanded', 'true');
+                            if (wishlistToggleIcon) {
+                                wishlistToggleIcon.className = 'ph-bold ph-caret-up text-pink-400';
+                            }
                         }
                     });
+                }
+
+                // Add click handler for collection toggle
+                const collectionToggleBtn = document.getElementById('collection-toggle-btn');
+                const collectionSection = document.getElementById('public-collection-section');
+                const collectionToggleIcon = document.getElementById('collection-toggle-icon');
+                
+                console.log('Modal: Setting up collection toggle:', {
+                    hasBtn: !!collectionToggleBtn,
+                    hasSection: !!collectionSection,
+                    hasIcon: !!collectionToggleIcon,
+                    collectionLength: collection.length,
+                    collectionPublic: profile.collection_public
                 });
-            }
+                
+                if (collectionToggleBtn && collectionSection && collection.length > 0) {
+                    collectionToggleBtn.addEventListener('click', () => {
+                        const isExpanded = collectionToggleBtn.getAttribute('data-collection-expanded') === 'true';
+                        
+                        if (isExpanded) {
+                            collectionSection.classList.add('hidden');
+                            collectionToggleBtn.setAttribute('data-collection-expanded', 'false');
+                            if (collectionToggleIcon) {
+                                collectionToggleIcon.className = 'ph-bold ph-caret-down text-xl';
+                            }
+                        } else {
+                            collectionSection.classList.remove('hidden');
+                            collectionToggleBtn.setAttribute('data-collection-expanded', 'true');
+                            if (collectionToggleIcon) {
+                                collectionToggleIcon.className = 'ph-bold ph-caret-up text-xl';
+                            }
+                        }
+                    });
+                    console.log('Modal: Collection toggle handler attached successfully');
+                } else {
+                    console.warn('Modal: Collection toggle not attached:', {
+                        hasBtn: !!collectionToggleBtn,
+                        hasSection: !!collectionSection,
+                        collectionLength: collection.length
+                    });
+                }
+
+                // Add search functionality for collection
+                const collectionSearchInput = document.getElementById('public-collection-search');
+                const collectionTableBody = document.getElementById('public-collection-table-body');
+                
+                console.log('Modal: Setting up collection search:', {
+                    hasInput: !!collectionSearchInput,
+                    hasTableBody: !!collectionTableBody
+                });
+                
+                if (collectionSearchInput && collectionTableBody) {
+                    collectionSearchInput.addEventListener('input', (e) => {
+                        const searchTerm = e.target.value.toLowerCase().trim();
+                        const rows = collectionTableBody.querySelectorAll('.collection-item-row');
+                        
+                        rows.forEach(row => {
+                            const searchText = row.getAttribute('data-search-text') || '';
+                            if (searchText.includes(searchTerm)) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        });
+                    });
+                    console.log('Modal: Collection search handler attached successfully');
+                } else {
+                    console.warn('Modal: Collection search not attached:', {
+                        hasInput: !!collectionSearchInput,
+                        hasTableBody: !!collectionTableBody
+                    });
+                }
+            }, 100); // Small delay to ensure DOM is ready
 
         } catch (error) {
             console.error('Error loading user profile:', error);
@@ -6680,73 +6711,104 @@
             // Attach event handlers
             attachProfileEventHandlers(profile);
 
-            // Add click handler for wishlist toggle
-            const wishlistStatCard = document.getElementById('wishlist-stat-card');
-            const wishlistSection = document.getElementById('public-wishlist-section');
-            const wishlistToggleIcon = document.getElementById('wishlist-toggle-icon');
-            
-            if (wishlistStatCard && wishlistSection && wishlist.length > 0) {
-                wishlistStatCard.addEventListener('click', () => {
-                    const isExpanded = wishlistStatCard.getAttribute('data-wishlist-expanded') === 'true';
-                    
-                    if (isExpanded) {
-                        wishlistSection.classList.add('hidden');
-                        wishlistStatCard.setAttribute('data-wishlist-expanded', 'false');
-                        if (wishlistToggleIcon) {
-                            wishlistToggleIcon.className = 'ph-bold ph-caret-down text-pink-400';
-                        }
-                    } else {
-                        wishlistSection.classList.remove('hidden');
-                        wishlistStatCard.setAttribute('data-wishlist-expanded', 'true');
-                        if (wishlistToggleIcon) {
-                            wishlistToggleIcon.className = 'ph-bold ph-caret-up text-pink-400';
-                        }
-                    }
-                });
-            }
-
-            // Add click handler for collection toggle
-            const collectionToggleBtn = document.getElementById('collection-toggle-btn');
-            const collectionSection = document.getElementById('public-collection-section');
-            const collectionToggleIcon = document.getElementById('collection-toggle-icon');
-            
-            if (collectionToggleBtn && collectionSection && collection.length > 0) {
-                collectionToggleBtn.addEventListener('click', () => {
-                    const isExpanded = collectionToggleBtn.getAttribute('data-collection-expanded') === 'true';
-                    
-                    if (isExpanded) {
-                        collectionSection.classList.add('hidden');
-                        collectionToggleBtn.setAttribute('data-collection-expanded', 'false');
-                        if (collectionToggleIcon) {
-                            collectionToggleIcon.className = 'ph-bold ph-caret-down text-xl';
-                        }
-                    } else {
-                        collectionSection.classList.remove('hidden');
-                        collectionToggleBtn.setAttribute('data-collection-expanded', 'true');
-                        if (collectionToggleIcon) {
-                            collectionToggleIcon.className = 'ph-bold ph-caret-up text-xl';
-                        }
-                    }
-                });
-            }
-
-            // Add search functionality for collection
-            const collectionSearchInput = document.getElementById('public-collection-search');
-            if (collectionSearchInput) {
-                collectionSearchInput.addEventListener('input', (e) => {
-                    const searchTerm = e.target.value.toLowerCase().trim();
-                    const rows = document.querySelectorAll('.collection-item-row');
-                    
-                    rows.forEach(row => {
-                        const searchText = row.getAttribute('data-search-text') || '';
-                        if (searchText.includes(searchTerm)) {
-                            row.style.display = '';
+            // Use setTimeout to ensure DOM is fully updated before attaching handlers
+            setTimeout(() => {
+                // Add click handler for wishlist toggle
+                const wishlistStatCard = document.getElementById('wishlist-stat-card');
+                const wishlistSection = document.getElementById('public-wishlist-section');
+                const wishlistToggleIcon = document.getElementById('wishlist-toggle-icon');
+                
+                if (wishlistStatCard && wishlistSection && wishlist.length > 0) {
+                    wishlistStatCard.addEventListener('click', () => {
+                        const isExpanded = wishlistStatCard.getAttribute('data-wishlist-expanded') === 'true';
+                        
+                        if (isExpanded) {
+                            wishlistSection.classList.add('hidden');
+                            wishlistStatCard.setAttribute('data-wishlist-expanded', 'false');
+                            if (wishlistToggleIcon) {
+                                wishlistToggleIcon.className = 'ph-bold ph-caret-down text-pink-400';
+                            }
                         } else {
-                            row.style.display = 'none';
+                            wishlistSection.classList.remove('hidden');
+                            wishlistStatCard.setAttribute('data-wishlist-expanded', 'true');
+                            if (wishlistToggleIcon) {
+                                wishlistToggleIcon.className = 'ph-bold ph-caret-up text-pink-400';
+                            }
                         }
                     });
+                }
+
+                // Add click handler for collection toggle
+                const collectionToggleBtn = document.getElementById('collection-toggle-btn');
+                const collectionSection = document.getElementById('public-collection-section');
+                const collectionToggleIcon = document.getElementById('collection-toggle-icon');
+                
+                console.log('Setting up collection toggle:', {
+                    hasBtn: !!collectionToggleBtn,
+                    hasSection: !!collectionSection,
+                    hasIcon: !!collectionToggleIcon,
+                    collectionLength: collection.length,
+                    collectionPublic: profile.collection_public
                 });
-            }
+                
+                if (collectionToggleBtn && collectionSection && collection.length > 0) {
+                    collectionToggleBtn.addEventListener('click', () => {
+                        const isExpanded = collectionToggleBtn.getAttribute('data-collection-expanded') === 'true';
+                        
+                        if (isExpanded) {
+                            collectionSection.classList.add('hidden');
+                            collectionToggleBtn.setAttribute('data-collection-expanded', 'false');
+                            if (collectionToggleIcon) {
+                                collectionToggleIcon.className = 'ph-bold ph-caret-down text-xl';
+                            }
+                        } else {
+                            collectionSection.classList.remove('hidden');
+                            collectionToggleBtn.setAttribute('data-collection-expanded', 'true');
+                            if (collectionToggleIcon) {
+                                collectionToggleIcon.className = 'ph-bold ph-caret-up text-xl';
+                            }
+                        }
+                    });
+                    console.log('Collection toggle handler attached successfully');
+                } else {
+                    console.warn('Collection toggle not attached:', {
+                        hasBtn: !!collectionToggleBtn,
+                        hasSection: !!collectionSection,
+                        collectionLength: collection.length
+                    });
+                }
+
+                // Add search functionality for collection
+                const collectionSearchInput = document.getElementById('public-collection-search');
+                const collectionTableBody = document.getElementById('public-collection-table-body');
+                
+                console.log('Setting up collection search:', {
+                    hasInput: !!collectionSearchInput,
+                    hasTableBody: !!collectionTableBody
+                });
+                
+                if (collectionSearchInput && collectionTableBody) {
+                    collectionSearchInput.addEventListener('input', (e) => {
+                        const searchTerm = e.target.value.toLowerCase().trim();
+                        const rows = collectionTableBody.querySelectorAll('.collection-item-row');
+                        
+                        rows.forEach(row => {
+                            const searchText = row.getAttribute('data-search-text') || '';
+                            if (searchText.includes(searchTerm)) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        });
+                    });
+                    console.log('Collection search handler attached successfully');
+                } else {
+                    console.warn('Collection search not attached:', {
+                        hasInput: !!collectionSearchInput,
+                        hasTableBody: !!collectionTableBody
+                    });
+                }
+            }, 100); // Small delay to ensure DOM is ready
 
         } catch (error) {
             console.error('Error loading user profile:', error);
