@@ -6,6 +6,8 @@ import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import datetime
@@ -129,9 +131,21 @@ app.config.from_object(Config)
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
+# Initialize Rate Limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
+
 # Initialize CORS for cross-origin requests from your frontend
-# For production, replace "*" with your actual frontend domain (e.g., 'https://your-netlify-app.netlify.app')
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# Restrict to specific frontend domains for security
+allowed_origins = os.environ.get(
+    'CORS_ALLOWED_ORIGINS',
+    'https://mycoinshelf.com,https://www.mycoinshelf.com,http://localhost:3000,http://localhost:8080'
+).split(',')
+CORS(app, resources={r"/api/*": {"origins": allowed_origins, "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"], "allow_headers": ["Content-Type", "Authorization"]}})
 
 # --- Database Models ---
 class User(db.Model):
@@ -765,17 +779,16 @@ def test_email():
         return jsonify({'message': f'Error: {str(e)}'}), 500
 
 @app.route('/api/register', methods=['POST'])
+@limiter.limit("5 per minute")
 def register():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
 
     if not email or not password:
-        print("DEBUG: Registration failed - missing email or password.")
         return jsonify({'message': 'Email and password are required'}), 400
 
     if User.query.filter_by(email=email).first():
-        print(f"DEBUG: Registration failed - user with email {email} already exists.")
         return jsonify({'message': 'User with that email already exists'}), 409
 
     hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
@@ -786,33 +799,24 @@ def register():
     # Send welcome email
     send_welcome_email(email)
     
-    print(f"DEBUG: User {email} registered successfully.")
     return jsonify({'message': 'User registered successfully!'}), 201
 
 @app.route('/api/login', methods=['POST'])
+@limiter.limit("5 per minute")
 def login():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
 
-    print(f"DEBUG: Attempting login for email: {email}")
-
     if not email or not password:
-        print("DEBUG: Login failed - Missing email or password in request.")
         return jsonify({'message': 'Email and password are required'}), 400
 
     user = User.query.filter_by(email=email).first()
 
     if not user:
-        print(f"DEBUG: Login failed - User with email {email} not found.")
         return jsonify({'message': 'Invalid credentials'}), 401
 
-    print(f"DEBUG: User found: {user.email}")
-    print(f"DEBUG: Provided password: {password}")
-    print(f"DEBUG: Stored password hash: {user.password_hash}")
-
     if not check_password_hash(user.password_hash, password):
-        print("DEBUG: Login failed - Password hash mismatch.")
         return jsonify({'message': 'Invalid credentials'}), 401
 
     token = jwt.encode({
@@ -823,7 +827,6 @@ def login():
     # Check if user needs to set username (for existing users)
     needs_username = not user.username or user.username.strip() == ''
     
-    print(f"DEBUG: User {email} logged in successfully. Token generated.")
     return jsonify({
         'token': token,
         'needs_username': needs_username
@@ -831,6 +834,7 @@ def login():
 
 @app.route('/api/change_password', methods=['POST'])
 @jwt_required
+@limiter.limit("5 per hour")
 def change_password(current_user):
     data = request.get_json()
     current_password = data.get('current_password')
@@ -1073,6 +1077,7 @@ def get_user_profile(username):
     }), 200
 
 @app.route('/api/forgot_password', methods=['POST'])
+@limiter.limit("3 per hour")
 def forgot_password():
     """Request a password reset email"""
     data = request.get_json()
@@ -1119,6 +1124,7 @@ def forgot_password():
         return jsonify({'message': 'Failed to send password reset email. Please try again later.'}), 500
 
 @app.route('/api/reset_password', methods=['POST'])
+@limiter.limit("5 per hour")
 def reset_password():
     """Reset password using token"""
     data = request.get_json()
