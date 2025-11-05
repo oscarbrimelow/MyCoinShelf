@@ -1584,16 +1584,42 @@
                         <label for="notes" class="block text-sm font-medium text-gray-400">Notes</label>
                         <textarea id="notes" rows="3" aria-label="Notes" placeholder="Any extra details, history, or condition..." class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"></textarea>
                     </div>
-                    <!-- Group 4: Reference URL, Local Image Path (full width) -->
+                    <!-- Group 4: Reference URL, Image (full width) -->
                     <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label for="referenceUrl" class="block text-sm font-medium text-gray-400">Reference URL</label>
                             <input type="text" id="referenceUrl" aria-label="Reference URL" placeholder="e.g., eBay, Numista, etc." class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
                         </div>
                         <div>
-                            <label for="localImagePath" class="block text-sm font-medium text-gray-400">Local Image Path</label>
-                            <input type="text" id="localImagePath" aria-label="Local Image Path" placeholder="e.g., C:\Users\You\Pictures\Coins\my_coin.jpg" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
-                            <span class="text-xs text-gray-500">Optional. Used for local display only.</span>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">Image</label>
+                            <!-- Toggle between URL and Upload -->
+                            <div class="flex gap-2 mb-2">
+                                <button type="button" id="image-url-toggle" class="flex-1 px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white" onclick="toggleImageInput('url')">Image URL</button>
+                                <button type="button" id="image-upload-toggle" class="flex-1 px-3 py-1.5 text-sm rounded-md bg-gray-700 text-gray-300 hover:bg-gray-600" onclick="toggleImageInput('upload')">Upload Image</button>
+                            </div>
+                            <!-- URL Input -->
+                            <div id="image-url-input" class="image-input-section">
+                                <input type="text" id="localImagePath" aria-label="Image URL" placeholder="https://example.com/image.jpg" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                <span class="text-xs text-gray-500">Enter image URL or paste from Numista</span>
+                            </div>
+                            <!-- File Upload Input -->
+                            <div id="image-upload-input" class="image-input-section hidden">
+                                <input type="file" id="imageFileInput" accept="image/*" class="hidden">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="document.getElementById('imageFileInput').click()" class="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md text-sm transition-colors">
+                                        <i class="ph-bold ph-upload mr-2"></i>Choose File
+                                    </button>
+                                    <button type="button" id="clear-image-btn" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm hidden transition-colors">
+                                        <i class="ph-bold ph-x"></i>
+                                    </button>
+                                </div>
+                                <p id="image-file-name" class="text-xs text-gray-500 mt-1"></p>
+                                <span class="text-xs text-gray-500">Max 5MB. Formats: JPG, PNG, GIF, WebP</span>
+                            </div>
+                            <!-- Image Preview -->
+                            <div id="image-preview-container" class="mt-2 hidden">
+                                <img id="image-preview" src="" alt="Preview" class="max-w-full h-32 object-contain rounded-md bg-gray-700 p-2 border border-gray-600">
+                            </div>
                         </div>
                     </div>
                     <!-- Bullion Fields (hidden by default, shown for Gold/Silver Bullion) -->
@@ -2934,6 +2960,125 @@
         }
     }
 
+    // Toggle between image URL and file upload
+    function toggleImageInput(mode) {
+        const urlToggle = document.getElementById('image-url-toggle');
+        const uploadToggle = document.getElementById('image-upload-toggle');
+        const urlInput = document.getElementById('image-url-input');
+        const uploadInput = document.getElementById('image-upload-input');
+        
+        if (!urlToggle || !uploadToggle || !urlInput || !uploadInput) return;
+        
+        if (mode === 'url') {
+            urlToggle.classList.remove('bg-gray-700', 'text-gray-300');
+            urlToggle.classList.add('bg-emerald-600', 'text-white');
+            uploadToggle.classList.remove('bg-emerald-600', 'text-white');
+            uploadToggle.classList.add('bg-gray-700', 'text-gray-300');
+            urlInput.classList.remove('hidden');
+            uploadInput.classList.add('hidden');
+            clearImagePreview();
+        } else {
+            uploadToggle.classList.remove('bg-gray-700', 'text-gray-300');
+            uploadToggle.classList.add('bg-emerald-600', 'text-white');
+            urlToggle.classList.remove('bg-emerald-600', 'text-white');
+            urlToggle.classList.add('bg-gray-700', 'text-gray-300');
+            uploadInput.classList.remove('hidden');
+            urlInput.classList.add('hidden');
+            const localImagePath = document.getElementById('localImagePath');
+            if (localImagePath) localImagePath.value = '';
+        }
+    }
+
+    // Handle image file selection
+    function setupImageUpload() {
+        const fileInput = document.getElementById('imageFileInput');
+        const clearBtn = document.getElementById('clear-image-btn');
+        const fileName = document.getElementById('image-file-name');
+        
+        if (!fileInput) return;
+        
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                showCustomConfirm('File size must be less than 5MB', () => {});
+                fileInput.value = '';
+                return;
+            }
+            
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showCustomConfirm('Please select an image file', () => {});
+                fileInput.value = '';
+                return;
+            }
+            
+            // Show file name
+            if (fileName) fileName.textContent = file.name;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+            
+            // Convert to base64 and show preview
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const base64Image = event.target.result;
+                showImagePreview(base64Image);
+                // Store in localImagePath for form submission
+                const localImagePath = document.getElementById('localImagePath');
+                if (localImagePath) localImagePath.value = base64Image;
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        // Clear button
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                fileInput.value = '';
+                if (fileName) fileName.textContent = '';
+                clearBtn.classList.add('hidden');
+                clearImagePreview();
+                const localImagePath = document.getElementById('localImagePath');
+                if (localImagePath) localImagePath.value = '';
+            });
+        }
+    }
+
+    // Show image preview
+    function showImagePreview(imageSrc) {
+        const preview = document.getElementById('image-preview');
+        const container = document.getElementById('image-preview-container');
+        if (preview && container) {
+            preview.src = imageSrc;
+            container.classList.remove('hidden');
+        }
+    }
+
+    // Clear image preview
+    function clearImagePreview() {
+        const preview = document.getElementById('image-preview');
+        const container = document.getElementById('image-preview-container');
+        if (preview && container) {
+            preview.src = '';
+            container.classList.add('hidden');
+        }
+    }
+
+    // Update image preview when URL is entered
+    function setupImageUrlPreview() {
+        const urlInput = document.getElementById('localImagePath');
+        if (!urlInput) return;
+        
+        urlInput.addEventListener('input', (e) => {
+            const url = e.target.value.trim();
+            if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:'))) {
+                showImagePreview(url);
+            } else if (!url) {
+                clearImagePreview();
+            }
+        });
+    }
+
     function clearItemForm() {
         document.getElementById('item-id').value = '';
         document.getElementById('type').value = 'Coin';
@@ -2945,9 +3090,19 @@
         document.getElementById('notes').value = '';
         document.getElementById('referenceUrl').value = '';
         document.getElementById('localImagePath').value = '';
+        const imageFileInput = document.getElementById('imageFileInput');
+        if (imageFileInput) imageFileInput.value = '';
         document.getElementById('weight_grams').value = '';
         document.getElementById('purity_percent').value = '';
         document.getElementById('modal-title').innerText = 'Add New Item';
+        
+        // Reset image input
+        toggleImageInput('url');
+        clearImagePreview();
+        const fileName = document.getElementById('image-file-name');
+        const clearBtn = document.getElementById('clear-image-btn');
+        if (fileName) fileName.textContent = '';
+        if (clearBtn) clearBtn.classList.add('hidden');
         
         // Hide Numista results
         const resultsDiv = document.getElementById('numista-results');
@@ -3288,6 +3443,13 @@
             }
         }
 
+        // Get image - either from URL input or file upload
+        let imagePath = sanitizeInput(document.getElementById('localImagePath').value);
+        // If no image provided, use placeholder
+        if (!imagePath) {
+            imagePath = "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image";
+        }
+
         const itemData = {
             type: typeValue,
             country: countryValue,
@@ -3297,7 +3459,7 @@
             quantity: quantityValue,
             notes: sanitizeInput(document.getElementById('notes').value),
             referenceUrl: referenceUrlValue,
-            localImagePath: sanitizeInput(document.getElementById('localImagePath').value) || "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image",
+            localImagePath: imagePath,
             weight_grams: weightGrams ? parseFloat(weightGrams) : null,
             purity_percent: purityPercent ? parseFloat(purityPercent) : null
         };
@@ -4143,10 +4305,30 @@
                     document.getElementById('quantity').value = item.quantity || 1;
                     document.getElementById('notes').value = item.notes;
                     document.getElementById('referenceUrl').value = item.referenceUrl;
-                    document.getElementById('localImagePath').value = item.localImagePath;
+                    document.getElementById('localImagePath').value = item.localImagePath || '';
                     // Set bullion fields if applicable
                     if (item.weight_grams) document.getElementById('weight_grams').value = item.weight_grams;
                     if (item.purity_percent) document.getElementById('purity_percent').value = item.purity_percent;
+                    
+                    // Handle image preview - determine if it's a URL or base64
+                    const imagePath = item.localImagePath || '';
+                    if (imagePath) {
+                        if (imagePath.startsWith('data:') || imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+                            // It's a URL or base64, show preview and set to URL mode
+                            toggleImageInput('url');
+                            showImagePreview(imagePath);
+                        } else {
+                            // Might be a base64 without prefix, try showing it
+                            toggleImageInput('url');
+                            if (imagePath.length > 100) { // Likely base64
+                                showImagePreview('data:image/jpeg;base64,' + imagePath);
+                            }
+                        }
+                    } else {
+                        toggleImageInput('url');
+                        clearImagePreview();
+                    }
+                    
                     openModal('item-modal'); // Pass modal ID
                 }
             });
@@ -9474,6 +9656,8 @@
         loadSavedPrices(); // Load saved metal prices
         attachGlobalEventListeners();
         setupSwipeGestures(); // Setup mobile swipe gestures
+        setupImageUpload(); // Setup image upload functionality
+        setupImageUrlPreview(); // Setup image URL preview
 
         const urlParams = new URLSearchParams(window.location.search);
         const publicId = urlParams.get('public');
