@@ -156,7 +156,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=True) # Nullable initially for migration
     display_name = db.Column(db.String(100), nullable=True)
     bio = db.Column(db.Text, nullable=True)
-    profile_picture_url = db.Column(db.String(500), nullable=True) # Profile picture URL
+    profile_picture_url = db.Column(db.Text, nullable=True) # Profile picture URL (Text for base64 images)
     profile_public = db.Column(db.Boolean, default=False) # Whether profile is publicly viewable
     collection_public = db.Column(db.Boolean, default=False) # Whether collection is publicly viewable
     coins = db.relationship('Coin', backref='owner', lazy=True) # One user has many coins
@@ -2799,8 +2799,20 @@ def create_tables():
             """))
             
             if not result.fetchone():
-                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN profile_picture_url VARCHAR(500)"))
+                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN profile_picture_url TEXT"))
                 print("Added profile_picture_url column to user table")
+            else:
+                # Check if column is VARCHAR(500) and needs to be upgraded to TEXT
+                result = db.session.execute(text("""
+                    SELECT data_type, character_maximum_length 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'user' AND column_name = 'profile_picture_url'
+                """))
+                row = result.fetchone()
+                if row and (row[0] == 'character varying' and row[1] == 500):
+                    # Upgrade from VARCHAR(500) to TEXT
+                    db.session.execute(text("ALTER TABLE \"user\" ALTER COLUMN profile_picture_url TYPE TEXT"))
+                    print("Upgraded profile_picture_url column from VARCHAR(500) to TEXT")
             
             # Check if image_url column exists in wishlist_item table
             result = db.session.execute(text("""
