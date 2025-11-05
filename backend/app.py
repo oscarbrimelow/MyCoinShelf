@@ -272,10 +272,13 @@ country_alias_map = {
     "britain": "United Kingdom", "russia": "Russia", "china": "China", "india": "India",
     "japan": "Japan", "germany": "Germany", "deutschland": "Germany", "france": "France",
     "italy": "Italy", "brazil": "Brazil", "brasil": "Brazil", "south africa": "South Africa",
-    "eswatini": "Eswatini", "rome": "Italy", "constantinople": "Turkey", "nicomedia": "Turkey",
+    "eswatini": "Eswatini", "swaziland": "Eswatini", "rome": "Italy", "constantinople": "Turkey", "nicomedia": "Turkey",
     "antioch": "Syria", "ancient greece": "Greece", "seleucid": "Syria", "ussr": "Russia",
     "yugoslavia": "Serbia", "east germany": "Germany", "german democratic republic": "Germany",
     "phillipines": "Philippines",
+    "cape verde": "Cabo Verde", "cabo verde": "Cabo Verde",
+    "congo": "Congo (Kinshasa)", "democratic republic of the congo": "Congo (Kinshasa)", "congo-kinshasa": "Congo (Kinshasa)", "dr congo": "Congo (Kinshasa)", "drc": "Congo (Kinshasa)",
+    "republic of the congo": "Congo (Brazzaville)", "congo-brazzaville": "Congo (Brazzaville)", "roc": "Congo (Brazzaville)",
 }
 
 # Map for determining geographic region
