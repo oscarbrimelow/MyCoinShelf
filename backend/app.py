@@ -156,6 +156,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=True) # Nullable initially for migration
     display_name = db.Column(db.String(100), nullable=True)
     bio = db.Column(db.Text, nullable=True)
+    profile_picture_url = db.Column(db.String(500), nullable=True) # Profile picture URL
     profile_public = db.Column(db.Boolean, default=False) # Whether profile is publicly viewable
     collection_public = db.Column(db.Boolean, default=False) # Whether collection is publicly viewable
     coins = db.relationship('Coin', backref='owner', lazy=True) # One user has many coins
@@ -960,6 +961,7 @@ def get_profile(current_user):
         'username': current_user.username,
         'display_name': current_user.display_name,
         'bio': current_user.bio,
+        'profile_picture_url': current_user.profile_picture_url,
         'profile_public': current_user.profile_public,
         'collection_public': current_user.collection_public,
         'email': current_user.email,
@@ -987,6 +989,10 @@ def update_profile(current_user):
     if 'bio' in data:
         current_user.bio = data.get('bio', '').strip() or None
     
+    # Update profile picture URL
+    if 'profile_picture_url' in data:
+        current_user.profile_picture_url = data.get('profile_picture_url', '').strip() or None
+    
     # Update privacy settings
     if 'profile_public' in data:
         current_user.profile_public = bool(data.get('profile_public'))
@@ -1001,6 +1007,7 @@ def update_profile(current_user):
         'username': current_user.username,
         'display_name': current_user.display_name,
         'bio': current_user.bio,
+        'profile_picture_url': current_user.profile_picture_url,
         'profile_public': current_user.profile_public,
         'collection_public': current_user.collection_public
     }), 200
@@ -1136,6 +1143,7 @@ def get_user_profile(username):
         'username': user.username,
         'display_name': user.display_name,
         'bio': user.bio,
+        'profile_picture_url': user.profile_picture_url,
         'profile_public': user.profile_public,
         'collection_public': user.collection_public,
         'stats': {
@@ -2774,6 +2782,17 @@ def create_tables():
             if not result.fetchone():
                 db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN collection_public BOOLEAN DEFAULT FALSE"))
                 print("Added collection_public column to user table")
+            
+            # Check if profile_picture_url column exists
+            result = db.session.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user' AND column_name = 'profile_picture_url'
+            """))
+            
+            if not result.fetchone():
+                db.session.execute(text("ALTER TABLE \"user\" ADD COLUMN profile_picture_url VARCHAR(500)"))
+                print("Added profile_picture_url column to user table")
             
             # Check if image_url column exists in wishlist_item table
             result = db.session.execute(text("""

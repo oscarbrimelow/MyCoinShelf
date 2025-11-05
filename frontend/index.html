@@ -915,7 +915,7 @@
                         <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
                             <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
                                 <!-- Profile Picture Placeholder (can be enhanced later) -->
-                                <div class="flex-shrink-0">
+                                <div class="flex-shrink-0" id="profile-picture-container">
                                     <div class="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-white text-4xl md:text-5xl font-bold">
                                         <span id="profile-initial">U</span>
                                     </div>
@@ -1010,6 +1010,28 @@
                         <div class="mb-8">
                             <h3 class="text-xl font-semibold text-gray-300 mb-4">Profile</h3>
                             <form id="profile-form" class="space-y-4">
+                                <!-- Profile Picture Upload -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-2">Profile Picture</label>
+                                    <div class="flex items-center space-x-4">
+                                        <div class="flex-shrink-0">
+                                            <img id="profile-picture-preview" src="" alt="Profile" class="w-20 h-20 rounded-full object-cover border-2 border-gray-600 bg-gray-700 hidden">
+                                            <div id="profile-picture-placeholder" class="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold">
+                                                <span id="profile-picture-initial">U</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <input type="file" id="profile-picture-input" accept="image/*" class="hidden">
+                                            <button type="button" id="profile-picture-upload-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm">
+                                                <i class="ph-bold ph-upload-simple mr-2"></i> Upload Photo
+                                            </button>
+                                            <button type="button" id="profile-picture-remove-btn" class="ml-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md transition-colors text-sm hidden">
+                                                <i class="ph-bold ph-trash mr-2"></i> Remove
+                                            </button>
+                                            <p class="text-xs text-gray-500 mt-2">JPG, PNG or GIF. Max size 5MB.</p>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div>
                                     <label for="profile-username" class="block text-sm font-medium text-gray-400">Username</label>
                                     <input type="text" id="profile-username" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-sm focus:ring-emerald-500 focus:border-emerald-500" readonly>
@@ -5048,6 +5070,40 @@
             if (bioInput) bioInput.value = profile.bio || '';
             if (profilePublicCheckbox) profilePublicCheckbox.checked = profile.profile_public || false;
             if (collectionPublicCheckbox) collectionPublicCheckbox.checked = profile.collection_public || false;
+            
+            // Handle profile picture
+            const profilePicturePreview = document.getElementById('profile-picture-preview');
+            const profilePicturePlaceholder = document.getElementById('profile-picture-placeholder');
+            const profilePictureInitial = document.getElementById('profile-picture-initial');
+            const removeBtn = document.getElementById('profile-picture-remove-btn');
+            
+            if (profile.profile_picture_url) {
+                if (profilePicturePreview) {
+                    profilePicturePreview.src = profile.profile_picture_url;
+                    profilePicturePreview.classList.remove('hidden');
+                }
+                if (profilePicturePlaceholder) {
+                    profilePicturePlaceholder.classList.add('hidden');
+                }
+                if (removeBtn) {
+                    removeBtn.classList.remove('hidden');
+                }
+            } else {
+                if (profilePicturePreview) {
+                    profilePicturePreview.classList.add('hidden');
+                }
+                if (profilePicturePlaceholder) {
+                    profilePicturePlaceholder.classList.remove('hidden');
+                }
+                if (removeBtn) {
+                    removeBtn.classList.add('hidden');
+                }
+                // Set initial
+                if (profilePictureInitial) {
+                    const initial = (profile.display_name || profile.username || 'U').charAt(0).toUpperCase();
+                    profilePictureInitial.textContent = initial;
+                }
+            }
 
         } catch (error) {
             console.error('Error loading profile:', error);
@@ -5118,6 +5174,24 @@
             if (profileInitial) {
                 const initial = (profile.display_name || profile.username || 'U').charAt(0).toUpperCase();
                 profileInitial.textContent = initial;
+            }
+            
+            // Update profile picture on profile page
+            const profilePagePictureContainer = document.getElementById('profile-picture-container');
+            if (profilePagePictureContainer && profile.profile_picture_url) {
+                // Replace placeholder with actual image
+                profilePagePictureContainer.innerHTML = `
+                    <img src="${escapeHtml(profile.profile_picture_url)}" alt="${escapeHtml(profile.display_name || profile.username)}" 
+                         class="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-2 border-gray-600">
+                `;
+            } else if (profilePagePictureContainer && !profile.profile_picture_url) {
+                // Show placeholder if no picture
+                const initial = (profile.display_name || profile.username || 'U').charAt(0).toUpperCase();
+                profilePagePictureContainer.innerHTML = `
+                    <div class="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-white text-4xl md:text-5xl font-bold">
+                        <span id="profile-initial">${initial}</span>
+                    </div>
+                `;
             }
 
             // Update follower/following counts
@@ -5216,6 +5290,7 @@
                 body: JSON.stringify({
                     display_name: displayName,
                     bio: bio,
+                    profile_picture_url: document.getElementById('profile-picture-input')?.dataset.currentUrl || null,
                     profile_public: profilePublic,
                     collection_public: collectionPublic
                 })
@@ -5232,12 +5307,90 @@
 
             const result = await response.json();
             showCustomConfirm(result.message || 'Profile updated successfully!', () => {});
+            
+            // Reload profile to update picture
+            loadProfile();
+            if (!document.getElementById('content-profile').classList.contains('hidden')) {
+                loadProfilePage();
+            }
 
         } catch (error) {
             console.error('Error updating profile:', error);
             showCustomConfirm(`Failed to update profile: ${error.message}`, () => {});
         } finally {
             setLoadingState('update-profile-btn', false);
+        }
+    }
+
+    function setupProfilePictureUpload() {
+        const uploadBtn = document.getElementById('profile-picture-upload-btn');
+        const fileInput = document.getElementById('profile-picture-input');
+        const removeBtn = document.getElementById('profile-picture-remove-btn');
+        const preview = document.getElementById('profile-picture-preview');
+        const placeholder = document.getElementById('profile-picture-placeholder');
+        
+        if (uploadBtn && fileInput) {
+            uploadBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Validate file size (5MB max)
+                if (file.size > 5 * 1024 * 1024) {
+                    showCustomConfirm('File size must be less than 5MB', () => {});
+                    return;
+                }
+                
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    showCustomConfirm('Please select an image file', () => {});
+                    return;
+                }
+                
+                // Convert to base64
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64Image = event.target.result;
+                    
+                    // Update preview
+                    if (preview) {
+                        preview.src = base64Image;
+                        preview.classList.remove('hidden');
+                    }
+                    if (placeholder) {
+                        placeholder.classList.add('hidden');
+                    }
+                    if (removeBtn) {
+                        removeBtn.classList.remove('hidden');
+                    }
+                    
+                    // Store in dataset for form submission
+                    if (fileInput) {
+                        fileInput.dataset.currentUrl = base64Image;
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        if (removeBtn) {
+            removeBtn.addEventListener('click', () => {
+                if (preview) {
+                    preview.src = '';
+                    preview.classList.add('hidden');
+                }
+                if (placeholder) {
+                    placeholder.classList.remove('hidden');
+                }
+                removeBtn.classList.add('hidden');
+                if (fileInput) {
+                    fileInput.value = '';
+                    fileInput.dataset.currentUrl = null;
+                }
+            });
         }
     }
 
