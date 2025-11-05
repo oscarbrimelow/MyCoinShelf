@@ -376,6 +376,22 @@
             background-color: #e5e7eb;
             color: #1f2937;
         }
+        
+        /* Collapsible navigation sections */
+        .nav-section-content {
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .nav-section-content.collapsed {
+            max-height: 0;
+        }
+        .nav-section-toggle[data-section] i {
+            transition: transform 0.3s ease;
+        }
+        .nav-section-toggle[data-section].collapsed i {
+            transform: rotate(-90deg);
+        }
         html.light .bg-gray-800 { /* Main content cards */
             background-color: #ffffff;
             border-color: #e5e7eb;
@@ -449,65 +465,95 @@
             </div>
             <!-- Wrapped navigation links in a separate div with overflow-y-auto and flex-grow -->
             <div class="flex-grow overflow-y-auto">
-                <nav class="p-4">
-                    <a href="/" id="nav-home" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md bg-gray-700 text-white">
-                        <i class="ph-bold ph-house-simple mr-3"></i> Home
-                    </a>
-                    <a href="/about" id="nav-about" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-info mr-3"></i> About CoinShelf
-                    </a>
-                    <a href="/dashboard" id="nav-dashboard" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-chart-pie-slice mr-3"></i> Dashboard
-                    </a>
-                    <a href="/collection" id="nav-collection" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-list-dashes mr-3"></i> Collection
-                    </a>
-                    <a href="/map" id="nav-map" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-map-trifold mr-3"></i> World Map
-                    </a>
-                    <a href="/members" id="nav-members" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-users mr-3"></i> Search Members
-                    </a>
-                    <a href="/catalogue" id="nav-catalogue" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-magnifying-glass mr-3"></i> Search Catalogue
-                    </a>
-                    <a href="/wishlist" id="nav-wishlist" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-heart mr-3"></i> Wishlist
-                    </a>
-                    <a href="/missing" id="nav-missing" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-flag mr-3"></i> Missing Countries
-                    </a>
-                    <a href="/profile" id="nav-profile" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-user mr-3"></i> Profile
-                    </a>
-                    <a href="/settings" id="nav-settings" class="nav-link flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700">
-                        <i class="ph-bold ph-gear mr-3"></i> Settings
-                    </a>
+                <nav class="p-3 space-y-1">
+                    <!-- Main Section -->
+                    <div class="mb-3">
+                        <button class="nav-section-toggle w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors" data-section="main">
+                            <span>Main</span>
+                            <i class="ph-bold ph-caret-down transition-transform" data-icon="main"></i>
+                        </button>
+                        <div class="nav-section-content" data-section="main">
+                            <a href="/" id="nav-home" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md bg-gray-700 text-white text-sm">
+                                <i class="ph-bold ph-house-simple mr-2 text-base"></i> Home
+                            </a>
+                            <a href="/dashboard" id="nav-dashboard" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-chart-pie-slice mr-2 text-base"></i> Dashboard
+                            </a>
+                            <a href="/collection" id="nav-collection" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-list-dashes mr-2 text-base"></i> Collection
+                            </a>
+                            <a href="/wishlist" id="nav-wishlist" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-heart mr-2 text-base"></i> Wishlist
+                            </a>
+                            <a href="/map" id="nav-map" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-map-trifold mr-2 text-base"></i> World Map
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Discovery Section -->
+                    <div class="mb-3">
+                        <button class="nav-section-toggle w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors" data-section="discovery">
+                            <span>Discovery</span>
+                            <i class="ph-bold ph-caret-down transition-transform" data-icon="discovery"></i>
+                        </button>
+                        <div class="nav-section-content" data-section="discovery">
+                            <a href="/members" id="nav-members" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-users mr-2 text-base"></i> Members
+                            </a>
+                            <a href="/catalogue" id="nav-catalogue" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-magnifying-glass mr-2 text-base"></i> Catalogue
+                            </a>
+                            <a href="/missing" id="nav-missing" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-flag mr-2 text-base"></i> Missing Countries
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Account Section -->
+                    <div class="mb-3">
+                        <button class="nav-section-toggle w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors" data-section="account">
+                            <span>Account</span>
+                            <i class="ph-bold ph-caret-down transition-transform" data-icon="account"></i>
+                        </button>
+                        <div class="nav-section-content" data-section="account">
+                            <a href="/profile" id="nav-profile" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-user mr-2 text-base"></i> Profile
+                            </a>
+                            <a href="/settings" id="nav-settings" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-gear mr-2 text-base"></i> Settings
+                            </a>
+                            <a href="/about" id="nav-about" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
+                                <i class="ph-bold ph-info mr-2 text-base"></i> About
+                            </a>
+                        </div>
+                    </div>
                 </nav>
             </div>
             <!-- Buttons Section: flex-shrink-0 to keep it from shrinking -->
-            <div class="p-4 border-t border-gray-700 flex flex-col space-y-3 flex-shrink-0">
-                <button id="quick-add-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
-                    <i class="ph-bold ph-plus-circle mr-2"></i> Quick Add Item
+            <div class="p-3 border-t border-gray-700 flex flex-col space-y-2 flex-shrink-0">
+                <button id="quick-add-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-3 rounded-md flex items-center justify-center transition-colors text-sm">
+                    <i class="ph-bold ph-plus-circle mr-2"></i> Quick Add
                 </button>
-                 <button id="import-data-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
-                    <i class="ph-bold ph-upload-simple mr-2"></i> Import Data
-                </button>
-                <button id="export-data-btn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
-                    <i class="ph-bold ph-download-simple mr-2"></i> Export Data
-                </button>
-                <!-- New Share Collection button -->
-                <button id="share-collection-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md flex items-center justify-center transition-colors">
-                    <i class="ph-bold ph-share-network mr-2"></i> Share Collection
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="import-data-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-2 rounded-md flex items-center justify-center transition-colors text-xs">
+                        <i class="ph-bold ph-upload-simple mr-1"></i> Import
+                    </button>
+                    <button id="export-data-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-2 rounded-md flex items-center justify-center transition-colors text-xs">
+                        <i class="ph-bold ph-download-simple mr-1"></i> Export
+                    </button>
+                </div>
+                <button id="share-collection-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 rounded-md flex items-center justify-center transition-colors text-sm">
+                    <i class="ph-bold ph-share-network mr-2"></i> Share
                 </button>
             </div>
 
             <!-- Sign In Button at Bottom -->
-            <div class="p-4 border-t border-gray-700 mt-auto flex-shrink-0">
-                <button type="button" id="sidebar-signin-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors flex items-center justify-center">
+            <div class="p-3 border-t border-gray-700 mt-auto flex-shrink-0">
+                <button type="button" id="sidebar-signin-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-md text-sm transition-colors flex items-center justify-center">
                     <i class="ph-bold ph-sign-in mr-2"></i> Sign In
                 </button>
-                <button type="button" id="sidebar-logout-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md text-sm hidden transition-colors flex items-center justify-center mt-2">
+                <button type="button" id="sidebar-logout-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 rounded-md text-sm hidden transition-colors flex items-center justify-center mt-2">
                     <i class="ph-bold ph-sign-out mr-2"></i> Sign Out
                 </button>
             </div>
@@ -9587,6 +9633,28 @@
     });
 
     document.addEventListener('DOMContentLoaded', () => {
+      // Setup collapsible navigation sections
+      document.querySelectorAll('.nav-section-toggle').forEach(toggle => {
+        toggle.addEventListener('click', function() {
+          const section = this.getAttribute('data-section');
+          const content = document.querySelector(`.nav-section-content[data-section="${section}"]`);
+          const icon = this.querySelector(`i[data-icon="${section}"]`);
+          
+          if (content) {
+            content.classList.toggle('collapsed');
+            this.classList.toggle('collapsed');
+            if (icon) {
+              icon.style.transform = content.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
+            }
+          }
+        });
+      });
+      
+      // Expand all sections by default
+      document.querySelectorAll('.nav-section-content').forEach(content => {
+        content.classList.remove('collapsed');
+      });
+      
       // Intercept nav link clicks for SPA routing
       document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', function(e) {
