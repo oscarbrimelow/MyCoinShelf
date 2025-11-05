@@ -1439,6 +1439,9 @@
                         <button id="tab-template" class="import-tab py-2 px-1 border-b-2 border-transparent text-gray-400 hover:text-gray-300 font-medium">
                             Templates
                         </button>
+                        <button id="tab-popular-sites" class="import-tab py-2 px-1 border-b-2 border-transparent text-gray-400 hover:text-gray-300 font-medium">
+                            Popular Sites
+                        </button>
                     </nav>
                 </div>
             </div>
@@ -1565,6 +1568,87 @@
                         <p class="text-xs text-gray-400 mb-3">Step-by-step instructions for importing data</p>
                         <button id="show-import-guide" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded">View Guide</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Popular Sites Tab -->
+            <div id="popular-sites-tab" class="import-content hidden">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-2">Import from Popular Coin Collection Sites</h3>
+                    <p class="text-gray-400 mb-4">Import your collection from popular coin collecting websites. Upload the exported CSV file from these sites.</p>
+                </div>
+                
+                <!-- Numista Section -->
+                <div class="bg-gray-900 p-4 rounded-md mb-4 border border-gray-700">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-300 mb-1">🪙 Numista</h4>
+                            <p class="text-xs text-gray-400">Import from Numista.com collection exports</p>
+                        </div>
+                        <a href="https://en.numista.com" target="_blank" class="text-indigo-400 hover:text-indigo-300 text-xs">Visit Numista →</a>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded mt-2 mb-2">
+                        <p class="text-xs text-gray-300 mb-2"><strong>How to export from Numista:</strong></p>
+                        <ol class="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+                            <li>Log in to your Numista account</li>
+                            <li>Go to "My Collection"</li>
+                            <li>Click "Export" or "Export CSV"</li>
+                            <li>Select the following fields to include: <code class="text-indigo-400">Country</code>, <code class="text-indigo-400">Denomination</code>, <code class="text-indigo-400">Year</code>, <code class="text-indigo-400">Reference number</code>, <code class="text-indigo-400">Composition</code>, <code class="text-indigo-400">Weight</code>, <code class="text-indigo-400">Diameter</code> (optional: <code class="text-indigo-400">Grade</code>, <code class="text-indigo-400">Purchase price</code>, <code class="text-indigo-400">Notes</code>)</li>
+                            <li>Download the CSV file</li>
+                            <li>Upload it using the CSV File tab above</li>
+                        </ol>
+                    </div>
+                    <p class="text-xs text-gray-500 italic">CoinShelf will automatically detect Numista format and map the fields correctly.</p>
+                </div>
+
+                <!-- UCoin Section -->
+                <div class="bg-gray-900 p-4 rounded-md mb-4 border border-gray-700">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-300 mb-1">🌍 UCoin</h4>
+                            <p class="text-xs text-gray-400">Import from UCoin.net collection exports</p>
+                        </div>
+                        <a href="https://ucoin.net" target="_blank" class="text-indigo-400 hover:text-indigo-300 text-xs">Visit UCoin →</a>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded mt-2 mb-2">
+                        <p class="text-xs text-gray-300 mb-2"><strong>How to export from UCoin:</strong></p>
+                        <ol class="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+                            <li>Log in to your UCoin account</li>
+                            <li>Navigate to your collection</li>
+                            <li>Click "Export" or "Export to CSV"</li>
+                            <li>Make sure these columns are included: <code class="text-indigo-400">Country</code>, <code class="text-indigo-400">Year</code>, <code class="text-indigo-400">Denomination</code>, <code class="text-indigo-400">Material</code>, <code class="text-indigo-400">Weight</code>, <code class="text-indigo-400">Diameter</code> (optional: <code class="text-indigo-400">Value</code>, <code class="text-indigo-400">Notes</code>, <code class="text-indigo-400">Catalog code</code>)</li>
+                            <li>Download the CSV file</li>
+                            <li>Upload it using the CSV File tab above</li>
+                        </ol>
+                    </div>
+                    <p class="text-xs text-gray-500 italic">CoinShelf will automatically detect UCoin format and map the fields correctly.</p>
+                </div>
+
+                <!-- Colnect Section -->
+                <div class="bg-gray-900 p-4 rounded-md mb-4 border border-gray-700">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-300 mb-1">📚 Colnect</h4>
+                            <p class="text-xs text-gray-400">Import from Colnect.com collection exports</p>
+                        </div>
+                        <a href="https://colnect.com" target="_blank" class="text-indigo-400 hover:text-indigo-300 text-xs">Visit Colnect →</a>
+                    </div>
+                    <div class="bg-gray-800 p-3 rounded mt-2 mb-2">
+                        <p class="text-xs text-gray-300 mb-2"><strong>How to export from Colnect:</strong></p>
+                        <ol class="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+                            <li>Log in to your Colnect account</li>
+                            <li>Go to "My Collections" → Select your coin collection</li>
+                            <li>Click "Export" or "Export Collection"</li>
+                            <li>Choose CSV format and ensure these fields are included: <code class="text-indigo-400">Country</code>, <code class="text-indigo-400">Catalog Code</code>, <code class="text-indigo-400">Year</code>, <code class="text-indigo-400">Denomination</code>, <code class="text-indigo-400">Series</code> (optional: <code class="text-indigo-400">Value</code>, <code class="text-indigo-400">Grade</code>, <code class="text-indigo-400">Comments</code>)</li>
+                            <li>Download the CSV file</li>
+                            <li>Upload it using the CSV File tab above</li>
+                        </ol>
+                    </div>
+                    <p class="text-xs text-gray-500 italic">CoinShelf will automatically detect Colnect format and map the fields correctly.</p>
+                </div>
+
+                <div class="bg-blue-900 bg-opacity-30 border border-blue-700 p-3 rounded mt-4">
+                    <p class="text-xs text-blue-300"><strong>💡 Tip:</strong> After exporting from any of these sites, simply go to the "CSV File" tab above and upload your exported CSV file. CoinShelf will automatically detect which site's format it is and import your data correctly!</p>
                 </div>
             </div>
 
@@ -9253,7 +9337,7 @@
     // --- Enhanced Import Functions ---
     
     function setupImportTabs() {
-        const tabs = ['json', 'csv', 'excel', 'template'];
+        const tabs = ['json', 'csv', 'excel', 'template', 'popular-sites'];
         
         tabs.forEach(tabId => {
             const tabBtn = document.getElementById(`tab-${tabId}`);
@@ -9351,9 +9435,50 @@
             // Parse CSV and prepare for import
             const items = parseCsvToJson(csvContent);
             if (items && items.length > 0) {
-                showCustomConfirm(`CSV file loaded with ${items.length} items. Ready to import?`, async () => {
-                    await importItems(items);
-                });
+                // Detect format for better user feedback
+                const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+                if (lines.length > 0) {
+                    function parseCSVLine(line) {
+                        const result = [];
+                        let current = '';
+                        let inQuotes = false;
+                        for (let i = 0; i < line.length; i++) {
+                            const char = line[i];
+                            if (char === '"') {
+                                inQuotes = !inQuotes;
+                            } else if (char === ',' && !inQuotes) {
+                                result.push(current.trim());
+                                current = '';
+                            } else {
+                                current += char;
+                            }
+                        }
+                        result.push(current.trim());
+                        return result;
+                    }
+                    
+                    const headers = parseCSVLine(lines[0]);
+                    const format = detectCsvFormat(headers);
+                    
+                    let message = `CSV file loaded with ${items.length} items.`;
+                    if (format !== 'standard') {
+                        const formatNames = {
+                            'numista': 'Numista',
+                            'ucoin': 'UCoin',
+                            'colnect': 'Colnect'
+                        };
+                        message += ` Detected ${formatNames[format]} format.`;
+                    }
+                    message += ' Ready to import?';
+                    
+                    showCustomConfirm(message, async () => {
+                        await importItems(items);
+                    });
+                } else {
+                    showCustomConfirm(`CSV file loaded with ${items.length} items. Ready to import?`, async () => {
+                        await importItems(items);
+                    });
+                }
             }
         };
         reader.readAsText(file);
@@ -9367,36 +9492,293 @@
         showCustomConfirm('Excel file import requires additional processing. For now, please convert your Excel file to CSV format or use the JSON import method.', () => {});
     }
     
+    function detectCsvFormat(headers) {
+        const headerLower = headers.map(h => h.toLowerCase().trim());
+        
+        // Detect Numista format
+        if (headerLower.includes('reference number') || headerLower.includes('reference') || 
+            (headerLower.includes('country') && headerLower.includes('denomination') && headerLower.includes('composition'))) {
+            return 'numista';
+        }
+        
+        // Detect UCoin format
+        if (headerLower.includes('material') && headerLower.includes('weight') && 
+            (headerLower.includes('diameter') || headerLower.includes('size'))) {
+            return 'ucoin';
+        }
+        
+        // Detect Colnect format
+        if (headerLower.includes('catalog code') || headerLower.includes('catalogcode') ||
+            (headerLower.includes('series') && headerLower.includes('catalog'))) {
+            return 'colnect';
+        }
+        
+        return 'standard';
+    }
+    
+    function mapCsvRowToItem(row, headers, format) {
+        const headerLower = headers.map(h => h.toLowerCase().trim());
+        const item = { type: 'Coin' }; // Default type
+        
+        // Helper function to get value by header name (case-insensitive)
+        const getValue = (searchHeaders) => {
+            for (const searchHeader of searchHeaders) {
+                const index = headerLower.indexOf(searchHeader.toLowerCase());
+                if (index !== -1 && row[index]) {
+                    return row[index].trim();
+                }
+            }
+            return null;
+        };
+        
+        if (format === 'numista') {
+            // Numista format mapping
+            item.country = getValue(['country', 'issuer', 'issuing country']);
+            item.denomination = getValue(['denomination', 'title', 'value']);
+            item.year = getValue(['year', 'issue year', 'date']) ? parseInt(getValue(['year', 'issue year', 'date'])) : null;
+            item.referenceUrl = getValue(['reference number', 'reference', 'numista id']) ? 
+                `https://en.numista.com/catalogue/pieces${getValue(['reference number', 'reference', 'numista id'])}.html` : null;
+            
+            // Composition can help determine if it's bullion
+            const composition = getValue(['composition', 'material', 'metal']);
+            if (composition) {
+                const compLower = composition.toLowerCase();
+                if (compLower.includes('gold') || compLower.includes('au')) {
+                    item.type = 'Gold Bullion';
+                } else if (compLower.includes('silver') || compLower.includes('ag')) {
+                    item.type = 'Silver Bullion';
+                }
+                item.notes = composition;
+            }
+            
+            // Weight and diameter
+            const weight = getValue(['weight', 'weight (g)', 'weight grams']);
+            if (weight) {
+                const weightNum = parseFloat(weight);
+                if (!isNaN(weightNum)) {
+                    item.weight_grams = weightNum;
+                }
+            }
+            
+            const diameter = getValue(['diameter', 'size', 'diameter (mm)']);
+            if (diameter && !item.notes) {
+                item.notes = `Diameter: ${diameter}`;
+            }
+            
+            // Value/Price
+            const value = getValue(['purchase price', 'value', 'price', 'estimated value']);
+            if (value) {
+                const valueNum = parseFloat(value);
+                if (!isNaN(valueNum)) {
+                    item.value = valueNum;
+                }
+            }
+            
+            // Notes
+            const notes = getValue(['notes', 'comment', 'comments', 'grade']);
+            if (notes && !item.notes) {
+                item.notes = notes;
+            } else if (notes && item.notes) {
+                item.notes = `${item.notes}. ${notes}`;
+            }
+            
+            item.quantity = 1;
+            
+        } else if (format === 'ucoin') {
+            // UCoin format mapping
+            item.country = getValue(['country', 'issuing country']);
+            item.denomination = getValue(['denomination', 'value', 'title']);
+            item.year = getValue(['year', 'date', 'issue year']) ? parseInt(getValue(['year', 'date', 'issue year'])) : null;
+            
+            // Material helps determine type
+            const material = getValue(['material', 'composition', 'metal']);
+            if (material) {
+                const matLower = material.toLowerCase();
+                if (matLower.includes('gold') || matLower.includes('au')) {
+                    item.type = 'Gold Bullion';
+                } else if (matLower.includes('silver') || matLower.includes('ag')) {
+                    item.type = 'Silver Bullion';
+                }
+                if (!item.notes) {
+                    item.notes = `Material: ${material}`;
+                }
+            }
+            
+            // Weight
+            const weight = getValue(['weight', 'weight (g)', 'weight grams']);
+            if (weight) {
+                const weightNum = parseFloat(weight);
+                if (!isNaN(weightNum)) {
+                    item.weight_grams = weightNum;
+                }
+            }
+            
+            // Diameter
+            const diameter = getValue(['diameter', 'size', 'diameter (mm)']);
+            if (diameter) {
+                if (!item.notes) {
+                    item.notes = `Diameter: ${diameter}`;
+                } else {
+                    item.notes = `${item.notes}, Diameter: ${diameter}`;
+                }
+            }
+            
+            // Value
+            const value = getValue(['value', 'price', 'estimated value', 'purchase price']);
+            if (value) {
+                const valueNum = parseFloat(value);
+                if (!isNaN(valueNum)) {
+                    item.value = valueNum;
+                }
+            }
+            
+            // Notes and catalog code
+            const notes = getValue(['notes', 'comment', 'comments']);
+            const catalogCode = getValue(['catalog code', 'catalogcode', 'reference']);
+            if (catalogCode) {
+                item.referenceUrl = `https://ucoin.net/catalogue/${catalogCode}`;
+            }
+            if (notes) {
+                if (!item.notes) {
+                    item.notes = notes;
+                } else {
+                    item.notes = `${item.notes}. ${notes}`;
+                }
+            }
+            
+            item.quantity = 1;
+            
+        } else if (format === 'colnect') {
+            // Colnect format mapping
+            item.country = getValue(['country', 'issuing country']);
+            item.denomination = getValue(['denomination', 'value', 'title', 'face value']);
+            item.year = getValue(['year', 'date', 'issue year']) ? parseInt(getValue(['year', 'date', 'issue year'])) : null;
+            
+            // Catalog code
+            const catalogCode = getValue(['catalog code', 'catalogcode', 'code', 'item code']);
+            if (catalogCode) {
+                item.referenceUrl = `https://colnect.com/en/coins/list/country/${item.country || ''}/year/${item.year || ''}`;
+                if (!item.notes) {
+                    item.notes = `Catalog: ${catalogCode}`;
+                }
+            }
+            
+            // Series
+            const series = getValue(['series', 'theme']);
+            if (series && !item.notes) {
+                item.notes = `Series: ${series}`;
+            } else if (series) {
+                item.notes = `${item.notes}, Series: ${series}`;
+            }
+            
+            // Value
+            const value = getValue(['value', 'price', 'estimated value', 'grade']);
+            if (value) {
+                const valueNum = parseFloat(value);
+                if (!isNaN(valueNum)) {
+                    item.value = valueNum;
+                } else if (!item.notes) {
+                    item.notes = `Grade: ${value}`;
+                }
+            }
+            
+            // Comments
+            const comments = getValue(['comments', 'comment', 'notes', 'description']);
+            if (comments) {
+                if (!item.notes) {
+                    item.notes = comments;
+                } else {
+                    item.notes = `${item.notes}. ${comments}`;
+                }
+            }
+            
+            item.quantity = 1;
+            
+        } else {
+            // Standard format - direct mapping
+            headers.forEach((header, index) => {
+                let value = row[index] ? row[index].trim() : null;
+                
+                // Convert numeric values
+                if (['year', 'value', 'quantity', 'weight_grams', 'purity_percent'].includes(header.toLowerCase())) {
+                    value = value ? parseFloat(value) || null : null;
+                }
+                
+                item[header.toLowerCase().replace(/\s+/g, '_')] = value;
+            });
+            
+            // Map standard field names
+            if (!item.country && item.country_name) item.country = item.country_name;
+            if (!item.denomination && item.denom) item.denomination = item.denom;
+            if (!item.type) item.type = 'Coin';
+            if (!item.quantity) item.quantity = 1;
+        }
+        
+        return item;
+    }
+    
     function parseCsvToJson(csvContent) {
         try {
-            const lines = csvContent.split('\n').filter(line => line.trim());
+            // Handle different line endings and CSV parsing with quotes
+            const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
             if (lines.length < 2) {
                 throw new Error('CSV file must have at least a header row and one data row');
             }
             
-            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-            const items = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-                if (values.length === headers.length && values.some(v => v)) {
-                    const item = {};
-                    headers.forEach((header, index) => {
-                        let value = values[index];
-                        
-                        // Convert numeric values
-                        if (['year', 'value', 'quantity', 'weight_grams', 'purity_percent'].includes(header)) {
-                            value = value ? parseFloat(value) || null : null;
-                        }
-                        
-                        item[header] = value;
-                    });
+            // Simple CSV parser that handles quoted fields
+            function parseCSVLine(line) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
                     
-                    // Validate required fields
-                    if (item.type && item.country && item.denomination) {
-                        items.push(item);
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
                     }
                 }
+                result.push(current.trim());
+                return result;
+            }
+            
+            const headers = parseCSVLine(lines[0]);
+            const format = detectCsvFormat(headers);
+            const items = [];
+            
+            console.log(`Detected CSV format: ${format}`);
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                
+                const row = parseCSVLine(lines[i]);
+                if (row.length === 0) continue;
+                
+                const item = mapCsvRowToItem(row, headers, format);
+                
+                // Validate required fields
+                if (item.country && item.denomination) {
+                    items.push(item);
+                }
+            }
+            
+            if (items.length === 0) {
+                throw new Error('No valid items found in CSV file. Please check that the file has the required columns: country, denomination');
+            }
+            
+            // Show format detection message
+            if (format !== 'standard') {
+                const formatNames = {
+                    'numista': 'Numista',
+                    'ucoin': 'UCoin',
+                    'colnect': 'Colnect'
+                };
+                console.log(`Successfully detected ${formatNames[format]} format and parsed ${items.length} items`);
             }
             
             return items;
