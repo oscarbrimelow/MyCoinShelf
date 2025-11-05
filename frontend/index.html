@@ -6421,19 +6421,45 @@
                 });
                 
                 if (collectionSearchInput && collectionTableBody) {
+                    // Store original display style for each row
+                    const rows = collectionTableBody.querySelectorAll('.collection-item-row');
+                    rows.forEach(row => {
+                        if (!row.dataset.originalDisplay) {
+                            row.dataset.originalDisplay = window.getComputedStyle(row).display || 'table-row';
+                        }
+                    });
+                    
                     collectionSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
-                        const rows = collectionTableBody.querySelectorAll('.collection-item-row');
+                        const allRows = collectionTableBody.querySelectorAll('.collection-item-row');
                         
-                        rows.forEach(row => {
+                        console.log('Modal: Search triggered:', { searchTerm, rowCount: allRows.length });
+                        
+                        let visibleCount = 0;
+                        allRows.forEach((row) => {
                             const searchText = row.getAttribute('data-search-text') || '';
-                            if (searchText.includes(searchTerm)) {
-                                row.style.display = '';
+                            const originalDisplay = row.dataset.originalDisplay || 'table-row';
+                            
+                            if (searchTerm === '' || searchText.includes(searchTerm)) {
+                                row.style.display = originalDisplay;
+                                visibleCount++;
                             } else {
                                 row.style.display = 'none';
                             }
                         });
+                        
+                        console.log('Modal: Visible rows after search:', visibleCount, 'out of', allRows.length);
                     });
+                    
+                    // Also handle Enter key for better UX
+                    collectionSearchInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            // Trigger input event to ensure search runs
+                            collectionSearchInput.dispatchEvent(new Event('input'));
+                        }
+                    });
+                    
                     console.log('Modal: Collection search handler attached successfully');
                 } else {
                     console.warn('Modal: Collection search not attached:', {
@@ -6788,19 +6814,45 @@
                 });
                 
                 if (collectionSearchInput && collectionTableBody) {
+                    // Store original display style for each row
+                    const rows = collectionTableBody.querySelectorAll('.collection-item-row');
+                    rows.forEach(row => {
+                        if (!row.dataset.originalDisplay) {
+                            row.dataset.originalDisplay = window.getComputedStyle(row).display || 'table-row';
+                        }
+                    });
+                    
                     collectionSearchInput.addEventListener('input', (e) => {
                         const searchTerm = e.target.value.toLowerCase().trim();
-                        const rows = collectionTableBody.querySelectorAll('.collection-item-row');
+                        const allRows = collectionTableBody.querySelectorAll('.collection-item-row');
                         
-                        rows.forEach(row => {
+                        console.log('Search triggered:', { searchTerm, rowCount: allRows.length });
+                        
+                        let visibleCount = 0;
+                        allRows.forEach((row) => {
                             const searchText = row.getAttribute('data-search-text') || '';
-                            if (searchText.includes(searchTerm)) {
-                                row.style.display = '';
+                            const originalDisplay = row.dataset.originalDisplay || 'table-row';
+                            
+                            if (searchTerm === '' || searchText.includes(searchTerm)) {
+                                row.style.display = originalDisplay;
+                                visibleCount++;
                             } else {
                                 row.style.display = 'none';
                             }
                         });
+                        
+                        console.log('Visible rows after search:', visibleCount, 'out of', allRows.length);
                     });
+                    
+                    // Also handle Enter key for better UX
+                    collectionSearchInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            // Trigger input event to ensure search runs
+                            collectionSearchInput.dispatchEvent(new Event('input'));
+                        }
+                    });
+                    
                     console.log('Collection search handler attached successfully');
                 } else {
                     console.warn('Collection search not attached:', {
