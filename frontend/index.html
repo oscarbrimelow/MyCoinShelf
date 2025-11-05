@@ -6424,16 +6424,20 @@
                     // Function to perform search
                     const performSearch = () => {
                         const searchTerm = collectionSearchInput.value.toLowerCase().trim();
-                        const allRows = collectionTableBody.querySelectorAll('.collection-item-row');
+                        const allRows = collectionTableBody.querySelectorAll('tr.collection-item-row');
                         
                         console.log('Modal: Search triggered:', { 
                             searchTerm, 
                             rowCount: allRows.length,
-                            firstRowSearchText: allRows.length > 0 ? allRows[0].getAttribute('data-search-text') : 'no rows'
+                            tableBodyExists: !!collectionTableBody,
+                            firstRow: allRows.length > 0 ? allRows[0] : null,
+                            firstRowSearchText: allRows.length > 0 ? allRows[0].getAttribute('data-search-text') : 'no rows',
+                            firstRowClasses: allRows.length > 0 ? allRows[0].className : 'no rows'
                         });
                         
                         if (allRows.length === 0) {
-                            console.warn('Modal: No collection rows found!');
+                            console.warn('Modal: No collection rows found! Checking table body...');
+                            console.log('Modal: Table body HTML:', collectionTableBody.innerHTML.substring(0, 200));
                             return;
                         }
                         
@@ -6452,6 +6456,16 @@
                         console.log('Modal: Visible rows after search:', visibleCount, 'out of', allRows.length);
                     };
                     
+                    // Test the search function immediately
+                    console.log('Modal: Testing search function...');
+                    setTimeout(() => {
+                        const testRows = collectionTableBody.querySelectorAll('tr.collection-item-row');
+                        console.log('Modal: Rows found after delay:', testRows.length);
+                        if (testRows.length > 0) {
+                            console.log('Modal: First row data-search-text:', testRows[0].getAttribute('data-search-text'));
+                        }
+                    }, 200);
+                    
                     // Attach input event listener
                     collectionSearchInput.addEventListener('input', performSearch);
                     
@@ -6463,6 +6477,12 @@
                         }
                     });
                     
+                    // Test on focus
+                    collectionSearchInput.addEventListener('focus', () => {
+                        console.log('Modal: Search input focused');
+                        performSearch();
+                    });
+                    
                     console.log('Modal: Collection search handler attached successfully');
                 } else {
                     console.warn('Modal: Collection search not attached:', {
@@ -6470,7 +6490,7 @@
                         hasTableBody: !!collectionTableBody
                     });
                 }
-            }, 100); // Small delay to ensure DOM is ready
+            }, 200); // Increased delay to ensure DOM is ready
 
         } catch (error) {
             console.error('Error loading user profile:', error);
@@ -6820,16 +6840,20 @@
                     // Function to perform search
                     const performSearch = () => {
                         const searchTerm = collectionSearchInput.value.toLowerCase().trim();
-                        const allRows = collectionTableBody.querySelectorAll('.collection-item-row');
+                        const allRows = collectionTableBody.querySelectorAll('tr.collection-item-row');
                         
                         console.log('Search triggered:', { 
                             searchTerm, 
                             rowCount: allRows.length,
-                            firstRowSearchText: allRows.length > 0 ? allRows[0].getAttribute('data-search-text') : 'no rows'
+                            tableBodyExists: !!collectionTableBody,
+                            firstRow: allRows.length > 0 ? allRows[0] : null,
+                            firstRowSearchText: allRows.length > 0 ? allRows[0].getAttribute('data-search-text') : 'no rows',
+                            firstRowClasses: allRows.length > 0 ? allRows[0].className : 'no rows'
                         });
                         
                         if (allRows.length === 0) {
-                            console.warn('No collection rows found!');
+                            console.warn('No collection rows found! Checking table body...');
+                            console.log('Table body HTML:', collectionTableBody.innerHTML.substring(0, 200));
                             return;
                         }
                         
@@ -6848,6 +6872,16 @@
                         console.log('Visible rows after search:', visibleCount, 'out of', allRows.length);
                     };
                     
+                    // Test the search function immediately
+                    console.log('Testing search function...');
+                    setTimeout(() => {
+                        const testRows = collectionTableBody.querySelectorAll('tr.collection-item-row');
+                        console.log('Rows found after delay:', testRows.length);
+                        if (testRows.length > 0) {
+                            console.log('First row data-search-text:', testRows[0].getAttribute('data-search-text'));
+                        }
+                    }, 200);
+                    
                     // Attach input event listener
                     collectionSearchInput.addEventListener('input', performSearch);
                     
@@ -6859,6 +6893,12 @@
                         }
                     });
                     
+                    // Test on focus
+                    collectionSearchInput.addEventListener('focus', () => {
+                        console.log('Search input focused');
+                        performSearch();
+                    });
+                    
                     console.log('Collection search handler attached successfully');
                 } else {
                     console.warn('Collection search not attached:', {
@@ -6866,7 +6906,7 @@
                         hasTableBody: !!collectionTableBody
                     });
                 }
-            }, 100); // Small delay to ensure DOM is ready
+            }, 200); // Increased delay to ensure DOM is ready
 
         } catch (error) {
             console.error('Error loading user profile:', error);
