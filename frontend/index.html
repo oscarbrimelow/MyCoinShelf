@@ -3440,13 +3440,17 @@
                     }
                     
                     const result = await response.json();
-                    const newFavoriteStatus = result.is_favorite === true || result.is_favorite === 'true' || result.is_favorite === 1;
+                    // Normalize to strict boolean
+                    const newFavoriteStatus = !!(result.is_favorite === true || result.is_favorite === 'true' || result.is_favorite === 1 || result.is_favorite === 'True');
+                    
+                    console.log('Toggle favorite result:', result, 'Normalized to:', newFavoriteStatus);
                     
                     // Update the item in collectionData
                     const item = collectionData.find(d => d.id === id);
                     if (item) {
-                        // Ensure is_favorite is a boolean
+                        // Ensure is_favorite is a strict boolean
                         item.is_favorite = newFavoriteStatus;
+                        console.log('Updated item is_favorite:', item.id, item.is_favorite, typeof item.is_favorite);
                     }
                     
                     // Re-enable button
@@ -3497,7 +3501,17 @@
                     
                     // Re-render the table (this will create new buttons with correct state from item.is_favorite)
                     renderCollectionTable(dataToRender);
-                    updateResultCount(dataToRender.length, collectionData.length);
+                    
+                    // Update result count if the function is available
+                    const resultCountBadge = document.getElementById('collection-result-count');
+                    if (resultCountBadge) {
+                        if (dataToRender.length !== collectionData.length) {
+                            resultCountBadge.textContent = `${dataToRender.length} of ${collectionData.length}`;
+                            resultCountBadge.classList.remove('hidden');
+                        } else {
+                            resultCountBadge.classList.add('hidden');
+                        }
+                    }
                 } catch (error) {
                     console.error('Error toggling favorite:', error);
                     showCustomConfirm('Failed to update favorite status: ' + error.message, () => {});
@@ -3745,7 +3759,10 @@
                     </div>
                 </td>
                 <td class="p-2" style="width: 140px; position: sticky; right: 0; background-color: #1f2937; z-index: 10;">
-                     <button class="favorite-btn ${(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1) ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-300 mr-2" data-id="${item.id}" data-favorite="${(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1) ? 'true' : 'false'}" title="${(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1) ? 'Remove from Favorites' : 'Add to Favorites'}"><i class="ph ${(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1) ? 'ph-star-fill' : 'ph-star'}"></i></button>
+                     ${(() => {
+                         const isFavorite = !!(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1 || item.is_favorite === 'True');
+                         return `<button class="favorite-btn ${isFavorite ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-300 mr-2" data-id="${item.id}" data-favorite="${isFavorite ? 'true' : 'false'}" title="${isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}"><i class="ph ${isFavorite ? 'ph-star-fill' : 'ph-star'}"></i></button>`;
+                     })()}
                      <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
                      <button class="duplicate-btn text-emerald-400 hover:text-emerald-300 mr-2" data-id="${item.id}" title="Duplicate Item"><i class="ph ph-copy"></i></button>
                      <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
