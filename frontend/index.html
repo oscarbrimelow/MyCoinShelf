@@ -392,6 +392,26 @@
         .nav-section-toggle[data-section].collapsed i {
             transform: rotate(-90deg);
         }
+        
+        /* Collection image hover zoom effect */
+        .collection-image-zoom {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            z-index: 10;
+            display: inline-block;
+        }
+        .collection-image-zoom:hover {
+            transform: scale(2.5);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            background-color: #1f2937;
+            border-radius: 4px;
+        }
+        /* Ensure table cells can show overflow for zoom effect */
+        #collection-table-body td {
+            overflow: visible;
+        }
         html.light .bg-gray-800 { /* Main content cards */
             background-color: #ffffff;
             border-color: #e5e7eb;
@@ -3980,10 +4000,12 @@
                 </td>
                 <td class="p-2" style="width: 80px;">
                     ${imageUrl ? `
-                        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.denomination)}" 
-                             class="w-12 h-12 object-contain rounded bg-gray-700 p-1" 
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
-                        <i class="ph ph-image text-gray-600 text-xl hidden" style="display: none;"></i>
+                        <div class="relative inline-block">
+                            <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.denomination)}" 
+                                 class="collection-image-zoom w-12 h-12 object-contain rounded bg-gray-700 p-1" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                            <i class="ph ph-image text-gray-600 text-xl hidden" style="display: none;"></i>
+                        </div>
                     ` : `
                         <i class="ph ph-image text-gray-600 text-xl"></i>
                     `}
