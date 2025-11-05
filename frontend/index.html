@@ -2262,6 +2262,11 @@
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             collectionData = await response.json();
+            // Normalize is_favorite to boolean for all items
+            collectionData = collectionData.map(item => ({
+                ...item,
+                is_favorite: item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1
+            }));
             console.log("Collection data loaded from backend:", collectionData);
             console.log("Number of items in collection:", collectionData.length);
 
@@ -3428,28 +3433,8 @@
                     // Update the item in collectionData
                     const item = collectionData.find(d => d.id === id);
                     if (item) {
-                        item.is_favorite = newFavoriteStatus;
-                    }
-                    
-                    // Update button appearance immediately
-                    button.dataset.favorite = newFavoriteStatus;
-                    const icon = button.querySelector('i');
-                    if (newFavoriteStatus) {
-                        button.classList.remove('text-gray-400');
-                        button.classList.add('text-yellow-400');
-                        button.title = 'Remove from Favorites';
-                        if (icon) {
-                            icon.classList.remove('ph-star');
-                            icon.classList.add('ph-star-fill');
-                        }
-                    } else {
-                        button.classList.remove('text-yellow-400');
-                        button.classList.add('text-gray-400');
-                        button.title = 'Add to Favorites';
-                        if (icon) {
-                            icon.classList.remove('ph-star-fill');
-                            icon.classList.add('ph-star');
-                        }
+                        // Ensure is_favorite is a boolean
+                        item.is_favorite = newFavoriteStatus === true || newFavoriteStatus === 'true' || newFavoriteStatus === 1;
                     }
                     
                     // Sort favorites to the top - favorites first, then others
@@ -3461,58 +3446,43 @@
                         return 0;
                     });
                     
-                    // Update originalFilteredOrder to maintain the new order
-                    if (originalFilteredOrder.length > 0) {
-                        // Re-sort the filtered results too
-                        const sortedFiltered = [...originalFilteredOrder].sort((a, b) => {
-                            if (a.is_favorite && !b.is_favorite) return -1;
-                            if (!a.is_favorite && b.is_favorite) return 1;
-                            return 0;
-                        });
-                        originalFilteredOrder = sortedFiltered;
+                    // Get current filtered data if filters are active
+                    let dataToRender = sortedData;
+                    if (currentFilter === 'favorites') {
+                        // If favorites filter is active, show only favorites (already sorted to top)
+                        dataToRender = sortedData.filter(item => item.is_favorite === true);
+                    } else {
+                        // Apply other active filters (region, type, search)
+                        const searchInput = document.getElementById('search-input');
+                        const regionFilter = document.getElementById('region-filter');
+                        const typeFilter = document.getElementById('type-filter');
+                        
+                        if (searchInput || regionFilter || typeFilter) {
+                            const searchTerm = searchInput?.value.toLowerCase() || '';
+                            const selectedRegion = regionFilter?.value || '';
+                            const selectedType = typeFilter?.value || '';
+                            
+                            dataToRender = sortedData.filter(item => {
+                                const matchesSearch = searchTerm === '' ||
+                                                      String(item.id).toLowerCase().includes(searchTerm) ||
+                                                      (item.country && item.country.toLowerCase().includes(searchTerm)) ||
+                                                      (item.denomination && item.denomination.toLowerCase().includes(searchTerm)) ||
+                                                      (item.notes && item.notes.toLowerCase().includes(searchTerm)) ||
+                                                      (item.year && item.year.toString().includes(searchTerm));
+                                const matchesRegion = selectedRegion === '' || item.region === selectedRegion;
+                                const matchesType = selectedType === '' || item.type === selectedType;
+                                return matchesSearch && matchesRegion && matchesType;
+                            });
+                        }
                     }
                     
-                    // Re-render the table with favorites at top
-                    const tableBody = document.getElementById('collection-table-body');
-                    if (tableBody) {
-                        // Get current filtered data if filters are active
-                        let dataToRender = sortedData;
-                        if (currentFilter === 'favorites') {
-                            // If favorites filter is active, show only favorites (already sorted to top)
-                            dataToRender = sortedData.filter(item => item.is_favorite === true);
-                        } else {
-                            // Apply other active filters (region, type, search)
-                            const searchInput = document.getElementById('search-input');
-                            const regionFilter = document.getElementById('region-filter');
-                            const typeFilter = document.getElementById('type-filter');
-                            
-                            if (searchInput || regionFilter || typeFilter) {
-                                const searchTerm = searchInput?.value.toLowerCase() || '';
-                                const selectedRegion = regionFilter?.value || '';
-                                const selectedType = typeFilter?.value || '';
-                                
-                                dataToRender = sortedData.filter(item => {
-                                    const matchesSearch = searchTerm === '' ||
-                                                          String(item.id).toLowerCase().includes(searchTerm) ||
-                                                          (item.country && item.country.toLowerCase().includes(searchTerm)) ||
-                                                          (item.denomination && item.denomination.toLowerCase().includes(searchTerm)) ||
-                                                          (item.notes && item.notes.toLowerCase().includes(searchTerm)) ||
-                                                          (item.year && item.year.toString().includes(searchTerm));
-                                    const matchesRegion = selectedRegion === '' || item.region === selectedRegion;
-                                    const matchesType = selectedType === '' || item.type === selectedType;
-                                    return matchesSearch && matchesRegion && matchesType;
-                                });
-                            }
-                        }
-                        
-                        // Update currentFilteredResults
-                        currentFilteredResults = [...dataToRender];
-                        originalFilteredOrder = [...dataToRender];
-                        
-                        // Re-render the table
-                        renderCollectionTable(dataToRender);
-                        updateResultCount(dataToRender.length, collectionData.length);
-                    }
+                    // Update currentFilteredResults and originalFilteredOrder
+                    currentFilteredResults = [...dataToRender];
+                    originalFilteredOrder = [...dataToRender];
+                    
+                    // Re-render the table (this will create new buttons with correct state from item.is_favorite)
+                    renderCollectionTable(dataToRender);
+                    updateResultCount(dataToRender.length, collectionData.length);
                 } catch (error) {
                     console.error('Error toggling favorite:', error);
                     showCustomConfirm('Failed to update favorite status', () => {});
@@ -3757,7 +3727,7 @@
                     </div>
                 </td>
                 <td class="p-2" style="width: 140px; position: sticky; right: 0; background-color: #1f2937; z-index: 10;">
-                     <button class="favorite-btn ${item.is_favorite ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-300 mr-2" data-id="${item.id}" data-favorite="${item.is_favorite || false}" title="${item.is_favorite ? 'Remove from Favorites' : 'Add to Favorites'}"><i class="ph ${item.is_favorite ? 'ph-star-fill' : 'ph-star'}"></i></button>
+                     <button class="favorite-btn ${(item.is_favorite === true || item.is_favorite === 'true') ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-300 mr-2" data-id="${item.id}" data-favorite="${item.is_favorite === true || item.is_favorite === 'true'}" title="${(item.is_favorite === true || item.is_favorite === 'true') ? 'Remove from Favorites' : 'Add to Favorites'}"><i class="ph ${(item.is_favorite === true || item.is_favorite === 'true') ? 'ph-star-fill' : 'ph-star'}"></i></button>
                      <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
                      <button class="duplicate-btn text-emerald-400 hover:text-emerald-300 mr-2" data-id="${item.id}" title="Duplicate Item"><i class="ph ph-copy"></i></button>
                      <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
@@ -8465,10 +8435,21 @@
         collectionContentWrapper.innerHTML = `
             <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
                 <h1 class="text-3xl font-bold text-white">Collection</h1>
-                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-                    <input type="text" id="search-input" placeholder="Search..." class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2">
+                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+                    <div class="relative w-full sm:w-auto">
+                        <input type="text" id="search-input" placeholder="Search... (Ctrl+F)" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2 pr-8">
+                        <button id="clear-search-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white hidden" title="Clear search">
+                            <i class="ph ph-x"></i>
+                        </button>
+                    </div>
                     <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
                     <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
+                    <button id="favorites-filter-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-md transition-colors text-sm" title="Show only favorites">
+                        <i class="ph ph-star mr-1"></i> Favorites
+                    </button>
+                    <button id="clear-filters-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-md transition-colors text-sm" title="Clear all filters">
+                        <i class="ph ph-x-circle mr-1"></i> Clear
+                    </button>
                 </div>
             </div>
             <div class="flex-1 flex overflow-hidden">
@@ -8510,7 +8491,13 @@
                 </tr>
             `;
         } else {
-            renderCollectionTable(filteredData);
+            // Sort favorites to top before rendering
+            const sortedData = [...filteredData].sort((a, b) => {
+                if (a.is_favorite && !b.is_favorite) return -1;
+                if (!a.is_favorite && b.is_favorite) return 1;
+                return 0;
+            });
+            renderCollectionTable(sortedData);
         }
         attachSortEventListeners();
     }
