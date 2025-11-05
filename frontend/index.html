@@ -1512,6 +1512,15 @@
                 </div>
             </div>
 
+            <!-- User Profile Page -->
+            <div id="content-user-profile" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
+                <div class="max-w-7xl mx-auto">
+                    <div id="user-profile-page-content">
+                        <!-- User profile content will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -2188,6 +2197,15 @@
     };
 
     function handleHistoryNavigation(path) {
+      // Check if path matches /@username pattern
+      const usernameMatch = path.match(/^\/@([^\/]+)$/);
+      if (usernameMatch) {
+        const username = usernameMatch[1];
+        showView('content-user-profile');
+        renderUserProfilePage(username);
+        return;
+      }
+      
       const sectionId = pathToSection[path] || 'content-home';
       showView(sectionId);
     }
@@ -5574,7 +5592,9 @@
                 card.addEventListener('click', (e) => {
                     const username = e.currentTarget.dataset.username;
                     if (username) {
-                        viewUserProfile(username);
+                        // Navigate to user profile page
+                        window.history.pushState({}, '', `/@${username}`);
+                        handleHistoryNavigation(`/@${username}`);
                     }
                 });
             });
@@ -5853,6 +5873,286 @@
             `;
         }
     }
+
+    async function renderUserProfilePage(username) {
+        const pageContent = document.getElementById('user-profile-page-content');
+        if (!pageContent) return;
+
+        pageContent.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div><p class="text-gray-400">Loading profile...</p></div>';
+
+        try {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (isAuthenticated()) {
+                headers['Authorization'] = `Bearer ${getAuthToken()}`;
+            }
+            const response = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(username)}`, {
+                method: 'GET',
+                headers: headers
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('User not found or profile is private');
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const profile = await response.json();
+
+            const stats = profile.stats || {};
+            const collection = profile.collection || [];
+            const wishlist = profile.wishlist || [];
+            
+            // Get current currency setting
+            const currentCurrency = localStorage.getItem('currency') || 'USD';
+            
+            // Convert total value from USD to user's currency
+            const convertedTotalValue = convertToCurrency(stats.total_value || 0, 'USD', currentCurrency);
+            
+            // Convert collection item values
+            const convertedCollection = collection.map(item => {
+                const convertedValue = convertToCurrency(item.value || 0, 'USD', currentCurrency);
+                return { ...item, convertedValue };
+            });
+
+            const displayText = profile.display_name || profile.username;
+            const titleText = profile.username === 'OscarBrimelow' 
+                ? `${escapeHtml(displayText)} <i class="ph-bold ph-crown text-purple-400 ml-1 inline-block" title="Developer"></i>`
+                : escapeHtml(displayText);
+
+            const initial = (profile.display_name || profile.username || 'U').charAt(0).toUpperCase();
+            const hasProfilePicture = profile.profile_picture_url && profile.profile_picture_url.trim() !== '';
+
+            pageContent.innerHTML = `
+                <div class="space-y-6">
+                    <!-- Back Button -->
+                    <div class="mb-4">
+                        <button onclick="window.history.back();" class="text-gray-400 hover:text-white transition-colors flex items-center">
+                            <i class="ph-bold ph-arrow-left mr-2"></i> Back
+                        </button>
+                    </div>
+
+                    <!-- Profile Header -->
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                        <div class="flex items-start gap-6 mb-4">
+                            <!-- Profile Picture -->
+                            <div class="flex-shrink-0">
+                                ${hasProfilePicture ? `
+                                    <img src="${escapeHtml(profile.profile_picture_url)}" alt="${escapeHtml(displayText)}" 
+                                         class="w-24 h-24 rounded-full object-cover border-2 border-gray-600">
+                                ` : `
+                                    <div class="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-white text-3xl font-bold">
+                                        ${initial}
+                                    </div>
+                                `}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h1 class="text-3xl font-bold text-white mb-2">${titleText}</h1>
+                                <p class="text-lg text-gray-400 mb-2">${renderUsername(profile.username)}</p>
+                                ${profile.bio ? `<p class="text-gray-300 mt-4">${escapeHtml(profile.bio)}</p>` : ''}
+                            </div>
+                            ${isAuthenticated() ? `
+                                <button id="follow-btn" class="ml-4 px-6 py-2 rounded-md transition-colors ${profile.is_following ? 'bg-gray-600 hover:bg-gray-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white font-semibold" data-username="${escapeHtml(profile.username)}" data-following="${profile.is_following || false}">
+                                    ${profile.is_following ? 'Unfollow' : 'Follow'}
+                                </button>
+                            ` : ''}
+                        </div>
+                        <div class="flex items-center space-x-6 mt-4">
+                            <button id="followers-link" class="text-gray-300 hover:text-white transition-colors cursor-pointer" data-username="${escapeHtml(profile.username)}" data-type="followers">
+                                <span class="font-semibold text-xl">${profile.stats?.follower_count || 0}</span> <span class="text-sm">Followers</span>
+                            </button>
+                            <button id="following-link" class="text-gray-300 hover:text-white transition-colors cursor-pointer" data-username="${escapeHtml(profile.username)}" data-type="following">
+                                <span class="font-semibold text-xl">${profile.stats?.following_count || 0}</span> <span class="text-sm">Following</span>
+                            </button>
+                            ${isAuthenticated() ? `
+                                <button id="compare-collections-btn" class="text-gray-300 hover:text-white transition-colors cursor-pointer" data-username="${escapeHtml(profile.username)}">
+                                    <i class="ph ph-compare"></i> <span class="text-sm">Compare Collections</span>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                            <div class="text-sm text-gray-400 mb-1">Collection Items</div>
+                            <div class="text-2xl font-bold text-white">${stats.coin_count || 0}</div>
+                        </div>
+                        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                            <div class="text-sm text-gray-400 mb-1">Total Value</div>
+                            <div class="text-2xl font-bold text-emerald-400">${formatCurrency(convertedTotalValue, currentCurrency)}</div>
+                        </div>
+                        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                            <div class="text-sm text-gray-400 mb-1">Countries</div>
+                            <div class="text-2xl font-bold text-white">${stats.unique_countries || 0}</div>
+                        </div>
+                        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 cursor-pointer hover:bg-gray-700 transition-colors" id="wishlist-stat-card" data-wishlist-expanded="false">
+                            <div class="text-sm text-gray-400 mb-1 flex items-center justify-between">
+                                <span>Wishlist Items</span>
+                                ${wishlist.length > 0 ? `<i class="ph-bold ph-caret-down text-pink-400" id="wishlist-toggle-icon"></i>` : ''}
+                            </div>
+                            <div class="text-2xl font-bold text-pink-400">${stats.wishlist_count || 0}</div>
+                            ${(stats.coin_count || 0) > 0 && (stats.wishlist_count || 0) > 0 ? `
+                                <div class="text-xs text-gray-500 mt-1">
+                                    ${((stats.wishlist_count / stats.coin_count) * 100).toFixed(1)}% of collection size
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Wishlist Items (collapsible) -->
+                    <div id="public-wishlist-section" class="hidden">
+                        <h3 class="text-xl font-bold text-white mb-4">Wishlist</h3>
+                        ${wishlist.length > 0 ? `
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="public-wishlist-items">
+                                ${wishlist.map(item => `
+                                    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-pink-500 transition-colors">
+                                        <div class="flex flex-col h-full">
+                                            <div class="mb-3 flex justify-center">
+                                                ${item.image_url ? `
+                                                    <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.denomination || 'Item')}" 
+                                                         class="max-w-full h-32 object-contain rounded-md bg-gray-700 p-2" 
+                                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                    <div class="hidden max-w-full h-32 rounded-md bg-gray-700 p-2 items-center justify-center">
+                                                        <i class="ph-bold ph-image text-4xl text-gray-500"></i>
+                                                    </div>
+                                                ` : `
+                                                    <div class="max-w-full h-32 rounded-md bg-gray-700 p-2 flex items-center justify-center">
+                                                        <i class="ph-bold ph-image text-4xl text-gray-500"></i>
+                                                    </div>
+                                                `}
+                                            </div>
+                                            <h4 class="font-bold text-white text-lg mb-2">${escapeHtml(item.denomination || 'Untitled')}</h4>
+                                            ${item.country ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Country:</span> ${escapeHtml(item.country)}</p>` : ''}
+                                            ${item.year ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Year:</span> ${escapeHtml(item.year.toString())}</p>` : ''}
+                                            ${item.type ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Type:</span> ${escapeHtml(item.type)}</p>` : ''}
+                                            ${item.composition ? `<p class="text-sm text-gray-400 mb-1"><span class="text-gray-500">Composition:</span> ${escapeHtml(item.composition)}</p>` : ''}
+                                            ${item.description ? `<p class="text-sm text-gray-400 mt-2 line-clamp-2">${escapeHtml(item.description)}</p>` : ''}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="bg-gray-800 rounded-lg p-6 text-center border border-gray-700">
+                                <p class="text-gray-400">No items in wishlist yet</p>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Collection -->
+                    ${profile.collection_public && collection.length > 0 ? `
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-4">Collection</h3>
+                            <div class="bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left">
+                                        <thead class="bg-gray-700">
+                                            <tr>
+                                                <th class="p-4 text-sm font-semibold text-gray-300">Type</th>
+                                                <th class="p-4 text-sm font-semibold text-gray-300">Country</th>
+                                                <th class="p-4 text-sm font-semibold text-gray-300">Year</th>
+                                                <th class="p-4 text-sm font-semibold text-gray-300">Denomination</th>
+                                                <th class="p-4 text-sm font-semibold text-gray-300">Qty</th>
+                                                <th class="p-4 text-sm font-semibold text-gray-300">Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${convertedCollection.map(item => `
+                                                <tr class="border-t border-gray-600">
+                                                    <td class="p-4 text-sm text-gray-300">${item.type}</td>
+                                                    <td class="p-4 text-sm text-gray-300">${item.country} ${item.isHistorical ? '<span class="text-xs text-amber-400">(H)</span>' : ''}</td>
+                                                    <td class="p-4 text-sm text-gray-300">${item.year || 'N/A'}</td>
+                                                    <td class="p-4 text-sm text-gray-300">${item.denomination}</td>
+                                                    <td class="p-4 text-sm text-gray-300">${item.quantity || 1}</td>
+                                                    <td class="p-4 text-sm text-gray-300">${formatCurrency(item.convertedValue, currentCurrency)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    ` : profile.collection_public ? `
+                        <div class="bg-gray-800 rounded-lg p-6 text-center border border-gray-700">
+                            <p class="text-gray-400">No items in collection yet</p>
+                        </div>
+                    ` : `
+                        <div class="bg-gray-800 rounded-lg p-6 text-center border border-gray-700">
+                            <p class="text-gray-400">Collection is private</p>
+                        </div>
+                    `}
+                    
+                    <!-- Comments Section -->
+                    ${profile.collection_public ? `
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-4">Comments</h3>
+                            <div id="comments-container" class="space-y-4">
+                                <!-- Comments will be loaded here -->
+                            </div>
+                            ${isAuthenticated() ? `
+                                <div class="mt-4">
+                                    <textarea id="comment-input" placeholder="Add a comment..." class="w-full bg-gray-700 text-white rounded-md p-3 border border-gray-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" rows="3"></textarea>
+                                    <button id="submit-comment-btn" class="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md transition-colors" data-username="${escapeHtml(profile.username)}">
+                                        Post Comment
+                                    </button>
+                                </div>
+                            ` : `
+                                <p class="text-gray-400 text-sm mt-4">Sign in to leave a comment</p>
+                            `}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            // Load comments
+            if (profile.collection_public) {
+                loadComments(profile.username);
+            }
+            
+            // Attach event handlers
+            attachProfileEventHandlers(profile);
+
+            // Add click handler for wishlist toggle
+            const wishlistStatCard = document.getElementById('wishlist-stat-card');
+            const wishlistSection = document.getElementById('public-wishlist-section');
+            const wishlistToggleIcon = document.getElementById('wishlist-toggle-icon');
+            
+            if (wishlistStatCard && wishlistSection && wishlist.length > 0) {
+                wishlistStatCard.addEventListener('click', () => {
+                    const isExpanded = wishlistStatCard.getAttribute('data-wishlist-expanded') === 'true';
+                    
+                    if (isExpanded) {
+                        wishlistSection.classList.add('hidden');
+                        wishlistStatCard.setAttribute('data-wishlist-expanded', 'false');
+                        if (wishlistToggleIcon) {
+                            wishlistToggleIcon.className = 'ph-bold ph-caret-down text-pink-400';
+                        }
+                    } else {
+                        wishlistSection.classList.remove('hidden');
+                        wishlistStatCard.setAttribute('data-wishlist-expanded', 'true');
+                        if (wishlistToggleIcon) {
+                            wishlistToggleIcon.className = 'ph-bold ph-caret-up text-pink-400';
+                        }
+                    }
+                });
+            }
+
+        } catch (error) {
+            console.error('Error loading user profile:', error);
+            pageContent.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="ph-bold ph-warning-circle text-6xl text-red-400 mb-4"></i>
+                    <p class="text-xl text-red-400 mb-2">Error loading profile</p>
+                    <p class="text-gray-500">${escapeHtml(error.message || 'Failed to load user profile')}</p>
+                    <button onclick="window.history.back();" class="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md transition-colors">
+                        Go Back
+                    </button>
+                </div>
+            `;
+        }
+    }
     
     // Helper function to load comments
     async function loadComments(username) {
@@ -6030,7 +6330,7 @@
                         ` : `
                             <div class="space-y-2">
                                 ${users.map(user => `
-                                    <div class="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-colors cursor-pointer" onclick="viewUserProfile('${escapeHtml(user.username)}'); document.getElementById('close-followers-modal')?.click();">
+                                    <div class="bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-colors cursor-pointer" onclick="window.history.pushState({}, '', '/@${escapeHtml(user.username)}'); handleHistoryNavigation('/@${escapeHtml(user.username)}'); document.getElementById('close-followers-modal')?.click();">
                                         <div class="font-semibold text-white">${escapeHtml(user.display_name || user.username)}</div>
                                         <div class="text-sm text-gray-400">@${escapeHtml(user.username)}</div>
                                     </div>
