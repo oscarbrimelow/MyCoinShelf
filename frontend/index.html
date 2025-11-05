@@ -2263,10 +2263,13 @@
             }
             collectionData = await response.json();
             // Normalize is_favorite to boolean for all items
-            collectionData = collectionData.map(item => ({
-                ...item,
-                is_favorite: item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1
-            }));
+            collectionData = collectionData.map(item => {
+                const isFavorite = item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1 || item.is_favorite === 'True';
+                return {
+                    ...item,
+                    is_favorite: !!isFavorite // Ensure it's a strict boolean
+                };
+            });
             console.log("Collection data loaded from backend:", collectionData);
             console.log("Number of items in collection:", collectionData.length);
 
@@ -3409,10 +3412,18 @@
     function initializeActionButtons() {
         // Favorite toggle functionality
         document.querySelectorAll('.favorite-btn').forEach(button => {
-            button.addEventListener('click', async (e) => {
+            // Remove any existing listeners by cloning the button
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            
+            newButton.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const id = parseInt(button.dataset.id);
-                const currentFavorite = button.dataset.favorite === 'true';
+                e.preventDefault();
+                const id = parseInt(newButton.dataset.id);
+                const currentFavorite = newButton.dataset.favorite === 'true' || newButton.dataset.favorite === true;
+                
+                // Disable button during request to prevent double-clicks
+                newButton.disabled = true;
                 
                 try {
                     const response = await fetch(`${API_BASE_URL}/coins/${id}/toggle-favorite`, {
@@ -3424,18 +3435,22 @@
                     });
                     
                     if (!response.ok) {
-                        throw new Error('Failed to toggle favorite');
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || 'Failed to toggle favorite');
                     }
                     
                     const result = await response.json();
-                    const newFavoriteStatus = result.is_favorite;
+                    const newFavoriteStatus = result.is_favorite === true || result.is_favorite === 'true' || result.is_favorite === 1;
                     
                     // Update the item in collectionData
                     const item = collectionData.find(d => d.id === id);
                     if (item) {
                         // Ensure is_favorite is a boolean
-                        item.is_favorite = newFavoriteStatus === true || newFavoriteStatus === 'true' || newFavoriteStatus === 1;
+                        item.is_favorite = newFavoriteStatus;
                     }
+                    
+                    // Re-enable button
+                    newButton.disabled = false;
                     
                     // Sort favorites to the top - favorites first, then others
                     const sortedData = [...collectionData].sort((a, b) => {
@@ -3485,7 +3500,10 @@
                     updateResultCount(dataToRender.length, collectionData.length);
                 } catch (error) {
                     console.error('Error toggling favorite:', error);
-                    showCustomConfirm('Failed to update favorite status', () => {});
+                    showCustomConfirm('Failed to update favorite status: ' + error.message, () => {});
+                    // Re-enable button on error
+                    const button = document.querySelector(`.favorite-btn[data-id="${id}"]`);
+                    if (button) button.disabled = false;
                 }
             });
         });
@@ -3727,7 +3745,7 @@
                     </div>
                 </td>
                 <td class="p-2" style="width: 140px; position: sticky; right: 0; background-color: #1f2937; z-index: 10;">
-                     <button class="favorite-btn ${(item.is_favorite === true || item.is_favorite === 'true') ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-300 mr-2" data-id="${item.id}" data-favorite="${item.is_favorite === true || item.is_favorite === 'true'}" title="${(item.is_favorite === true || item.is_favorite === 'true') ? 'Remove from Favorites' : 'Add to Favorites'}"><i class="ph ${(item.is_favorite === true || item.is_favorite === 'true') ? 'ph-star-fill' : 'ph-star'}"></i></button>
+                     <button class="favorite-btn ${(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1) ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-300 mr-2" data-id="${item.id}" data-favorite="${(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1) ? 'true' : 'false'}" title="${(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1) ? 'Remove from Favorites' : 'Add to Favorites'}"><i class="ph ${(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1) ? 'ph-star-fill' : 'ph-star'}"></i></button>
                      <button class="edit-btn text-blue-400 hover:text-blue-300 mr-2" data-id="${item.id}" title="Edit Item"><i class="ph ph-pencil-simple"></i></button>
                      <button class="duplicate-btn text-emerald-400 hover:text-emerald-300 mr-2" data-id="${item.id}" title="Duplicate Item"><i class="ph ph-copy"></i></button>
                      <button class="delete-btn text-red-400 hover:text-red-300" data-id="${item.id}" title="Delete Item"><i class="ph ph-trash"></i></button>
