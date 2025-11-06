@@ -128,6 +128,9 @@ def fetch_yahoo_finance_prices():
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Security: Set maximum request size to prevent DoS attacks (10MB for JSON, 5MB for other)
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB
+
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
@@ -744,17 +747,37 @@ def not_found(error):
     # For non-API routes (frontend is served by Netlify, not this backend)
     return jsonify({'error': 'Not found', 'message': 'This is the API backend. Frontend is served separately.'}), 404
 
+@app.errorhandler(413)
+def request_too_large(error):
+    """Handle request size limit exceeded"""
+    return jsonify({'error': 'Request too large', 'message': 'Request size exceeds maximum allowed limit (10MB)'}), 413
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """Handle rate limit exceeded"""
+    return jsonify({'error': 'Rate limit exceeded', 'message': 'Too many requests. Please try again later.'}), 429
+
 @app.errorhandler(500)
 def internal_error(error):
-    """Return JSON for 500 errors"""
+    """Return JSON for 500 errors - don't leak sensitive information"""
     if request.path.startswith('/api/'):
         print(f"Internal server error on {request.path}: {error}")
         traceback.print_exc()
-        return jsonify({'error': 'Internal server error', 'message': str(error)}), 500
+        # Don't expose error details to client
+        return jsonify({'error': 'Internal server error', 'message': 'An unexpected error occurred. Please try again later.'}), 500
     # For non-API routes (frontend is served by Netlify, not this backend)
     print(f"Internal server error on {request.path}: {error}")
     traceback.print_exc()
     return jsonify({'error': 'Internal server error', 'message': 'This is the API backend. Frontend is served separately.'}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle all unhandled exceptions"""
+    if request.path.startswith('/api/'):
+        print(f"Unhandled exception on {request.path}: {e}")
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error', 'message': 'An unexpected error occurred. Please try again later.'}), 500
+    raise e
 
 # --- Routes ---
 # NOTE: All API routes must be defined BEFORE the catch-all route
@@ -809,25 +832,42 @@ def test_email():
 @app.route('/api/register', methods=['POST'])
 @limiter.limit("5 per minute")
 def register():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'message': 'Request body is required'}), 400
+            
+        email = sanitize_string(data.get('email'), max_length=120)
+        password = data.get('password')
 
-    if not email or not password:
-        return jsonify({'message': 'Email and password are required'}), 400
+        if not email or not password:
+            return jsonify({'message': 'Email and password are required'}), 400
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({'message': 'User with that email already exists'}), 409
+        # Validate email format
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            return jsonify({'message': 'Invalid email format'}), 400
 
-    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-    new_user = User(email=email, password_hash=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    
-    # Send welcome email
-    send_welcome_email(email)
-    
-    return jsonify({'message': 'User registered successfully!'}), 201
+        # Validate password strength
+        is_valid, error_message = validate_password_strength(password)
+        if not is_valid:
+            return jsonify({'message': error_message}), 400
+
+        if User.query.filter_by(email=email).first():
+            return jsonify({'message': 'User with that email already exists'}), 409
+
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+        new_user = User(email=email, password_hash=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Send welcome email
+        send_welcome_email(email)
+        
+        return jsonify({'message': 'User registered successfully!'}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Registration error: {e}")
+        return jsonify({'message': 'Registration failed. Please try again.'}), 500
 
 @app.route('/api/login', methods=['POST'])
 @limiter.limit("5 per minute")
@@ -864,26 +904,40 @@ def login():
 @jwt_required
 @limiter.limit("5 per hour")
 def change_password(current_user):
-    data = request.get_json()
-    current_password = data.get('current_password')
-    new_password = data.get('new_password')
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'message': 'Request body is required'}), 400
+            
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
 
-    if not current_password or not new_password:
-        return jsonify({'message': 'Current and new passwords are required'}), 400
+        if not current_password or not new_password:
+            return jsonify({'message': 'Current and new passwords are required'}), 400
 
-    if not check_password_hash(current_user.password_hash, current_password):
-        return jsonify({'message': 'Incorrect current password'}), 401
+        if not check_password_hash(current_user.password_hash, current_password):
+            return jsonify({'message': 'Incorrect current password'}), 401
 
-    if len(new_password) < 6:
-        return jsonify({'message': 'New password must be at least 6 characters long'}), 400
+        # Validate new password strength
+        is_valid, error_message = validate_password_strength(new_password)
+        if not is_valid:
+            return jsonify({'message': error_message}), 400
 
-    current_user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
-    db.session.commit()
-    
-    # Send password change notification email
-    send_password_change_notification(current_user.email)
-    
-    return jsonify({'message': 'Password changed successfully!'}), 200
+        # Prevent reusing the same password
+        if check_password_hash(current_user.password_hash, new_password):
+            return jsonify({'message': 'New password must be different from current password'}), 400
+
+        current_user.password_hash = generate_password_hash(new_password, method='pbkdf2:sha256')
+        db.session.commit()
+        
+        # Send password change notification email
+        send_password_change_notification(current_user.email)
+        
+        return jsonify({'message': 'Password changed successfully!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Password change error: {e}")
+        return jsonify({'message': 'Password change failed. Please try again.'}), 500
 
 def validate_username(username):
     """Validate username format"""
@@ -978,65 +1032,76 @@ def get_profile(current_user):
 
 @app.route('/api/profile', methods=['PUT'])
 @jwt_required
+@limiter.limit("30 per hour")
 def update_profile(current_user):
     """Update current user's profile information"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'message': 'Request body is required'}), 400
+        
+        # Update display_name with validation
+        if 'display_name' in data:
+            display_name_value = data.get('display_name')
+            if display_name_value is None:
+                current_user.display_name = None
+            elif isinstance(display_name_value, str):
+                display_name = sanitize_string(display_name_value, max_length=100)
+                is_valid, error_msg = validate_input_length(display_name, 'Display name', 100)
+                if not is_valid:
+                    return jsonify({'message': error_msg}), 400
+                current_user.display_name = display_name or None
+            else:
+                current_user.display_name = None
+        
+        # Update bio with validation
+        if 'bio' in data:
+            bio_value = data.get('bio')
+            if bio_value is None:
+                current_user.bio = None
+            elif isinstance(bio_value, str):
+                bio = sanitize_string(bio_value, max_length=2000)
+                is_valid, error_msg = validate_input_length(bio, 'Bio', 2000)
+                if not is_valid:
+                    return jsonify({'message': error_msg}), 400
+                current_user.bio = bio or None
+            else:
+                current_user.bio = None
+        
+        # Update profile picture URL with validation
+        if 'profile_picture_url' in data:
+            profile_picture_value = data.get('profile_picture_url')
+            if profile_picture_value is None:
+                current_user.profile_picture_url = None
+            elif isinstance(profile_picture_value, str):
+                # Allow longer URLs for base64 images
+                profile_pic = sanitize_string(profile_picture_value, max_length=10000)
+                current_user.profile_picture_url = profile_pic or None
+            else:
+                current_user.profile_picture_url = None
+        
+        # Update privacy settings
+        if 'profile_public' in data:
+            current_user.profile_public = bool(data.get('profile_public'))
+        
+        if 'collection_public' in data:
+            current_user.collection_public = bool(data.get('collection_public'))
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Profile updated successfully!',
+            'username': current_user.username,
+            'display_name': current_user.display_name,
+            'bio': current_user.bio,
+            'profile_picture_url': current_user.profile_picture_url,
+            'profile_public': current_user.profile_public,
+            'collection_public': current_user.collection_public
+        }), 200
     except Exception as e:
-        print(f"Error parsing JSON in update_profile: {e}")
-        return jsonify({'message': f'Invalid request data: {str(e)}'}), 400
-    
-    if not data:
-        return jsonify({'message': 'Request body is required'}), 400
-    
-    # Update display_name
-    if 'display_name' in data:
-        display_name_value = data.get('display_name')
-        if display_name_value is None:
-            current_user.display_name = None
-        elif isinstance(display_name_value, str):
-            current_user.display_name = display_name_value.strip() or None
-        else:
-            current_user.display_name = None
-    
-    # Update bio
-    if 'bio' in data:
-        bio_value = data.get('bio')
-        if bio_value is None:
-            current_user.bio = None
-        elif isinstance(bio_value, str):
-            current_user.bio = bio_value.strip() or None
-        else:
-            current_user.bio = None
-    
-    # Update profile picture URL
-    if 'profile_picture_url' in data:
-        profile_picture_value = data.get('profile_picture_url')
-        if profile_picture_value is None:
-            current_user.profile_picture_url = None
-        elif isinstance(profile_picture_value, str):
-            current_user.profile_picture_url = profile_picture_value.strip() or None
-        else:
-            current_user.profile_picture_url = None
-    
-    # Update privacy settings
-    if 'profile_public' in data:
-        current_user.profile_public = bool(data.get('profile_public'))
-    
-    if 'collection_public' in data:
-        current_user.collection_public = bool(data.get('collection_public'))
-    
-    db.session.commit()
-    
-    return jsonify({
-        'message': 'Profile updated successfully!',
-        'username': current_user.username,
-        'display_name': current_user.display_name,
-        'bio': current_user.bio,
-        'profile_picture_url': current_user.profile_picture_url,
-        'profile_public': current_user.profile_public,
-        'collection_public': current_user.collection_public
-    }), 200
+        db.session.rollback()
+        print(f"Update profile error: {e}")
+        return jsonify({'message': 'Failed to update profile. Please try again.'}), 500
 
 @app.route('/api/users/search', methods=['GET'])
 def search_users():
@@ -1842,72 +1907,165 @@ def search_numista(current_user):
 
 @app.route('/api/coins', methods=['POST'])
 @jwt_required
+@limiter.limit("100 per hour")
 def add_coin(current_user):
-    data = request.get_json()
-    
-    # Required fields validation
-    if not data.get('country') or not data.get('denomination'):
-        return jsonify({'message': 'Country and Denomination are required fields.'}), 400
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'message': 'Request body is required'}), 400
+        
+        # Required fields validation
+        if not data.get('country') or not data.get('denomination'):
+            return jsonify({'message': 'Country and Denomination are required fields.'}), 400
 
-    # Calculate region and isHistorical on the backend
-    country_name = data.get('country').strip()
-    year_value = data.get('year')
-    region = get_region_for_country(country_name)
-    is_historical = is_historical_item(country_name, year_value)
+        # Sanitize and validate input lengths
+        country_name = sanitize_string(data.get('country'), max_length=100)
+        denomination = sanitize_string(data.get('denomination'), max_length=100)
+        coin_type = sanitize_string(data.get('type'), max_length=50) if data.get('type') else 'Coin'
+        notes = sanitize_string(data.get('notes'), max_length=5000) if data.get('notes') else None
+        reference_url = sanitize_string(data.get('referenceUrl'), max_length=500) if data.get('referenceUrl') else None
+        image_path = sanitize_string(data.get('localImagePath') or data.get('image_url'), max_length=500) if (data.get('localImagePath') or data.get('image_url')) else None
+        
+        # Validate year if provided
+        year_value = data.get('year')
+        if year_value is not None:
+            try:
+                year_value = int(year_value)
+                if year_value < 0 or year_value > 9999:
+                    return jsonify({'message': 'Year must be between 0 and 9999'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'message': 'Year must be a valid number'}), 400
+        
+        # Validate quantity
+        quantity = data.get('quantity', 1)
+        try:
+            quantity = int(quantity)
+            if quantity < 1 or quantity > 10000:
+                return jsonify({'message': 'Quantity must be between 1 and 10000'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'message': 'Quantity must be a valid number'}), 400
 
-    new_coin = Coin(
-        user_id=current_user.id,
-        type=data.get('type'),
-        country=country_name,
-        year=year_value,
-        denomination=data.get('denomination').strip(),
-        value=data.get('value'),
-        quantity=data.get('quantity', 1), # Set quantity, default to 1
-        notes=data.get('notes'),
-        referenceUrl=data.get('referenceUrl'),
-        localImagePath=data.get('localImagePath') or data.get('image_url'),  # Support Numista image_url field
-        region=region, # Set calculated region
-        isHistorical=is_historical, # Set calculated historical flag
-        weight_grams=data.get('weight_grams'), # Set weight for bullion
-        purity_percent=data.get('purity_percent') # Set purity for bullion
-    )
-    db.session.add(new_coin)
-    db.session.commit()
-    return jsonify({'message': 'Coin added successfully!', 'id': new_coin.id}), 201
+        # Validate value if provided
+        value = data.get('value')
+        if value is not None:
+            try:
+                value = float(value)
+                if value < 0 or value > 1000000000:  # 1 billion max
+                    return jsonify({'message': 'Value must be between 0 and 1000000000'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'message': 'Value must be a valid number'}), 400
+
+        # Calculate region and isHistorical on the backend
+        region = get_region_for_country(country_name)
+        is_historical = is_historical_item(country_name, year_value)
+
+        new_coin = Coin(
+            user_id=current_user.id,
+            type=coin_type,
+            country=country_name,
+            year=year_value,
+            denomination=denomination,
+            value=value,
+            quantity=quantity,
+            notes=notes,
+            referenceUrl=reference_url,
+            localImagePath=image_path,
+            region=region,
+            isHistorical=is_historical,
+            weight_grams=data.get('weight_grams'),
+            purity_percent=data.get('purity_percent')
+        )
+        db.session.add(new_coin)
+        db.session.commit()
+        return jsonify({'message': 'Coin added successfully!', 'id': new_coin.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Add coin error: {e}")
+        return jsonify({'message': 'Failed to add coin. Please try again.'}), 500
 
 @app.route('/api/coins/<int:coin_id>', methods=['PUT'])
 @jwt_required
+@limiter.limit("200 per hour")
 def update_coin(current_user, coin_id):
-    coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
-    if not coin:
-        return jsonify({'message': 'Coin not found or unauthorized'}), 404
+    try:
+        coin = Coin.query.filter_by(id=coin_id, user_id=current_user.id).first()
+        if not coin:
+            return jsonify({'message': 'Coin not found or unauthorized'}), 404
 
-    data = request.get_json()
+        data = request.get_json()
+        if not data:
+            return jsonify({'message': 'Request body is required'}), 400
 
-    # Required fields validation
-    if not data.get('country') or not data.get('denomination'):
-        return jsonify({'message': 'Country and Denomination are required fields.'}), 400
+        # Required fields validation
+        if not data.get('country') or not data.get('denomination'):
+            return jsonify({'message': 'Country and Denomination are required fields.'}), 400
 
-    # Calculate region and isHistorical on the backend
-    country_name = data.get('country').strip()
-    year_value = data.get('year')
-    coin.region = get_region_for_country(country_name)
-    coin.isHistorical = is_historical_item(country_name, year_value)
+        # Sanitize and validate input lengths
+        country_name = sanitize_string(data.get('country'), max_length=100)
+        denomination = sanitize_string(data.get('denomination'), max_length=100)
+        coin_type = sanitize_string(data.get('type'), max_length=50) if data.get('type') else coin.type
+        notes = sanitize_string(data.get('notes'), max_length=5000) if data.get('notes') is not None else coin.notes
+        reference_url = sanitize_string(data.get('referenceUrl'), max_length=500) if data.get('referenceUrl') is not None else coin.referenceUrl
+        image_path = sanitize_string(data.get('localImagePath'), max_length=500) if data.get('localImagePath') is not None else coin.localImagePath
+        
+        # Validate year if provided
+        year_value = data.get('year')
+        if year_value is not None:
+            try:
+                year_value = int(year_value)
+                if year_value < 0 or year_value > 9999:
+                    return jsonify({'message': 'Year must be between 0 and 9999'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'message': 'Year must be a valid number'}), 400
+        else:
+            year_value = coin.year
+        
+        # Validate quantity if provided
+        quantity = data.get('quantity')
+        if quantity is not None:
+            try:
+                quantity = int(quantity)
+                if quantity < 1 or quantity > 10000:
+                    return jsonify({'message': 'Quantity must be between 1 and 10000'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'message': 'Quantity must be a valid number'}), 400
+        else:
+            quantity = coin.quantity
 
-    coin.type = data.get('type', coin.type)
-    coin.country = country_name
-    coin.year = year_value
-    coin.denomination = data.get('denomination').strip()
-    coin.value = data.get('value', coin.value)
-    coin.quantity = data.get('quantity', coin.quantity) # Update quantity
-    coin.notes = data.get('notes', coin.notes)
-    coin.referenceUrl = data.get('referenceUrl', coin.referenceUrl)
-    coin.localImagePath = data.get('localImagePath', coin.localImagePath)
-    coin.weight_grams = data.get('weight_grams', coin.weight_grams) # Update weight for bullion
-    coin.purity_percent = data.get('purity_percent', coin.purity_percent) # Update purity for bullion
+        # Validate value if provided
+        value = data.get('value')
+        if value is not None:
+            try:
+                value = float(value)
+                if value < 0 or value > 1000000000:
+                    return jsonify({'message': 'Value must be between 0 and 1000000000'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'message': 'Value must be a valid number'}), 400
+        else:
+            value = coin.value
 
-    db.session.commit()
-    return jsonify({'message': 'Coin updated successfully!'}), 200
+        # Calculate region and isHistorical on the backend
+        coin.region = get_region_for_country(country_name)
+        coin.isHistorical = is_historical_item(country_name, year_value)
+
+        coin.type = coin_type
+        coin.country = country_name
+        coin.year = year_value
+        coin.denomination = denomination
+        coin.value = value
+        coin.quantity = quantity
+        coin.notes = notes
+        coin.referenceUrl = reference_url
+        coin.localImagePath = image_path
+        coin.weight_grams = data.get('weight_grams', coin.weight_grams) # Update weight for bullion
+        coin.purity_percent = data.get('purity_percent', coin.purity_percent) # Update purity for bullion
+
+        db.session.commit()
+        return jsonify({'message': 'Coin updated successfully!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Update coin error: {e}")
+        return jsonify({'message': 'Failed to update coin. Please try again.'}), 500
 
 @app.route('/api/coins/<int:coin_id>', methods=['DELETE'])
 @jwt_required
@@ -1922,56 +2080,72 @@ def delete_coin(current_user, coin_id):
 
 @app.route('/api/coins/bulk_upload', methods=['POST'])
 @jwt_required
+@limiter.limit("10 per hour")
 def bulk_upload_coins(current_user):
-    data = request.get_json()
-    if not isinstance(data, list):
-        return jsonify({'message': 'Payload must be a JSON array of coin objects'}), 400
+    try:
+        data = request.get_json()
+        if not isinstance(data, list):
+            return jsonify({'message': 'Payload must be a JSON array of coin objects'}), 400
+        
+        # Limit bulk upload size to prevent DoS
+        if len(data) > 1000:
+            return jsonify({'message': 'Bulk upload is limited to 1000 items at a time'}), 400
 
-    added_count = 0
-    errors = []
-    for item_data in data:
-        try:
-            # Validate essential fields
-            if not item_data.get('country') or not item_data.get('denomination'):
-                errors.append(f"Skipping item due to missing country or denomination: {item_data.get('denomination')} from {item_data.get('country')}")
-                continue
+        added_count = 0
+        errors = []
+        for item_data in data:
+            try:
+                # Validate essential fields
+                if not item_data.get('country') or not item_data.get('denomination'):
+                    errors.append(f"Skipping item due to missing country or denomination: {item_data.get('denomination')} from {item_data.get('country')}")
+                    continue
 
-            # Calculate region and isHistorical on the backend
-            country_name = item_data.get('country').strip()
-            year_value = item_data.get('year') # Corrected: Was year_data.get('year')
-            region = get_region_for_country(country_name)
-            is_historical = is_historical_item(country_name, year_value)
+                # Sanitize inputs
+                country_name = sanitize_string(item_data.get('country'), max_length=100)
+                denomination = sanitize_string(item_data.get('denomination'), max_length=100)
+                coin_type = sanitize_string(item_data.get('type', 'Coin'), max_length=50)
+                notes = sanitize_string(item_data.get('notes'), max_length=5000) if item_data.get('notes') else None
+                reference_url = sanitize_string(item_data.get('referenceUrl'), max_length=500) if item_data.get('referenceUrl') else None
+                image_path = sanitize_string(item_data.get('localImagePath'), max_length=500) if item_data.get('localImagePath') else "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"
+                
+                year_value = item_data.get('year')
+                region = get_region_for_country(country_name)
+                is_historical = is_historical_item(country_name, year_value)
 
-            new_coin = Coin(
-                user_id=current_user.id,
-                type=item_data.get('type', 'Coin'), # Default to Coin if not provided
-                country=country_name,
-                year=year_value, # Corrected: Was year_data.get('year')
-                denomination=item_data.get('denomination').strip(),
-                value=item_data.get('value', 0.0),
-                quantity=item_data.get('quantity', 1), # Set quantity, default to 1
-                notes=item_data.get('notes'),
-                referenceUrl=item_data.get('referenceUrl'),
-                localImagePath=item_data.get('localImagePath', "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image"),
-                region=region, # Set calculated region
-                isHistorical=is_historical, # Set calculated historical flag
-                weight_grams=item_data.get('weight_grams'), # Set weight for bullion
-                purity_percent=item_data.get('purity_percent') # Set purity for bullion
-            )
-            db.session.add(new_coin)
-            added_count += 1
-        except Exception as e:
-            errors.append(f"Error adding item '{item_data.get('denomination', 'unknown')}': {str(e)}")
-            db.session.rollback() # Rollback the current transaction on error
+                new_coin = Coin(
+                    user_id=current_user.id,
+                    type=coin_type,
+                    country=country_name,
+                    year=year_value,
+                    denomination=denomination,
+                    value=item_data.get('value', 0.0),
+                    quantity=item_data.get('quantity', 1),
+                    notes=notes,
+                    referenceUrl=reference_url,
+                    localImagePath=image_path,
+                    region=region,
+                    isHistorical=is_historical,
+                    weight_grams=item_data.get('weight_grams'),
+                    purity_percent=item_data.get('purity_percent')
+                )
+                db.session.add(new_coin)
+                added_count += 1
+            except Exception as e:
+                errors.append(f"Error adding item '{item_data.get('denomination', 'unknown')}': {str(e)}")
+                db.session.rollback() # Rollback the current transaction on error
 
-    db.session.commit() # Commit all successfully added coins
+        db.session.commit() # Commit all successfully added coins
 
-    if added_count > 0 and len(errors) == 0:
-        return jsonify({'message': f'Successfully added {added_count} items.', 'added_count': added_count}), 200
-    elif added_count > 0 and len(errors) > 0:
-        return jsonify({'message': f'Added {added_count} items with {len(errors)} errors.', 'added_count': added_count, 'errors': errors}), 200
-    else:
-        return jsonify({'message': f'Failed to add any items. Total errors: {len(errors)}', 'errors': errors}), 400
+        if added_count > 0 and len(errors) == 0:
+            return jsonify({'message': f'Successfully added {added_count} items.', 'added_count': added_count}), 200
+        elif added_count > 0 and len(errors) > 0:
+            return jsonify({'message': f'Added {added_count} items with {len(errors)} errors.', 'added_count': added_count, 'errors': errors}), 200
+        else:
+            return jsonify({'message': f'Failed to add any items. Total errors: {len(errors)}', 'errors': errors}), 400
+    except Exception as e:
+        db.session.rollback()
+        print(f"Bulk upload error: {e}")
+        return jsonify({'message': 'Bulk upload failed. Please try again.'}), 500
 
 @app.route('/api/coins/clear_all', methods=['DELETE'])
 @jwt_required
@@ -2661,7 +2835,63 @@ def serve_spa(path):
         }
     }), 200
 
+# --- Security Helpers ---
+def validate_password_strength(password):
+    """Validate password meets security requirements"""
+    if not password:
+        return False, "Password is required"
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    if len(password) > 128:
+        return False, "Password must be less than 128 characters"
+    if not re.search(r'[A-Za-z]', password):
+        return False, "Password must contain at least one letter"
+    if not re.search(r'[0-9]', password):
+        return False, "Password must contain at least one number"
+    return True, None
+
+def sanitize_string(value, max_length=None):
+    """Sanitize string input by removing dangerous characters and limiting length"""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    # Remove null bytes and control characters (except newlines and tabs)
+    value = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F]', '', value)
+    # Strip whitespace
+    value = value.strip()
+    # Limit length if specified
+    if max_length and len(value) > max_length:
+        value = value[:max_length]
+    return value
+
+def validate_input_length(value, field_name, max_length):
+    """Validate input length and return error if too long"""
+    if value and len(value) > max_length:
+        return False, f"{field_name} must be less than {max_length} characters"
+    return True, None
+
 # --- Response Middleware ---
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    # Prevent XSS attacks
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    
+    # Prevent clickjacking and MIME type sniffing
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    
+    # Content Security Policy (relaxed for API, can be tightened for frontend)
+    if not request.path.startswith('/api/'):
+        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    
+    # Remove server information
+    response.headers['Server'] = 'CoinShelf'
+    
+    return response
+
 @app.after_request
 def ensure_api_json_response(response):
     """Ensure API routes always return JSON responses, never HTML"""
