@@ -11550,8 +11550,11 @@ Need help? Check the templates tab for examples!
                 const icon = document.getElementById('map-toggle-icon');
                 
                 if (is3DMode) {
-                    map2d.classList.add('hidden');
-                    map3d.classList.remove('hidden');
+                    // Hide 2D, Show 3D
+                    map2d.style.display = 'none';
+                    map3d.style.display = 'block';
+                    map3d.classList.remove('hidden'); // Ensure class doesn't conflict
+                    
                     icon.classList.remove('ph-globe');
                     icon.classList.add('ph-map-trifold');
                     
@@ -11559,7 +11562,6 @@ Need help? Check the templates tab for examples!
                     if (!map3dInstance && window.Map3D) {
                         map3dInstance = new Map3D('globe-container');
                         map3dInstance.init((countryName) => {
-                            // Handle country click - reuse existing modal logic
                             showCountryDetailsModal(countryName);
                         });
                     }
@@ -11568,17 +11570,18 @@ Need help? Check the templates tab for examples!
                         if (typeof collectionData !== 'undefined') {
                             map3dInstance.renderData(collectionData);
                         }
-                        // Slight delay to allow visibility transition before resize
-                        setTimeout(() => map3dInstance.resize(), 50);
+                        // Force resize
+                        map3dInstance.resize();
                     }
                 } else {
-                    map3d.classList.add('hidden');
-                    map2d.classList.remove('hidden');
+                    // Hide 3D, Show 2D
+                    map3d.style.display = 'none';
+                    map2d.style.display = 'block';
+                    
                     icon.classList.remove('ph-map-trifold');
                     icon.classList.add('ph-globe');
                     
-                    // Re-draw 2D map to ensure it fits container (Google Charts can be picky about display:none)
-                    // calling renderGeoChart() checks is3DMode (false now) and re-draws
+                    // Re-draw 2D map
                     renderGeoChart();
                 }
             });

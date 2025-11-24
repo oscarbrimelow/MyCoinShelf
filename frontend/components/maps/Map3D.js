@@ -17,15 +17,15 @@ class Map3D {
         if (!container) return;
 
         // 1. Ensure container styles to prevent overflow
-        container.style.overflow = 'hidden';
         container.style.position = 'relative';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.overflow = 'hidden';
 
-        // 2. Wait for valid dimensions before initializing
-        // This prevents the "0 size" or "window size" bugs
+        // 2. Check size - if 0, wait
         const rect = container.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) {
-            // If container is still hidden/zero, retry in a moment
-            setTimeout(() => this.init(onCountryClick), 50);
+            setTimeout(() => this.init(onCountryClick), 100);
             return;
         }
 
@@ -45,7 +45,8 @@ class Map3D {
                 this.isLoaded = true;
                 container.innerHTML = ''; // Clear loading
 
-                // Initialize Globe with EXPLICIT width/height
+                // Initialize Globe with EXPLICIT dimensions
+                // This prevents the "massive canvas" issue
                 const width = container.clientWidth;
                 const height = container.clientHeight;
 
@@ -83,15 +84,16 @@ class Map3D {
                 this.globe.controls().autoRotateSpeed = 0.5;
                 this.globe.controls().enableZoom = true;
                 
-                // Fix for black screen: Point camera at a default location
+                // Set initial POV to ensure camera isn't lost
                 this.globe.pointOfView({ lat: 20, lng: 0, altitude: 2.5 });
 
                 this.globe.controls().addEventListener('start', () => {
                    this.globe.controls().autoRotate = false;
                 });
-
-                // Final resize check
+                
+                // Final resize to match container
                 this.resize();
+
             })
             .catch(err => {
                 console.error("3D Map Error:", err);
@@ -152,7 +154,6 @@ class Map3D {
             if (container) {
                 const width = container.clientWidth;
                 const height = container.clientHeight;
-                // Only resize if dimensions are valid
                 if (width > 0 && height > 0) {
                     this.globe.width(width);
                     this.globe.height(height);
