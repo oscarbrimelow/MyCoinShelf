@@ -177,13 +177,20 @@
     <!-- Offline Database -->
     <script src="offline-db.js"></script>
 
-    <!-- Globe.gl and Three.js (Specific Versions for Stability) -->
-    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/globe.gl@2.30.0/dist/globe.gl.min.js"></script>
+    <!-- Globe.gl and Three.js -->
+    <script src="//unpkg.com/three"></script>
+    <script src="//unpkg.com/globe.gl"></script>
     <!-- Custom Map Components -->
     <script src="components/maps/Map3D.js"></script>
 
     <style>
+        /* Force Globe Canvas to fit container */
+        #globe-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+        }
         /* Custom styles for a more polished look */
         body {
             background-color: #111827; /* Dark gray background */
