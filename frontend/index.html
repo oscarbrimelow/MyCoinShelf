@@ -752,16 +752,16 @@
                                 </button>
                                 <!-- Toggle 3D -->
                                 <button id="toggle-map-mode-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Toggle 2D/3D">
-                                    <i class="ph-bold ph-globe" id="map-toggle-icon"></i>
+                                    <i class="ph-bold ph-map-trifold" id="map-toggle-icon"></i>
                                 </button>
                             </div>
-                            <!-- Map Container -->
-                            <div id="map-container" class="h-full w-full relative transform transition-transform duration-200 origin-center">
+                            <!-- Map Container (Hidden by default) -->
+                            <div id="map-container" class="h-full w-full relative transform transition-transform duration-200 origin-center" style="display: none;">
                                 <!-- Google GeoChart will be rendered here -->
                                 <div id="geochart-canvas" class="h-full w-full"></div>
                             </div>
-                            <!-- 3D Globe Container -->
-                            <div id="globe-container" class="h-full w-full relative hidden" style="min-height: 500px;"></div>
+                            <!-- 3D Globe Container (Visible by default) -->
+                            <div id="globe-container" class="h-full w-full relative" style="min-height: 500px;"></div>
                         </div>
                         <div class="flex justify-end mt-4">
                           <button id="export-map-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
@@ -2590,7 +2590,7 @@
     let geoChart = null; // To store the Google GeoChart instance
     
     // --- 3D Map Variables ---
-    let is3DMode = false;
+    let is3DMode = true; // Default to 3D
     let map3dInstance = null;
     // No API Token needed for Globe.gl!
 
@@ -5053,14 +5053,21 @@
     function renderGeoChart() {
         // Check for 3D mode
         if (is3DMode) {
-            if (!map3dInstance) {
+            if (!map3dInstance && window.Map3D) {
                 map3dInstance = new Map3D('globe-container');
-                map3dInstance.init(showCountryDetailsModal);
+                map3dInstance.init((countryName) => {
+                    showCountryDetailsModal(countryName);
+                });
             }
-            map3dInstance.renderData(collectionData);
-            // Ensure visibility is correct (in case we switched modes but didn't toggle classes yet, though toggle does it)
-            document.getElementById('map-container').classList.add('hidden');
-            document.getElementById('globe-container').classList.remove('hidden');
+            if (map3dInstance) {
+                map3dInstance.renderData(collectionData);
+                // Ensure visibility is correct
+                document.getElementById('map-container').style.display = 'none';
+                document.getElementById('globe-container').style.display = 'block';
+                
+                // Force resize after a moment to ensure it fits container
+                setTimeout(() => map3dInstance.resize(), 100);
+            }
             return;
         }
 
