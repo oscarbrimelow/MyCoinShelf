@@ -1,304 +1,145 @@
 /**
- * 3D Globe Map Component using Mapbox GL JS
- * Handles rendering the 3D globe, plotting countries, and interactions.
+ * 3D Globe Map Component using Globe.gl
+ * Completely free, open-source 3D globe visualization.
+ * No API keys required.
  */
 
 class Map3D {
     constructor(containerId) {
         this.containerId = containerId;
-        this.map = null;
-        this.popup = null;
-        this.hoveredStateId = null;
+        this.globe = null;
+        this.countriesData = null;
+        this.collectionData = [];
         this.isLoaded = false;
-        
-        // Mapbox Access Token - User needs to replace this!
-        // We check if it's defined globally or set it here
-        this.accessToken = window.MAPBOX_TOKEN || 'pk.eyJ1Ijoib3NjYXJicmltZWxvdyIsImEiOiJjbTNuZ2Z5cG0wM3E4MmxzNnJtNXJtNXJtIn0.placeholder'; 
     }
 
     init(onCountryClick) {
         if (this.isLoaded) return;
         
-        // Check if mapboxgl is loaded
-        if (typeof mapboxgl === 'undefined') {
-            console.error('Mapbox GL JS is not loaded.');
-            return;
-        }
+        const container = document.getElementById(this.containerId);
+        if (!container) return;
 
-        // Get token from global scope if available (set by user in index.html)
-        mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN || 'YOUR_MAPBOX_ACCESS_TOKEN_HERE';
-
-        // Create Map
-        this.map = new mapboxgl.Map({
-            container: this.containerId,
-            style: 'mapbox://styles/mapbox/dark-v11', // Dark theme matches the app better
-            projection: 'globe', // Enable 3D globe projection
-            zoom: 1.5,
-            center: [30, 15],
-            attributionControl: false
-        });
-
-        // Add controls
-        this.map.addControl(new mapboxgl.NavigationControl());
-
-        // Add atmosphere styling for star-like background
-        this.map.on('style.load', () => {
-            this.map.setFog({
-                'color': 'rgb(186, 210, 235)', // Lower atmosphere
-                'high-color': 'rgb(36, 92, 223)', // Upper atmosphere
-                'horizon-blend': 0.02, // Atmosphere thickness (default 0.2 at low zooms)
-                'space-color': 'rgb(11, 11, 25)', // Background color
-                'star-intensity': 0.6 // Background star brightness (default 0.35 at low zoms )
-            });
-        });
-
-        this.map.on('load', () => {
-            console.log('3D Map Loaded');
-            this.isLoaded = true;
-            
-            // Load Country Borders GeoJSON
-            // Using Natural Earth 110m Data hosted via CDN
-            this.map.addSource('countries', {
-                type: 'geojson',
-                data: 'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson',
-                generateId: true // Ensure features have IDs for hover state
-            });
-
-            // Fill Layer (for coloring countries)
-            this.map.addLayer({
-                'id': 'country-fills',
-                'type': 'fill',
-                'source': 'countries',
-                'layout': {},
-                'paint': {
-                    'fill-color': ['case',
-                        ['!=', ['feature-state', 'count'], 0], '#10b981', // Green if items > 0 (Emerald-500)
-                        '#374151' // Dark Gray if 0 items (Gray-700)
-                    ],
-                    'fill-opacity': [
-                        'case',
-                        ['boolean', ['feature-state', 'hover'], false],
-                        0.9, // High opacity on hover
-                        ['!=', ['feature-state', 'count'], 0], 0.7, // Medium opacity if has items
-                        0.3 // Low opacity if empty
-                    ]
-                }
-            });
-
-            // Line Layer (Borders)
-            this.map.addLayer({
-                'id': 'country-borders',
-                'type': 'line',
-                'source': 'countries',
-                'layout': {},
-                'paint': {
-                    'line-color': '#9ca3af', // Gray-400
-                    'line-width': 1
-                }
-            });
-
-            // Setup Interactions
-            this.setupInteractions(onCountryClick);
-            
-            // Initial render of data if available
-            if (window.collectionData) {
-                this.renderData(window.collectionData);
-            }
-        });
-    }
-
-    renderData(collectionData) {
-        if (!this.map || !this.map.getSource('countries') || !this.map.isStyleLoaded()) return;
-
-        // Process data to map Country Name -> Item Count
-        const countryCounts = {};
-        const countryData = {}; // Store sample items for tooltip
-
-        collectionData.forEach(item => {
-            // Use the existing helper from index.html
-            const countryName = window.getGeoChartCountryName ? window.getGeoChartCountryName(item.country) : item.country;
-            
-            if (countryName) {
-                countryCounts[countryName] = (countryCounts[countryName] || 0) + (item.quantity || 1);
+        // Fetch World Borders GeoJSON (Free public dataset)
+        fetch('https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson')
+            .then(res => res.json())
+            .then(countries => {
+                this.countriesData = countries;
+                this.isLoaded = true;
                 
-                if (!countryData[countryName]) countryData[countryName] = [];
-                if (countryData[countryName].length < 5) { // Store first 5 for tooltip
-                    countryData[countryName].push(item);
-                }
-            }
-        });
-
-        // We need to match GeoJSON properties to our Data
-        // The GeoJSON uses 'name', 'name_long', 'admin' etc.
-        // We'll iterate over features and set state.
-        // Since we can't easily iterate source features without querying, 
-        // we rely on the 'data' being static GeoJSON. 
-        // Ideally, we would update the Source data with properties, but 'setFeatureState' is better for interactivity.
-        
-        // However, to setFeatureState we need feature IDs. The source has generateId: true.
-        // We need to find which ID corresponds to which country.
-        // Limitation: We can only set state on rendered features or if we know IDs.
-        
-        // Strategy: Iterate all features in the source (fetch the JSON ourselves to build a map) OR
-        // Query rendered features? No, that only works for visible ones.
-        
-        // Better Strategy: Fetch the GeoJSON once, map names to IDs, then use setFeatureState.
-        // Or simpler: Filter the layer paint property using a "match" expression on the 'name' property.
-        
-        const matchExpression = ['match', ['get', 'name']]; // Start match on 'name' property
-        
-        // Build the expression: name, color, default
-        // We want to color based on 'has items'.
-        // But 'setFeatureState' is cleaner for hover. 
-        
-        // Let's stick to 'setFeatureState' by pre-fetching the GeoJSON to map Names -> IDs.
-        // This logic is slightly async.
-        
-        if (!this.nameIdMap) {
-            fetch('https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson')
-                .then(res => res.json())
-                .then(data => {
-                    this.nameIdMap = {};
-                    data.features.forEach((f, i) => {
-                        // Map various name fields to the ID (which Mapbox generates as index if we pass it, but here we fetch raw)
-                        // Mapbox's 'generateId' uses numeric IDs. We need to ensure they match.
-                        // Actually, if we update the source with our own JSON with IDs, it's deterministic.
-                        
-                        // Let's just update the source data directly with 'count' property!
-                        // This is easier than feature-state for static coloring.
-                        
-                        const name = f.properties.name;
-                        const formalName = f.properties.name_long || name;
-                        
-                        // Try to match our data
-                        // We need to handle Aliases in reverse or check both
-                        // Our 'countryCounts' keys are normalized (e.g. "United States").
-                        // The GeoJSON has "United States".
-                        
-                        let count = 0;
-                        // Check standard name
-                        if (countryCounts[name]) count += countryCounts[name];
-                        // Check alias mappings if needed (GeoJSON might have "United States of America")
-                        
-                        // Simple fuzzy check or iterate our counts
-                        // Optimization: This loop runs once on load/update.
-                        
-                        // Let's try to find the count for this feature
-                        // We rely on getGeoChartCountryName to have normalized our data to match standard names.
-                        // We might need to normalize the GeoJSON name too.
-                        
-                        const normalizedGeoName = window.getGeoChartCountryName ? window.getGeoChartCountryName(name) : name;
-                        count = countryCounts[normalizedGeoName] || 0;
-                        
-                        // Also check formal name
-                        if (count === 0 && f.properties.name_long) {
-                             const normalizedFormal = window.getGeoChartCountryName ? window.getGeoChartCountryName(f.properties.name_long) : f.properties.name_long;
-                             count = countryCounts[normalizedFormal] || 0;
+                // Initialize Globe
+                this.globe = Globe()
+                    (container)
+                    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg') // Cool night mode texture
+                    .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png') // Starry background
+                    .polygonsData(this.countriesData.features)
+                    .polygonAltitude(0.01)
+                    .polygonCapColor(d => this.getCountryColor(d))
+                    .polygonSideColor(() => 'rgba(0, 100, 0, 0.15)')
+                    .polygonStrokeColor(() => '#111')
+                    .polygonLabel(({ properties: d }) => this.getTooltipContent(d))
+                    .onPolygonClick(({ properties: d }) => {
+                        // Handle click
+                        const countryName = d.NAME || d.name || d.ADMIN;
+                        const normalizedName = window.getGeoChartCountryName ? window.getGeoChartCountryName(countryName) : countryName;
+                        if (onCountryClick) {
+                            onCountryClick(normalizedName);
                         }
-
-                        // Special case: Greenland (owned by Denmark)
-                        if (normalizedGeoName === 'Greenland' && countryCounts['Denmark']) {
-                            count = countryCounts['Denmark'];
-                        }
-
-                        f.properties.itemCount = count;
-                        f.id = i; // Set ID for feature state (hover)
+                    })
+                    .onPolygonHover(hoverD => {
+                        this.globe
+                            .polygonAltitude(d => d === hoverD ? 0.06 : 0.01)
+                            .polygonCapColor(d => d === hoverD ? '#34d399' : this.getCountryColor(d)); // Highlight on hover
                     });
-                    
-                    this.map.getSource('countries').setData(data);
+
+                // Set initial size
+                this.resize();
+                
+                // If data was passed before load, render it now
+                if (this.collectionData.length > 0) {
+                    this.refreshColors();
+                }
+                
+                // Auto-rotate gently
+                this.globe.controls().autoRotate = true;
+                this.globe.controls().autoRotateSpeed = 0.5;
+                
+                // Allow stopping rotation on interaction
+                this.globe.controls().addEventListener('start', () => {
+                   this.globe.controls().autoRotate = false;
                 });
-        } else {
-            // If map already exists, we would update properties. 
-            // For now, lazy fetch is fine.
-        }
+            });
     }
 
-    setupInteractions(onCountryClick) {
-        // Click
-        this.map.on('click', 'country-fills', (e) => {
-            if (e.features.length > 0) {
-                const feature = e.features[0];
-                const countryName = feature.properties.name;
-                // Use the normalized name for consistency with the rest of the app
-                const normalizedName = window.getGeoChartCountryName ? window.getGeoChartCountryName(countryName) : countryName;
-                
-                if (onCountryClick) {
-                    onCountryClick(normalizedName);
-                }
-            }
-        });
-
-        // Hover
-        this.map.on('mousemove', 'country-fills', (e) => {
-            if (e.features.length > 0) {
-                this.map.getCanvas().style.cursor = 'pointer';
-                
-                if (this.hoveredStateId !== null) {
-                    this.map.setFeatureState(
-                        { source: 'countries', id: this.hoveredStateId },
-                        { hover: false }
-                    );
-                }
-                
-                this.hoveredStateId = e.features[0].id;
-                
-                this.map.setFeatureState(
-                    { source: 'countries', id: this.hoveredStateId },
-                    { hover: true }
-                );
-
-                // Tooltip
-                const feature = e.features[0];
-                const count = feature.properties.itemCount || 0;
-                const name = feature.properties.name;
-
-                if (!this.popup) {
-                    this.popup = new mapboxgl.Popup({
-                        closeButton: false,
-                        closeOnClick: false,
-                        className: 'bg-gray-800 text-white rounded shadow-lg'
-                    });
-                }
-
-                let html = `<div class="font-bold text-sm">${name}</div>`;
-                if (count > 0) {
-                    html += `<div class="text-xs text-emerald-400">${count} items collected</div>`;
-                } else {
-                    html += `<div class="text-xs text-gray-400">No items</div>`;
-                }
-
-                this.popup.setLngLat(e.lngLat)
-                    .setHTML(html)
-                    .addTo(this.map);
-
-            }
-        });
-
-        // Leave
-        this.map.on('mouseleave', 'country-fills', () => {
-            this.map.getCanvas().style.cursor = '';
-            
-            if (this.hoveredStateId !== null) {
-                this.map.setFeatureState(
-                    { source: 'countries', id: this.hoveredStateId },
-                    { hover: false }
-                );
-            }
-            this.hoveredStateId = null;
-            
-            if (this.popup) {
-                this.popup.remove();
-            }
-        });
+    renderData(data) {
+        this.collectionData = data || [];
+        if (this.isLoaded && this.globe) {
+            this.refreshColors();
+        }
     }
     
+    refreshColors() {
+        // Force update of polygon colors
+        if (this.globe) {
+             this.globe.polygonCapColor(d => this.getCountryColor(d));
+        }
+    }
+
+    getCountryColor(feature) {
+        const countryName = feature.properties.NAME || feature.properties.name || feature.properties.ADMIN;
+        const normalizedName = window.getGeoChartCountryName ? window.getGeoChartCountryName(countryName) : countryName;
+        
+        // Check if we have items in this country
+        const hasItems = this.collectionData.some(item => {
+            const itemCountry = window.getGeoChartCountryName ? window.getGeoChartCountryName(item.country) : item.country;
+            // Special case for Greenland (mapped to Denmark in 2D map usually)
+            if (normalizedName === 'Greenland' && itemCountry === 'Denmark') return true;
+            return itemCountry === normalizedName;
+        });
+
+        if (hasItems) {
+            return '#10b981'; // Emerald-500 (Green)
+        } else {
+            return 'rgba(200, 200, 200, 0.1)'; // Transparent/Faint Gray
+        }
+    }
+
+    getTooltipContent(properties) {
+        const countryName = properties.NAME || properties.name || properties.ADMIN;
+        const normalizedName = window.getGeoChartCountryName ? window.getGeoChartCountryName(countryName) : countryName;
+        
+        // Calculate counts
+        let count = 0;
+        this.collectionData.forEach(item => {
+            const itemCountry = window.getGeoChartCountryName ? window.getGeoChartCountryName(item.country) : item.country;
+            if (itemCountry === normalizedName) {
+                count += (item.quantity || 1);
+            }
+            // Greenland check
+            if (normalizedName === 'Greenland' && itemCountry === 'Denmark') {
+                count += (item.quantity || 1);
+            }
+        });
+
+        return `
+            <div class="bg-gray-800 text-white p-2 rounded shadow-lg border border-gray-700">
+                <div class="font-bold">${countryName}</div>
+                ${count > 0 
+                    ? `<div class="text-emerald-400 text-sm">${count} items collected</div>` 
+                    : `<div class="text-gray-500 text-xs">No items</div>`}
+            </div>
+        `;
+    }
+
     resize() {
-        if (this.map) {
-            this.map.resize();
+        if (this.globe) {
+            const container = document.getElementById(this.containerId);
+            if (container) {
+                this.globe.width(container.clientWidth);
+                this.globe.height(container.clientHeight);
+            }
         }
     }
 }
 
 // Export to global scope
 window.Map3D = Map3D;
-

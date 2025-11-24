@@ -177,9 +177,9 @@
     <!-- Offline Database -->
     <script src="offline-db.js"></script>
 
-    <!-- Mapbox GL JS for 3D Map -->
-    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
-    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <!-- Globe.gl for Free 3D Globe (No API Key) -->
+    <script src="//unpkg.com/three"></script>
+    <script src="//unpkg.com/globe.gl"></script>
     <!-- Custom Map Components -->
     <script src="components/maps/Map3D.js"></script>
 
@@ -2585,8 +2585,7 @@
     // --- 3D Map Variables ---
     let is3DMode = false;
     let map3dInstance = null;
-    const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoib3NjYXJicmltZWxvdyIsImEiOiJjbTNuZ2Z5cG0wM3E4MmxzNnJtNXJtNXJtIn0.placeholder'; // TODO: User must replace this!
-    window.MAPBOX_ACCESS_TOKEN = MAPBOX_ACCESS_TOKEN;
+    // No API Token needed for Globe.gl!
 
     // Debounce function to limit how often a function is called
     function debounce(func, delay) {
