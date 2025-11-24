@@ -177,6 +177,12 @@
     <!-- Offline Database -->
     <script src="offline-db.js"></script>
 
+    <!-- Mapbox GL JS for 3D Map -->
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css' rel='stylesheet' />
+    <!-- Custom Map Components -->
+    <script src="components/maps/Map3D.js"></script>
+
     <style>
         /* Custom styles for a more polished look */
         body {
@@ -737,12 +743,18 @@
                                 <button id="zoom-reset-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Reset Zoom">
                                     <i class="ph-bold ph-arrows-clockwise"></i>
                                 </button>
+                                <!-- Toggle 3D -->
+                                <button id="toggle-map-mode-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-3 rounded-md transition-colors border border-gray-600 shadow-lg" title="Toggle 2D/3D">
+                                    <i class="ph-bold ph-globe" id="map-toggle-icon"></i>
+                                </button>
                             </div>
                             <!-- Map Container -->
                             <div id="map-container" class="h-full w-full relative transform transition-transform duration-200 origin-center">
                                 <!-- Google GeoChart will be rendered here -->
                                 <div id="geochart-canvas" class="h-full w-full"></div>
                             </div>
+                            <!-- 3D Globe Container -->
+                            <div id="globe-container" class="h-full w-full relative hidden" style="min-height: 500px;"></div>
                         </div>
                         <div class="flex justify-end mt-4">
                           <button id="export-map-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors">
@@ -2569,6 +2581,12 @@
     let chartInstance = null; // To store the Chart.js instance for dashboard chart
     let valueByYearChart = null; // To store the Chart.js instance for value by year chart
     let geoChart = null; // To store the Google GeoChart instance
+    
+    // --- 3D Map Variables ---
+    let is3DMode = false;
+    let map3dInstance = null;
+    const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoib3NjYXJicmltZWxvdyIsImEiOiJjbTNuZ2Z5cG0wM3E4MmxzNnJtNXJtNXJtIn0.placeholder'; // TODO: User must replace this!
+    window.MAPBOX_ACCESS_TOKEN = MAPBOX_ACCESS_TOKEN;
 
     // Debounce function to limit how often a function is called
     function debounce(func, delay) {
@@ -5027,6 +5045,19 @@
 
     // Render Map
     function renderGeoChart() {
+        // Check for 3D mode
+        if (is3DMode) {
+            if (!map3dInstance) {
+                map3dInstance = new Map3D('globe-container');
+                map3dInstance.init(showCountryDetailsModal);
+            }
+            map3dInstance.renderData(collectionData);
+            // Ensure visibility is correct (in case we switched modes but didn't toggle classes yet, though toggle does it)
+            document.getElementById('map-container').classList.add('hidden');
+            document.getElementById('globe-container').classList.remove('hidden');
+            return;
+        }
+
         console.log('Rendering GeoChart with collection data:', collectionData);
         console.log('Number of items for map:', collectionData.length);
         const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
@@ -11501,6 +11532,52 @@ Need help? Check the templates tab for examples!
             openModal('crypto-modal');
         }, 300);
     }
+
+    // --- 3D Map Initialization & Toggle ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggleBtn = document.getElementById('toggle-map-mode-btn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                is3DMode = !is3DMode;
+                const map2d = document.getElementById('map-container');
+                const map3d = document.getElementById('globe-container');
+                const icon = document.getElementById('map-toggle-icon');
+                
+                if (is3DMode) {
+                    map2d.classList.add('hidden');
+                    map3d.classList.remove('hidden');
+                    icon.classList.remove('ph-globe');
+                    icon.classList.add('ph-map-trifold');
+                    
+                    // Init 3D Map
+                    if (!map3dInstance && window.Map3D) {
+                        map3dInstance = new Map3D('globe-container');
+                        map3dInstance.init((countryName) => {
+                            // Handle country click - reuse existing modal logic
+                            showCountryDetailsModal(countryName);
+                        });
+                    }
+                    if (map3dInstance) {
+                        // If data is loaded, render it
+                        if (typeof collectionData !== 'undefined') {
+                            map3dInstance.renderData(collectionData);
+                        }
+                        // Slight delay to allow visibility transition before resize
+                        setTimeout(() => map3dInstance.resize(), 50);
+                    }
+                } else {
+                    map3d.classList.add('hidden');
+                    map2d.classList.remove('hidden');
+                    icon.classList.remove('ph-map-trifold');
+                    icon.classList.add('ph-globe');
+                    
+                    // Re-draw 2D map to ensure it fits container (Google Charts can be picky about display:none)
+                    // calling renderGeoChart() checks is3DMode (false now) and re-draws
+                    renderGeoChart();
+                }
+            });
+        }
+    });
 </script>
 
 </body>
