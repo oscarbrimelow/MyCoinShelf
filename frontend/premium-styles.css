@@ -1,0 +1,256 @@
+/* ============================================
+   PREMIUM VISUAL REDESIGN - ENHANCED STYLES
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Premium Base with Animated Gradient Background */
+body {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
+    background-attachment: fixed !important;
+    color: #e2e8f0 !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+/* Animated background gradient overlay */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: gradientShift 20s ease infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+#app-content {
+    position: relative;
+    z-index: 1;
+}
+
+/* Enhanced Premium Scrollbar */
+::-webkit-scrollbar { 
+    width: 10px !important; 
+}
+::-webkit-scrollbar-track { 
+    background: rgba(15, 23, 42, 0.5) !important;
+    border-radius: 10px !important;
+}
+::-webkit-scrollbar-thumb { 
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.6), rgba(59, 130, 246, 0.6)) !important;
+    border-radius: 10px !important;
+    border: 2px solid rgba(15, 23, 42, 0.5) !important;
+}
+::-webkit-scrollbar-thumb:hover { 
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.8), rgba(59, 130, 246, 0.8)) !important;
+}
+
+/* Glass Morphism Card Effect */
+.bg-gray-800, .bg-gray-700 {
+    background: rgba(30, 41, 59, 0.7) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.bg-gray-800:hover, .bg-gray-700:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15),
+                0 0 0 1px rgba(16, 185, 129, 0.2) !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Premium Button Enhancements */
+button {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+    pointer-events: none;
+}
+
+button:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+button:hover {
+    transform: translateY(-2px) scale(1.02) !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3),
+                0 0 20px rgba(16, 185, 129, 0.2) !important;
+}
+
+button:active {
+    transform: translateY(0) scale(0.98) !important;
+}
+
+/* Enhanced Sidebar */
+#sidebar {
+    background: rgba(30, 41, 59, 0.8) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Enhanced Navigation Links */
+.nav-link {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border-radius: 0.5rem !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-link::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 3px;
+    background: linear-gradient(180deg, rgba(16, 185, 129, 1), rgba(59, 130, 246, 1));
+    transform: scaleY(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-link:hover::before,
+.nav-link.bg-gray-700::before {
+    transform: scaleY(1);
+}
+
+.nav-link:hover {
+    transform: translateX(4px) !important;
+    background: rgba(16, 185, 129, 0.1) !important;
+}
+
+/* Enhanced Table Rows */
+.data-table tbody tr {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(16, 185, 129, 0.1) !important;
+    transform: scale(1.01) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Enhanced Modal */
+.modal-backdrop {
+    background: rgba(0, 0, 0, 0.85) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* Staggered Animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* Input Enhancements */
+input, select, textarea {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+    transform: scale(1.01) !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2),
+                0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Enhanced Cards with Depth */
+.rounded-lg {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.rounded-lg:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Mobile Responsive Enhancements */
+@media (max-width: 768px) {
+    button:hover {
+        transform: scale(1.01) !important;
+    }
+    
+    .bg-gray-800:hover, .bg-gray-700:hover {
+        transform: translateY(-1px) !important;
+    }
+}
+
+/* Icon Hover Effects */
+i {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+button:hover i, .nav-link:hover i {
+    transform: scale(1.1) !important;
+}
+
+/* Enhanced Header */
+header {
+    background: rgba(30, 41, 59, 0.8) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Smooth Page Transitions */
+.content-view {
+    animation: fadeInUp 0.4s ease-out;
+}
+
+/* Enhanced Collection Items */
+.grid > div {
+    animation: fadeInUp 0.6s ease-out forwards;
+    animation-fill-mode: both;
+}
+
+.grid > div:nth-child(1) { animation-delay: 0.05s; }
+.grid > div:nth-child(2) { animation-delay: 0.1s; }
+.grid > div:nth-child(3) { animation-delay: 0.15s; }
+.grid > div:nth-child(4) { animation-delay: 0.2s; }
+.grid > div:nth-child(5) { animation-delay: 0.25s; }
+.grid > div:nth-child(6) { animation-delay: 0.3s; }
+.grid > div:nth-child(n+7) { animation-delay: 0.35s; }
+
