@@ -654,27 +654,28 @@ button:hover i, .nav-link:hover i, a:hover i {
     width: 100% !important;
 }
 
-/* Adjust content containers to account for sidebar on desktop */
-@media (min-width: 768px) {
-    /* The sidebar is w-64 (256px / 16rem), shift content left by half to visually center */
-    .content-view:not(.hidden) > .max-w-7xl,
-    .content-view:not(.hidden) > .max-w-4xl,
-    .content-view:not(.hidden) > .max-w-3xl,
-    .content-view:not(.hidden) > .max-w-md {
-        margin-left: calc(50% - 8rem) !important; /* Center minus half sidebar width */
-        margin-right: auto !important;
-        transform: translateX(-50%) !important; /* Shift back to true center */
-    }
+/* Ensure content views center their children when visible */
+.content-view:not(.hidden) > .max-w-7xl,
+.content-view:not(.hidden) > .max-w-4xl,
+.content-view:not(.hidden) > .max-w-3xl,
+.content-view:not(.hidden) > .max-w-md {
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 
-/* Ensure content views center their children when visible (mobile) */
-@media (max-width: 767px) {
-    .content-view:not(.hidden) > .max-w-7xl,
-    .content-view:not(.hidden) > .max-w-4xl,
-    .content-view:not(.hidden) > .max-w-3xl,
-    .content-view:not(.hidden) > .max-w-md {
-        margin-left: auto !important;
-        margin-right: auto !important;
+/* Adjust content view padding to account for sidebar on desktop */
+@media (min-width: 768px) {
+    /* Reduce left padding to compensate for sidebar, keeping content visually centered */
+    .content-view {
+        padding-left: max(1rem, calc((100vw - 16rem - 80rem) / 2)) !important; /* Account for sidebar (16rem) and max-width (80rem for max-w-7xl) */
+        padding-right: 1rem !important;
+    }
+    
+    @media (min-width: 640px) {
+        .content-view {
+            padding-left: max(1.5rem, calc((100vw - 16rem - 80rem) / 2)) !important;
+            padding-right: 1.5rem !important;
+        }
     }
 }
 
