@@ -663,22 +663,6 @@ button:hover i, .nav-link:hover i, a:hover i {
     margin-right: auto !important;
 }
 
-/* Adjust content view padding to account for sidebar on desktop */
-@media (min-width: 768px) {
-    /* Reduce left padding to compensate for sidebar, keeping content visually centered */
-    .content-view {
-        padding-left: max(1rem, calc((100vw - 16rem - 80rem) / 2)) !important; /* Account for sidebar (16rem) and max-width (80rem for max-w-7xl) */
-        padding-right: 1rem !important;
-    }
-    
-    @media (min-width: 640px) {
-        .content-view {
-            padding-left: max(1.5rem, calc((100vw - 16rem - 80rem) / 2)) !important;
-            padding-right: 1.5rem !important;
-        }
-    }
-}
-
 @keyframes pageFadeIn {
     from {
         opacity: 0;
