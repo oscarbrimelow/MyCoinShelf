@@ -654,14 +654,16 @@ button:hover i, .nav-link:hover i, a:hover i {
     width: 100% !important;
 }
 
-/* Center content views accounting for sidebar (16rem = 256px) */
+/* Center content within available space (accounting for sidebar) */
 @media (min-width: 768px) {
+    /* The main-content-area already has md:ml-64 (16rem) to account for sidebar */
+    /* We need to center content in the remaining space, so add padding-right equal to sidebar width */
     .content-view:not(.hidden) {
-        padding-left: 8rem !important; /* Half of sidebar width to visually center */
-        padding-right: 8rem !important; /* Match left padding for symmetry */
+        padding-right: 16rem !important; /* Match sidebar width to center content */
+        padding-left: 1rem !important; /* Minimal left padding */
     }
     
-    /* Ensure max-w containers are centered within the padded space */
+    /* Ensure max-w containers are centered */
     .content-view:not(.hidden) > .max-w-7xl,
     .content-view:not(.hidden) > .max-w-4xl,
     .content-view:not(.hidden) > .max-w-3xl,
