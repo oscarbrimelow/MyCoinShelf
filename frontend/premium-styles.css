@@ -654,13 +654,32 @@ button:hover i, .nav-link:hover i, a:hover i {
     width: 100% !important;
 }
 
-/* Ensure content views center their children when visible */
-.content-view:not(.hidden) > .max-w-7xl,
-.content-view:not(.hidden) > .max-w-4xl,
-.content-view:not(.hidden) > .max-w-3xl,
-.content-view:not(.hidden) > .max-w-md {
-    margin-left: auto !important;
-    margin-right: auto !important;
+/* Center content views accounting for sidebar (16rem = 256px) */
+@media (min-width: 768px) {
+    .content-view:not(.hidden) {
+        padding-left: 8rem !important; /* Half of sidebar width to visually center */
+        padding-right: 8rem !important; /* Match left padding for symmetry */
+    }
+    
+    /* Ensure max-w containers are centered within the padded space */
+    .content-view:not(.hidden) > .max-w-7xl,
+    .content-view:not(.hidden) > .max-w-4xl,
+    .content-view:not(.hidden) > .max-w-3xl,
+    .content-view:not(.hidden) > .max-w-md {
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+}
+
+/* Mobile: no extra padding needed */
+@media (max-width: 767px) {
+    .content-view:not(.hidden) > .max-w-7xl,
+    .content-view:not(.hidden) > .max-w-4xl,
+    .content-view:not(.hidden) > .max-w-3xl,
+    .content-view:not(.hidden) > .max-w-md {
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
 }
 
 @keyframes pageFadeIn {
