@@ -627,10 +627,48 @@ button:hover i, .nav-link:hover i, a:hover i {
 }
 
 /* ============================================
-   PAGE TRANSITIONS
+   PAGE TRANSITIONS & CENTERING
    ============================================ */
 .content-view {
     animation: pageFadeIn 0.5s ease-out !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Ensure all max-w containers are properly centered */
+.max-w-7xl, .max-w-4xl, .max-w-3xl, .max-w-md {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* Fix main content area centering */
+#main-content-area {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+}
+
+/* Ensure content views use full available width and center children */
+.content-view > .max-w-7xl,
+.content-view > .max-w-4xl,
+.content-view > .max-w-3xl,
+.content-view > .max-w-md {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+
+@media (min-width: 640px) {
+    .content-view > .max-w-7xl,
+    .content-view > .max-w-4xl,
+    .content-view > .max-w-3xl,
+    .content-view > .max-w-md {
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
 }
 
 @keyframes pageFadeIn {
