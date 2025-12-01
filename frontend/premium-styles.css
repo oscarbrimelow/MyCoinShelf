@@ -654,13 +654,28 @@ button:hover i, .nav-link:hover i, a:hover i {
     width: 100% !important;
 }
 
-/* Ensure content views center their children when visible */
-.content-view:not(.hidden) > .max-w-7xl,
-.content-view:not(.hidden) > .max-w-4xl,
-.content-view:not(.hidden) > .max-w-3xl,
-.content-view:not(.hidden) > .max-w-md {
-    margin-left: auto !important;
-    margin-right: auto !important;
+/* Adjust content containers to account for sidebar on desktop */
+@media (min-width: 768px) {
+    /* The sidebar is w-64 (256px / 16rem), shift content left by half to visually center */
+    .content-view:not(.hidden) > .max-w-7xl,
+    .content-view:not(.hidden) > .max-w-4xl,
+    .content-view:not(.hidden) > .max-w-3xl,
+    .content-view:not(.hidden) > .max-w-md {
+        margin-left: calc(50% - 8rem) !important; /* Center minus half sidebar width */
+        margin-right: auto !important;
+        transform: translateX(-50%) !important; /* Shift back to true center */
+    }
+}
+
+/* Ensure content views center their children when visible (mobile) */
+@media (max-width: 767px) {
+    .content-view:not(.hidden) > .max-w-7xl,
+    .content-view:not(.hidden) > .max-w-4xl,
+    .content-view:not(.hidden) > .max-w-3xl,
+    .content-view:not(.hidden) > .max-w-md {
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
 }
 
 @keyframes pageFadeIn {
