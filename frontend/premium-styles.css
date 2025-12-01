@@ -39,10 +39,8 @@
    ANIMATED BACKGROUND WITH DEPTH
    ============================================ */
 body {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #0f172a 50%, #1a202c 75%, #0f172a 100%) !important;
-    background-size: 400% 400% !important;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
     background-attachment: fixed !important;
-    animation: gradientFlow 20s ease infinite !important;
     color: var(--text-primary) !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
     -webkit-font-smoothing: antialiased !important;
@@ -51,12 +49,7 @@ body {
     overflow-x: hidden !important;
 }
 
-@keyframes gradientFlow {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-/* Animated gradient overlay with depth */
+/* Static gradient overlay - removed animations for performance */
 body::before {
     content: '';
     position: fixed;
@@ -65,97 +58,34 @@ body::before {
     width: 100%;
     height: 100%;
     background: 
-        radial-gradient(circle at 20% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+        radial-gradient(circle at 20% 30%, rgba(16, 185, 129, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.06) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
-    animation: gradientPulse 15s ease infinite;
 }
 
-@keyframes gradientPulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.7; transform: scale(1.1); }
-}
-
-/* Floating particles effect */
-body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: 
-        radial-gradient(2px 2px at 20% 30%, rgba(16, 185, 129, 0.15), transparent),
-        radial-gradient(2px 2px at 60% 70%, rgba(59, 130, 246, 0.15), transparent),
-        radial-gradient(1px 1px at 50% 50%, rgba(139, 92, 246, 0.2), transparent),
-        radial-gradient(1px 1px at 80% 10%, rgba(236, 72, 153, 0.1), transparent);
-    background-size: 200% 200%;
-    background-position: 0% 0%, 100% 100%, 50% 50%, 0% 100%;
-    animation: particleFloat 25s ease infinite;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.6;
-}
-
-@keyframes particleFloat {
-    0%, 100% { background-position: 0% 0%, 100% 100%, 50% 50%, 0% 100%; }
-    50% { background-position: 100% 100%, 0% 0%, 0% 0%, 100% 0%; }
-}
+/* Floating particles removed for performance */
 
 #app-content {
     position: relative;
     z-index: 1;
 }
 
-/* ============================================
-   PREMIUM SCROLLBAR
-   ============================================ */
-::-webkit-scrollbar { 
-    width: 12px !important; 
-    height: 12px !important;
-}
-
-::-webkit-scrollbar-track { 
-    background: rgba(15, 23, 42, 0.6) !important;
-    border-radius: 10px !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
-}
-
-::-webkit-scrollbar-thumb { 
-    background: linear-gradient(180deg, 
-        rgba(16, 185, 129, 0.7) 0%, 
-        rgba(59, 130, 246, 0.7) 50%,
-        rgba(139, 92, 246, 0.7) 100%) !important;
-    border-radius: 10px !important;
-    border: 2px solid rgba(15, 23, 42, 0.6) !important;
-    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3) !important;
-    transition: all var(--transition-base) !important;
-}
-
-::-webkit-scrollbar-thumb:hover { 
-    background: linear-gradient(180deg, 
-        rgba(16, 185, 129, 0.9) 0%, 
-        rgba(59, 130, 246, 0.9) 50%,
-        rgba(139, 92, 246, 0.9) 100%) !important;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4),
-                0 0 10px rgba(16, 185, 129, 0.3) !important;
-}
+/* Custom scrollbar removed - using default browser scrollbar for better performance */
 
 /* ============================================
    GLASS MORPHISM CARDS - ENHANCED
    ============================================ */
 .bg-gray-800, .bg-gray-700, .bg-gray-900 {
     background: var(--bg-card) !important;
-    backdrop-filter: blur(20px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    backdrop-filter: blur(12px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(150%) !important;
     border: 1px solid var(--border-color) !important;
     box-shadow: 
         var(--shadow-md),
         inset 0 1px 0 rgba(255, 255, 255, 0.1),
         inset 0 -1px 0 rgba(0, 0, 0, 0.2) !important;
-    transition: all var(--transition-base) !important;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast) !important;
     position: relative !important;
     overflow: hidden !important;
 }
@@ -191,10 +121,10 @@ body::after {
 }
 
 .bg-gray-800:hover, .bg-gray-700:hover, .bg-gray-900:hover {
-    transform: translateY(-4px) scale(1.01) !important;
+    transform: translateY(-2px) !important;
     background: var(--bg-card-hover) !important;
     box-shadow: 
-        var(--shadow-xl),
+        var(--shadow-lg),
         var(--shadow-glow),
         inset 0 1px 0 rgba(255, 255, 255, 0.15),
         inset 0 -1px 0 rgba(0, 0, 0, 0.3) !important;
@@ -267,15 +197,15 @@ button:hover::before {
 }
 
 button:hover {
-    transform: translateY(-3px) scale(1.03) !important;
+    transform: translateY(-2px) !important;
     box-shadow: 
-        0 12px 32px rgba(0, 0, 0, 0.4),
-        0 0 24px rgba(16, 185, 129, 0.3),
+        0 8px 24px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(16, 185, 129, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
 }
 
 button:active {
-    transform: translateY(-1px) scale(0.98) !important;
+    transform: translateY(0) !important;
     box-shadow: 
         0 4px 16px rgba(0, 0, 0, 0.3),
         inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
@@ -317,8 +247,8 @@ button.bg-pink-600:hover {
    ============================================ */
 #sidebar {
     background: rgba(30, 41, 59, 0.9) !important;
-    backdrop-filter: blur(24px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    backdrop-filter: blur(16px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
     border-right: 1px solid var(--border-color) !important;
     box-shadow: 
         8px 0 32px rgba(0, 0, 0, 0.4),
@@ -498,7 +428,7 @@ button.bg-pink-600:hover {
     overflow: visible;
 }
 
-/* Number counting animation */
+/* Dashboard numbers - static for performance */
 #content-dashboard .text-4xl,
 #content-dashboard .text-2xl {
     font-weight: 800 !important;
@@ -511,14 +441,9 @@ button.bg-pink-600:hover {
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
-    text-shadow: 0 0 30px rgba(16, 185, 129, 0.3) !important;
-    animation: numberPulse 2s ease infinite !important;
 }
 
-@keyframes numberPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-}
+/* Number pulse animation removed - static for better performance */
 
 /* Stat card icons */
 #content-dashboard .ph-bold {
@@ -528,9 +453,7 @@ button.bg-pink-600:hover {
 }
 
 #content-dashboard .bg-gray-800:hover .ph-bold {
-    transform: scale(1.2) rotate(5deg) !important;
     opacity: 1;
-    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.5));
 }
 
 /* Dashboard card stagger animation */
@@ -560,10 +483,7 @@ button.bg-pink-600:hover {
     filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
 }
 
-#content-dashboard .bg-gray-800:hover canvas {
-    transform: scale(1.02);
-    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.3));
-}
+/* Chart hover effects removed for performance */
 
 /* ============================================
    COLLECTION PAGE - TABLE & ITEMS
@@ -597,7 +517,7 @@ button.bg-pink-600:hover {
 
 .data-table tbody tr:hover {
     background: rgba(16, 185, 129, 0.08) !important;
-    transform: translateX(4px) scale(1.01) !important;
+    transform: translateX(2px) !important;
     box-shadow: 
         -4px 0 12px rgba(16, 185, 129, 0.2),
         0 4px 12px rgba(0, 0, 0, 0.15) !important;
@@ -612,44 +532,37 @@ button.bg-pink-600:hover {
 }
 
 .collection-image-zoom:hover {
-    transform: scale(1.3) translateZ(0) !important;
+    transform: scale(1.15) translateZ(0) !important;
     box-shadow: 
-        var(--shadow-lg),
-        0 0 20px rgba(16, 185, 129, 0.4) !important;
+        var(--shadow-md),
+        0 0 15px rgba(16, 185, 129, 0.3) !important;
     z-index: 10 !important;
     position: relative !important;
 }
 
-/* Collection stats badges */
+/* Collection stats badges - static for performance */
 #collection-result-count,
 #collection-stats-badge {
-    animation: badgePulse 2s ease infinite !important;
     box-shadow: 
         0 4px 12px rgba(0, 0, 0, 0.3),
         0 0 20px rgba(16, 185, 129, 0.3) !important;
-}
-
-@keyframes badgePulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(16, 185, 129, 0.3); }
-    50% { transform: scale(1.05); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 0 30px rgba(16, 185, 129, 0.5); }
 }
 
 /* ============================================
    INPUT FIELDS - ENHANCED
    ============================================ */
 input, select, textarea {
-    transition: all var(--transition-base) !important;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast) !important;
     background: rgba(30, 41, 59, 0.8) !important;
     border: 1px solid var(--border-color) !important;
-    backdrop-filter: blur(10px) !important;
+    backdrop-filter: blur(8px) !important;
 }
 
 input:focus, select:focus, textarea:focus {
-    transform: scale(1.02) translateY(-2px) !important;
+    transform: translateY(-1px) !important;
     box-shadow: 
         0 0 0 3px rgba(16, 185, 129, 0.2),
-        0 8px 24px rgba(0, 0, 0, 0.2),
-        0 0 20px rgba(16, 185, 129, 0.3) !important;
+        0 4px 12px rgba(0, 0, 0, 0.2) !important;
     border-color: var(--primary-emerald) !important;
     background: rgba(30, 41, 59, 0.95) !important;
 }
@@ -692,8 +605,8 @@ input:focus, select:focus, textarea:focus {
    ============================================ */
 header {
     background: rgba(30, 41, 59, 0.9) !important;
-    backdrop-filter: blur(24px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    backdrop-filter: blur(16px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
     border-bottom: 1px solid var(--border-color) !important;
     box-shadow: 
         0 4px 24px rgba(0, 0, 0, 0.3),
@@ -709,8 +622,7 @@ i {
 }
 
 button:hover i, .nav-link:hover i, a:hover i {
-    transform: scale(1.15) rotate(5deg) !important;
-    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.5)) !important;
+    transform: rotate(3deg) !important;
 }
 
 /* ============================================
@@ -790,7 +702,7 @@ button:hover i, .nav-link:hover i, a:hover i {
    ============================================ */
 @media (max-width: 768px) {
     button:hover {
-        transform: scale(1.02) !important;
+        transform: translateY(-1px) !important;
     }
     
     .bg-gray-800:hover, .bg-gray-700:hover {
@@ -798,7 +710,7 @@ button:hover i, .nav-link:hover i, a:hover i {
     }
     
     .data-table tbody tr:hover {
-        transform: translateX(2px) scale(1.005) !important;
+        transform: translateX(2px) !important;
     }
     
     #content-home .ph-coins {
@@ -824,10 +736,7 @@ button:hover i, .nav-link:hover i, a:hover i {
 /* ============================================
    ADDITIONAL POLISH
    ============================================ */
-/* Smooth transitions for all interactive elements */
-a, button, input, select, textarea, .nav-link, .data-table tbody tr {
-    will-change: transform;
-}
+/* will-change removed for better performance - browser handles optimization */
 
 /* Prevent layout shift during animations */
 * {
