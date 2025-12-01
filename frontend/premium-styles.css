@@ -631,6 +631,10 @@ button:hover i, .nav-link:hover i, a:hover i {
    ============================================ */
 .content-view {
     animation: pageFadeIn 0.5s ease-out !important;
+}
+
+/* Only apply flex when view is visible (not hidden) */
+.content-view:not(.hidden) {
     display: flex !important;
     flex-direction: column !important;
 }
@@ -650,25 +654,13 @@ button:hover i, .nav-link:hover i, a:hover i {
     width: 100% !important;
 }
 
-/* Ensure content views use full available width and center children */
-.content-view > .max-w-7xl,
-.content-view > .max-w-4xl,
-.content-view > .max-w-3xl,
-.content-view > .max-w-md {
+/* Ensure content views center their children when visible */
+.content-view:not(.hidden) > .max-w-7xl,
+.content-view:not(.hidden) > .max-w-4xl,
+.content-view:not(.hidden) > .max-w-3xl,
+.content-view:not(.hidden) > .max-w-md {
     margin-left: auto !important;
     margin-right: auto !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-}
-
-@media (min-width: 640px) {
-    .content-view > .max-w-7xl,
-    .content-view > .max-w-4xl,
-    .content-view > .max-w-3xl,
-    .content-view > .max-w-md {
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
-    }
 }
 
 @keyframes pageFadeIn {
