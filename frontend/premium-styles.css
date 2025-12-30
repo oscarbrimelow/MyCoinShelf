@@ -86,20 +86,8 @@ body::before {
         inset 0 1px 0 rgba(255, 255, 255, 0.1),
         inset 0 -1px 0 rgba(0, 0, 0, 0.2) !important;
     transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast) !important;
-    /* Removed position: relative !important to allow fixed elements (like sidebar) to work */
-    /* position: relative !important; */
-    overflow: hidden !important;
-}
-
-/* Ensure sidebar stays fixed despite global overrides */
-#sidebar {
-    position: fixed !important;
-    background-color: var(--bg-darker) !important; /* Slightly darker for contrast */
-}
-
-/* Exception for other elements that need relative positioning */
-.card, .dashboard-card {
     position: relative !important;
+    overflow: hidden !important;
 }
 
 /* Card shine effect on hover */
@@ -266,7 +254,7 @@ button.bg-pink-600:hover {
     box-shadow: 
         8px 0 32px rgba(0, 0, 0, 0.4),
         inset -1px 0 0 rgba(255, 255, 255, 0.05) !important;
-    position: relative !important;
+    position: fixed !important;
 }
 
 #sidebar::after {
