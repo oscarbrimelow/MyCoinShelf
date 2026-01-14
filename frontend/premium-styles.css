@@ -661,6 +661,12 @@ button:hover i, .nav-link:hover i, a:hover i {
     margin-right: auto !important;
 }
 
+@media (min-width: 1280px) {
+    .max-w-7xl {
+        max-width: min(95vw, 1800px) !important;
+    }
+}
+
 @keyframes pageFadeIn {
     from {
         opacity: 0;
