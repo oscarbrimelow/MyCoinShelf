@@ -1570,7 +1570,7 @@ def test_numista(current_user):
         }
         
         print(f"TEST: Testing Numista API v3 with endpoint: {test_url}")
-        print(f"TEST: Using header: Numista-API-Key (key: {api_key[:5]}...{api_key[-5:]})")
+        print("TEST: Using header: Numista-API-Key (key: [redacted])")
         
         # Use cloudscraper to bypass Cloudflare if available, otherwise use requests
         if CLOUDSCRAPER_AVAILABLE:
@@ -1586,9 +1586,7 @@ def test_numista(current_user):
             'response_preview': response.text[:500],
             'headers': dict(response.headers),
             'api_key_length': len(api_key),
-            'api_key_first_5': api_key[:5],
-            'api_key_last_5': api_key[-5:],
-            'client_id': str(client_id)
+            'client_id_present': True
         }), 200
         
     except Exception as e:
@@ -1629,11 +1627,6 @@ def search_numista(current_user):
         client_id = app.config.get('NUMISTA_CLIENT_ID')
         
         print(f"DEBUG: API key present: {bool(api_key)}, Client ID present: {bool(client_id)}")
-        if api_key:
-            print(f"DEBUG: API key length: {len(api_key)}, first 10 chars: {api_key[:10]}..., last 10 chars: ...{api_key[-10:]}")
-            print(f"DEBUG: Full API key (for verification): {api_key}")
-        if client_id:
-            print(f"DEBUG: Client ID: {client_id}, type: {type(client_id)}")
         
         if not api_key or not client_id:
             return jsonify({
@@ -2723,21 +2716,20 @@ def get_public_coins(public_id):
     output = []
     for coin in coins:
         coin_data = {
-            'id': coin.id, # Include ID for sorting/reference if needed in public view
+            'id': coin.id,
             'type': coin.type,
             'country': coin.country,
             'year': coin.year,
             'denomination': coin.denomination,
             'value': coin.value,
-            'quantity': coin.quantity, # Include quantity for public view
+            'quantity': coin.quantity,
             'notes': coin.notes,
             'referenceUrl': coin.referenceUrl,
             'localImagePath': coin.localImagePath,
             'region': coin.region,
             'isHistorical': coin.isHistorical,
-            'weight_grams': coin.weight_grams, # Include weight for bullion
-            'purity_percent': coin.purity_percent, # Include purity for bullion
-            'owner_email': user.email # Include owner's email for display in public view
+            'weight_grams': coin.weight_grams,
+            'purity_percent': coin.purity_percent
         }
         output.append(coin_data)
     
@@ -3081,9 +3073,9 @@ def create_tables():
             db.session.rollback()
         
         # Optional: Create a default user if none exists for easy setup
-        if not User.query.first():
-            print("No users found. Creating a default admin user.")
-            # CHANGE THIS DEFAULT EMAIL/PASSWORD for your own initial setup!
+        create_default_admin = os.environ.get('ENABLE_DEFAULT_ADMIN') == '1'
+        if create_default_admin and not User.query.first():
+            print("No users found and ENABLE_DEFAULT_ADMIN=1. Creating a default admin user for setup.")
             default_email = os.environ.get('DEFAULT_ADMIN_EMAIL') or 'admin@example.com'
             default_password = os.environ.get('DEFAULT_ADMIN_PASSWORD') or 'password123'
             hashed_password = generate_password_hash(default_password, method='pbkdf2:sha256')

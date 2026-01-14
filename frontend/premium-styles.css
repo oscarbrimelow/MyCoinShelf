@@ -143,6 +143,20 @@ button {
     border-radius: 0.5rem !important;
 }
 
+#quick-add-btn {
+    position: fixed !important;
+    bottom: 1.5rem !important;
+    right: 1.5rem !important;
+    z-index: 9999 !important;
+}
+
+@media (min-width: 768px) {
+    #quick-add-btn {
+        bottom: 2rem !important;
+        right: 2rem !important;
+    }
+}
+
 /* Ripple effect */
 button::after {
     content: '';
@@ -549,6 +563,15 @@ button.bg-pink-600:hover {
         0 0 20px rgba(16, 185, 129, 0.3) !important;
 }
 
+#table-view-btn,
+#grid-view-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
 /* ============================================
    INPUT FIELDS - ENHANCED
    ============================================ */
@@ -633,55 +656,9 @@ button:hover i, .nav-link:hover i, a:hover i {
     animation: pageFadeIn 0.5s ease-out !important;
 }
 
-/* Only apply flex when view is visible (not hidden) */
-.content-view:not(.hidden) {
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-/* Ensure all max-w containers are properly centered */
 .max-w-7xl, .max-w-4xl, .max-w-3xl, .max-w-md {
     margin-left: auto !important;
     margin-right: auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-/* Fix main content area centering */
-#main-content-area {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-}
-
-/* Center content within available space (accounting for sidebar) */
-@media (min-width: 768px) {
-    /* The main-content-area already has md:ml-64 (16rem) to account for sidebar */
-    /* We need to center content in the remaining space, so add padding-right equal to sidebar width */
-    .content-view:not(.hidden) {
-        padding-right: 16rem !important; /* Match sidebar width to center content */
-        padding-left: 1rem !important; /* Minimal left padding */
-    }
-    
-    /* Ensure max-w containers are centered */
-    .content-view:not(.hidden) > .max-w-7xl,
-    .content-view:not(.hidden) > .max-w-4xl,
-    .content-view:not(.hidden) > .max-w-3xl,
-    .content-view:not(.hidden) > .max-w-md {
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
-}
-
-/* Mobile: no extra padding needed */
-@media (max-width: 767px) {
-    .content-view:not(.hidden) > .max-w-7xl,
-    .content-view:not(.hidden) > .max-w-4xl,
-    .content-view:not(.hidden) > .max-w-3xl,
-    .content-view:not(.hidden) > .max-w-md {
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
 }
 
 @keyframes pageFadeIn {

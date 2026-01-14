@@ -491,10 +491,11 @@
 </head>
 <body class="overflow-x-hidden">
     <!-- Overlay for mobile sidebar when open -->
-    <div id="mobile-sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
+    <div id="mobile-sidebar-overlay" class="fixed inset-y-0 left-64 right-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
 
     <!-- Main App Content -->
-    <div id="app-content" class="flex flex-col md:flex-row min-h-screen bg-gray-900 text-gray-300">
+    <div class="min-h-screen bg-gray-900 text-gray-300 flex justify-center">
+        <div id="app-content" class="flex flex-col md:flex-row w-full max-w-7xl">
         <!-- Sidebar Navigation -->
         <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 border-r border-gray-700 flex flex-col
                                   transform -translate-x-full md:translate-x-0 md:flex-shrink-0 transition-transform duration-300 ease-in-out">
@@ -556,11 +557,11 @@
 
                     <!-- Account Section -->
                     <div class="mb-3">
-                        <button class="nav-section-toggle w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors" data-section="account">
+                        <button class="nav-section-toggle collapsed w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors" data-section="account">
                             <span>Account</span>
                             <i class="ph-bold ph-caret-down transition-transform" data-icon="account"></i>
                         </button>
-                        <div class="nav-section-content" data-section="account">
+                        <div class="nav-section-content collapsed" data-section="account">
                             <a href="/profile" id="nav-profile" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
                                 <i class="ph-bold ph-user mr-2 text-base"></i> Profile
                             </a>
@@ -570,35 +571,40 @@
                             <a href="/about" id="nav-about" class="nav-link flex items-center px-3 py-1.5 mb-1 rounded-md hover:bg-gray-700 text-sm">
                                 <i class="ph-bold ph-info mr-2 text-base"></i> About
                             </a>
+                            <button type="button" id="sidebar-logout-btn" class="hidden mt-1 flex w-full items-center px-3 py-1.5 rounded-md text-sm text-red-400 hover:text-red-300 hover:bg-gray-800 transition-colors">
+                                <i class="ph-bold ph-sign-out mr-2 text-base"></i> Sign Out
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tools Section -->
+                    <div class="mb-3">
+                        <button class="nav-section-toggle collapsed w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors" data-section="tools">
+                            <span>Tools</span>
+                            <i class="ph-bold ph-caret-down transition-transform" data-icon="tools"></i>
+                        </button>
+                        <div class="nav-section-content collapsed" data-section="tools">
+                            <button id="import-data-btn" class="w-full flex items-center justify-start px-3 py-1.5 mb-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-xs font-semibold text-white transition-colors">
+                                <i class="ph-bold ph-upload-simple mr-2 text-base"></i>
+                                <span>Import</span>
+                            </button>
+                            <button id="export-data-btn" class="w-full flex items-center justify-start px-3 py-1.5 mb-1 rounded-md bg-teal-600 hover:bg-teal-700 text-xs font-semibold text-white transition-colors">
+                                <i class="ph-bold ph-download-simple mr-2 text-base"></i>
+                                <span>Export</span>
+                            </button>
+                            <button id="share-collection-btn" class="w-full flex items-center justify-start px-3 py-1.5 rounded-md bg-purple-600 hover:bg-purple-700 text-sm font-semibold text-white transition-colors">
+                                <i class="ph-bold ph-share-network mr-2 text-base"></i>
+                                <span>Share</span>
+                            </button>
                         </div>
                     </div>
                 </nav>
-            </div>
-            <!-- Buttons Section: flex-shrink-0 to keep it from shrinking -->
-            <div class="p-3 border-t border-gray-700 flex flex-col space-y-2 flex-shrink-0">
-                <button id="quick-add-btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-3 rounded-md flex items-center justify-center transition-colors text-sm">
-                    <i class="ph-bold ph-plus-circle mr-2"></i> Quick Add
-                </button>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="import-data-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-2 rounded-md flex items-center justify-center transition-colors text-xs">
-                        <i class="ph-bold ph-upload-simple mr-1"></i> Import
-                    </button>
-                    <button id="export-data-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-2 rounded-md flex items-center justify-center transition-colors text-xs">
-                        <i class="ph-bold ph-download-simple mr-1"></i> Export
-                    </button>
-                </div>
-                <button id="share-collection-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-3 rounded-md flex items-center justify-center transition-colors text-sm">
-                    <i class="ph-bold ph-share-network mr-2"></i> Share
-                </button>
             </div>
 
             <!-- Sign In Button at Bottom -->
             <div class="p-3 border-t border-gray-700 mt-auto flex-shrink-0">
                 <button type="button" id="sidebar-signin-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-md text-sm transition-colors flex items-center justify-center">
                     <i class="ph-bold ph-sign-in mr-2"></i> Sign In
-                </button>
-                <button type="button" id="sidebar-logout-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 rounded-md text-sm hidden transition-colors flex items-center justify-center mt-2">
-                    <i class="ph-bold ph-sign-out mr-2"></i> Sign Out
                 </button>
             </div>
 
@@ -1552,7 +1558,13 @@
             </div>
 
         </main>
+        </div>
     </div>
+
+    <!-- Global Quick Add Floating Action Button -->
+    <button id="quick-add-btn" class="hidden fixed bottom-6 right-6 z-20 md:bottom-8 md:right-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg shadow-emerald-500/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-gray-900">
+        <i class="ph-bold ph-plus text-3xl"></i>
+    </button>
 
     <!-- Add/Edit Modal -->
     <div id="item-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden modal-backdrop p-4">
@@ -4133,8 +4145,26 @@
             originalFilteredOrder = [...filtered]; // Store original order
             currentSort = { column: null, direction: null }; // Reset sort when filters change
             updateResultCount(filtered.length, collectionData.length);
-            renderCollectionTable(filtered);
-            attachSortEventListeners(); // Reattach sort listeners after rendering
+            const tableWrapper = document.getElementById('collection-table-wrapper');
+            const gridWrapper = document.getElementById('collection-grid-wrapper');
+            if (collectionViewMode === 'grid') {
+                if (tableWrapper) {
+                    tableWrapper.classList.add('hidden');
+                }
+                if (gridWrapper) {
+                    gridWrapper.classList.remove('hidden');
+                }
+                renderCollectionGrid(filtered);
+            } else {
+                if (tableWrapper) {
+                    tableWrapper.classList.remove('hidden');
+                }
+                if (gridWrapper) {
+                    gridWrapper.classList.add('hidden');
+                }
+                renderCollectionTable(filtered);
+                attachSortEventListeners();
+            }
         };
 
         const clearAllFilters = () => {
@@ -4293,8 +4323,27 @@
                     currentFilteredResults = [...dataToRender];
                     originalFilteredOrder = [...dataToRender];
                     
-                    // Re-render the table (this will create new buttons with correct state from item.is_favorite)
-                    renderCollectionTable(dataToRender);
+                    if (collectionViewMode === 'grid') {
+                        const tableWrapper = document.getElementById('collection-table-wrapper');
+                        const gridWrapper = document.getElementById('collection-grid-wrapper');
+                        if (tableWrapper) {
+                            tableWrapper.classList.add('hidden');
+                        }
+                        if (gridWrapper) {
+                            gridWrapper.classList.remove('hidden');
+                        }
+                        renderCollectionGrid(dataToRender);
+                    } else {
+                        const tableWrapper = document.getElementById('collection-table-wrapper');
+                        const gridWrapper = document.getElementById('collection-grid-wrapper');
+                        if (tableWrapper) {
+                            tableWrapper.classList.remove('hidden');
+                        }
+                        if (gridWrapper) {
+                            gridWrapper.classList.add('hidden');
+                        }
+                        renderCollectionTable(dataToRender);
+                    }
                     
                     // Update result count if the function is available
                     const resultCountBadge = document.getElementById('collection-result-count');
@@ -4425,16 +4474,109 @@
         });
     }
 
-    // --- COLLECTION RENDERING ---
-    let currentSort = { column: null, direction: null }; // null = original/unsorted
-    let originalFilteredOrder = []; // Store original order for reset
-    let currentFilter = null; // Track active filter ('favorites' or null)
+    function updateCollectionViewToggleButtons(mode) {
+        const tableBtn = document.getElementById('table-view-btn');
+        const gridBtn = document.getElementById('grid-view-btn');
+        if (!tableBtn || !gridBtn) {
+            return;
+        }
+        if (mode === 'grid') {
+            gridBtn.classList.remove('bg-gray-700', 'text-gray-300');
+            gridBtn.classList.add('bg-emerald-600', 'text-white');
+            tableBtn.classList.remove('bg-emerald-600', 'text-white');
+            tableBtn.classList.add('bg-gray-700', 'text-gray-300');
+        } else {
+            tableBtn.classList.remove('bg-gray-700', 'text-gray-300');
+            tableBtn.classList.add('bg-emerald-600', 'text-white');
+            gridBtn.classList.remove('bg-emerald-600', 'text-white');
+            gridBtn.classList.add('bg-gray-700', 'text-gray-300');
+        }
+    }
 
-    function renderCollection(filteredData = collectionData) {
-        console.log('Rendering collection with data:', filteredData);
-        console.log('Number of items to render:', filteredData.length);
-        const collectionContent = document.getElementById('content-collection');
-        const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
+    function setupCollectionViewToggle() {
+        const tableWrapper = document.getElementById('collection-table-wrapper');
+        const gridWrapper = document.getElementById('collection-grid-wrapper');
+        const tableBtn = document.getElementById('table-view-btn');
+        const gridBtn = document.getElementById('grid-view-btn');
+        if (!tableWrapper || !gridWrapper || !tableBtn || !gridBtn) {
+            return;
+        }
+        updateCollectionViewToggleButtons(collectionViewMode);
+        if (!tableBtn._collectionToggleBound) {
+            tableBtn._collectionToggleBound = true;
+            tableBtn.addEventListener('click', () => {
+                if (collectionViewMode === 'table') {
+                    return;
+                }
+                collectionViewMode = 'table';
+                try {
+                    window.sessionStorage.setItem('collectionViewMode', 'table');
+                } catch (e) {}
+                const dataToRender = currentFilteredResults.length > 0
+                    ? currentFilteredResults
+                    : (originalFilteredOrder.length > 0 ? originalFilteredOrder : collectionData);
+                tableWrapper.classList.remove('hidden');
+                gridWrapper.classList.add('hidden');
+                renderCollectionTable(dataToRender);
+                attachSortEventListeners();
+                updateCollectionStats();
+                updateCollectionViewToggleButtons('table');
+            });
+        }
+        if (!gridBtn._collectionToggleBound) {
+            gridBtn._collectionToggleBound = true;
+            gridBtn.addEventListener('click', () => {
+                if (collectionViewMode === 'grid') {
+                    return;
+                }
+                collectionViewMode = 'grid';
+                try {
+                    window.sessionStorage.setItem('collectionViewMode', 'grid');
+                } catch (e) {}
+                const dataToRender = currentFilteredResults.length > 0
+                    ? currentFilteredResults
+                    : (originalFilteredOrder.length > 0 ? originalFilteredOrder : collectionData);
+                tableWrapper.classList.add('hidden');
+                gridWrapper.classList.remove('hidden');
+                renderCollectionGrid(dataToRender);
+                updateCollectionStats();
+                updateCollectionViewToggleButtons('grid');
+            });
+        }
+    }
+
+        // --- COLLECTION RENDERING ---
+        let collectionViewMode = 'table';
+        try {
+            const storedView = window.sessionStorage.getItem('collectionViewMode');
+            if (storedView === 'grid' || storedView === 'table') {
+                collectionViewMode = storedView;
+            }
+        } catch (e) {}
+        let currentSort = { column: null, direction: null }; // null = original/unsorted
+        let originalFilteredOrder = []; // Store original order for reset
+        let currentFilter = null; // Track active filter ('favorites' or null)
+
+        function renderCollection(filteredData = collectionData) {
+            console.log('Rendering collection with data:', filteredData);
+            console.log('Number of items to render:', filteredData.length);
+
+            let bullionWrapper = document.getElementById('bullion-section');
+            if (!bullionWrapper) {
+                const parent = document.getElementById('content-collection');
+                if (parent) {
+                    bullionWrapper = document.createElement('div');
+                    bullionWrapper.id = 'bullion-section';
+                    parent.insertBefore(bullionWrapper, parent.firstChild);
+                }
+            }
+            if (bullionWrapper) {
+                fetchMetalPrices(false);
+                renderBullionSection();
+            }
+
+            const collectionContent = document.getElementById('content-collection');
+            const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
         if (!collectionContentWrapper) return;
 
         if (!isAuthenticated()) {
@@ -4442,8 +4584,8 @@
             return;
         }
 
-        collectionContentWrapper.innerHTML = `
-            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
+            collectionContentWrapper.innerHTML = `
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-2">
                 <div class="flex items-center space-x-3">
                     <h1 class="text-3xl font-bold text-white">Collection</h1>
                     <span id="collection-result-count" class="px-3 py-1 bg-emerald-600 text-white text-sm rounded-full font-semibold hidden"></span>
@@ -4451,13 +4593,26 @@
                         <span id="stats-items-count">0</span> items • <span id="stats-total-value">$0.00</span>
                     </div>
                 </div>
+                <div class="mt-3 sm:mt-0 flex items-center space-x-1">
+                    <span class="hidden md:inline text-xs text-gray-400 mr-1">View:</span>
+                    <button id="table-view-btn" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded-md transition-colors text-sm flex items-center justify-center" title="Table view">
+                        <i class="ph-bold ph-list mr-1"></i>
+                        <span class="hidden sm:inline">Table</span>
+                    </button>
+                    <button id="grid-view-btn" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded-md transition-colors text-sm flex items-center justify-center" title="Grid view">
+                        <i class="ph-bold ph-squares-four mr-1"></i>
+                        <span class="hidden sm:inline">Grid</span>
+                    </button>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
+                <div class="relative w-full sm:w-auto">
+                    <input type="text" id="search-input" placeholder="Search... (Ctrl+F)" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2 pr-8">
+                    <button id="clear-search-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white hidden" title="Clear search">
+                        <i class="ph ph-x"></i>
+                    </button>
+                </div>
                 <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                    <div class="relative w-full sm:w-auto">
-                        <input type="text" id="search-input" placeholder="Search... (Ctrl+F)" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2 pr-8">
-                        <button id="clear-search-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white hidden" title="Clear search">
-                            <i class="ph ph-x"></i>
-                        </button>
-                    </div>
                     <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
                     <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
                     <button id="favorites-filter-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-md transition-colors text-sm" title="Show only favorites">
@@ -4480,7 +4635,7 @@
             </div>
             <div class="flex-1 flex overflow-hidden">
                 <div class="w-full flex flex-col">
-                    <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
+                    <div id="collection-table-wrapper" class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
                         <table class="w-full text-left data-table" style="min-width: 100%; table-layout: fixed;">
                             <thead class="bg-gray-700 sticky top-0" style="z-index: 20;">
                                 <tr>
@@ -4489,7 +4644,7 @@
                                         ID
                                     </th>
                                     <th class="p-2 font-semibold" style="width: 80px;">Image</th>
-                                    <th class="p-2 font-semibold" style="width: 100px;">Type</th>
+                                    <th class="p-2 font-semibold cursor-pointer" data-sort-column="type" style="width: 100px;">Type</th>
                                     <th class="p-2 font-semibold cursor-pointer" data-sort-column="country" style="width: 140px;">Country</th>
                                     <th class="p-2 font-semibold cursor-pointer" data-sort-column="year" style="width: 80px;">Year</th>
                                     <th class="p-2 font-semibold" style="width: 140px;">Denomination</th>
@@ -4502,12 +4657,58 @@
                             <tbody id="collection-table-body"></tbody>
                         </table>
                     </div>
+                    <div id="collection-grid-wrapper" class="flex-1 overflow-y-auto hidden">
+                        <div id="collection-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4"></div>
+                    </div>
                 </div>
             </div>
         `;
         initializeFilters();
+        let dataToRender = [];
         if (filteredData.length === 0) {
-            const tableBody = document.getElementById('collection-table-body');
+            originalFilteredOrder = [];
+            currentFilteredResults = [];
+        } else {
+            const sortedData = [...filteredData].sort((a, b) => {
+                if (a.is_favorite && !b.is_favorite) return -1;
+                if (!a.is_favorite && b.is_favorite) return 1;
+                return 0;
+            });
+            originalFilteredOrder = [...sortedData];
+            currentFilteredResults = currentFilteredResults.length > 0 ? currentFilteredResults : [...sortedData];
+            dataToRender = sortedData;
+        }
+        const tableWrapper = document.getElementById('collection-table-wrapper');
+        const gridWrapper = document.getElementById('collection-grid-wrapper');
+        if (collectionViewMode === 'grid') {
+            if (tableWrapper) {
+                tableWrapper.classList.add('hidden');
+            }
+            if (gridWrapper) {
+                gridWrapper.classList.remove('hidden');
+            }
+            renderCollectionGrid(dataToRender);
+        } else {
+            if (tableWrapper) {
+                tableWrapper.classList.remove('hidden');
+            }
+            if (gridWrapper) {
+                gridWrapper.classList.add('hidden');
+            }
+            renderCollectionTable(dataToRender);
+            attachSortEventListeners();
+        }
+        setupCollectionViewToggle();
+        updateCollectionStats();
+    };
+
+    function renderCollectionTable(dataToRender) {
+        const tableBody = document.getElementById('collection-table-body');
+        if (!tableBody) {
+            console.error('collection-table-body not found');
+            return;
+        }
+        if (!dataToRender || dataToRender.length === 0) {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="10" class="p-8 text-center text-gray-500">
@@ -4519,25 +4720,7 @@
                     </td>
                 </tr>
             `;
-        } else {
-            // Sort favorites to top before rendering
-            const sortedData = [...filteredData].sort((a, b) => {
-                if (a.is_favorite && !b.is_favorite) return -1;
-                if (!a.is_favorite && b.is_favorite) return 1;
-                return 0;
-            });
-            originalFilteredOrder = [...sortedData]; // Store original order on initial render
-            currentFilteredResults = currentFilteredResults.length > 0 ? currentFilteredResults : [...sortedData]; // Initialize if empty
-            renderCollectionTable(sortedData);
-        }
-        attachSortEventListeners();
-        updateCollectionStats();
-    };
-
-    function renderCollectionTable(dataToRender) {
-        const tableBody = document.getElementById('collection-table-body');
-        if (!tableBody) {
-            console.error('collection-table-body not found');
+            initializeBulkSelection();
             return;
         }
         const tableRows = dataToRender.map(item => {
@@ -4600,6 +4783,81 @@
         setTimeout(() => {
             attachSortEventListeners();
         }, 0);
+    }
+
+    function renderCollectionGrid(dataToRender) {
+        const gridContainer = document.getElementById('collection-grid');
+        if (!gridContainer) {
+            console.error('collection-grid not found');
+            return;
+        }
+        if (!dataToRender || dataToRender.length === 0) {
+            gridContainer.innerHTML = `
+                <div class="col-span-full p-8 text-center text-gray-500">
+                    <div class="flex flex-col items-center space-y-4">
+                        <i class="ph ph-coin text-4xl"></i>
+                        <p class="text-lg">Your collection is empty</p>
+                        <p class="text-sm">Click the "Quick Add" button to add your first item!</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        const cards = dataToRender.map(item => {
+            const imageUrl = item.localImagePath && 
+                           item.localImagePath !== "https://placehold.co/300x300/1f2937/d1d5db?text=No+Image" &&
+                           (item.localImagePath.startsWith('http://') || item.localImagePath.startsWith('https://') || item.localImagePath.startsWith('data:')) 
+                           ? item.localImagePath : null;
+            const isFavorite = !!(item.is_favorite === true || item.is_favorite === 'true' || item.is_favorite === 1 || item.is_favorite === 'True' || item.is_favorite);
+            const value = formatCurrency(getItemValueInCurrency(item, currencySetting) * (item.quantity || 1), currencySetting);
+            return `
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-emerald-500 transition-colors" data-item-id="${item.id}">
+                    <div class="flex flex-col h-full">
+                        <div class="mb-3 flex justify-center">
+                            ${imageUrl ? `
+                                <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.denomination)}" 
+                                     class="max-w-full h-32 object-contain rounded-md bg-gray-700 p-2" 
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="hidden max-w-full h-32 rounded-md bg-gray-700 p-2 items-center justify-center">
+                                    <i class="ph-bold ph-image text-4xl text-gray-500"></i>
+                                </div>
+                            ` : `
+                                <div class="max-w-full h-32 rounded-md bg-gray-700 p-2 flex items-center justify-center">
+                                    <i class="ph-bold ph-image text-4xl text-gray-500"></i>
+                                </div>
+                            `}
+                        </div>
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <p class="text-sm font-semibold text-white">${item.year || 'N/A'} • ${escapeHtml(item.country)}</p>
+                                <p class="text-xs text-gray-400">${escapeHtml(item.denomination)}</p>
+                            </div>
+                            <button class="favorite-btn ${isFavorite ? 'text-yellow-400' : 'text-gray-400'} hover:text-yellow-300 text-xl" data-id="${item.id}" data-favorite="${isFavorite ? 'true' : 'false'}" title="${isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}">
+                                ${isFavorite ? '⭐' : '☆'}
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-300 mb-1">${escapeHtml(item.type)}</p>
+                        <p class="text-sm text-emerald-400 font-semibold mb-2">${value}</p>
+                        <p class="text-xs text-gray-500 mb-3 truncate" title="${item.notes ? escapeHtml(item.notes) : 'N/A'}">
+                            ${escapeHtml(item.notes || 'N/A')}
+                        </p>
+                        <div class="mt-auto flex gap-2">
+                            <button class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-md transition-colors text-xs edit-btn" data-id="${item.id}" title="Edit Item">
+                                <i class="ph ph-pencil-simple mr-1"></i>Edit
+                            </button>
+                            <button class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold py-2 px-3 rounded-md transition-colors text-xs duplicate-btn" data-id="${item.id}" title="Duplicate Item">
+                                <i class="ph ph-copy mr-1"></i>Duplicate
+                            </button>
+                            <button class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-md transition-colors text-xs delete-btn" data-id="${item.id}" title="Delete Item">
+                                <i class="ph ph-trash mr-1"></i>Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        gridContainer.innerHTML = cards;
+        initializeActionButtons();
     }
 
     // --- BULK SELECTION FUNCTIONALITY ---
@@ -5074,7 +5332,7 @@
             return;
         }
 
-        console.log('Rendering GeoChart with collection data:', collectionData);
+            console.log('Rendering GeoChart with collection data:', collectionData);
         console.log('Number of items for map:', collectionData.length);
         const mapContentWrapper = document.getElementById('content-map').querySelector('.max-w-7xl.mx-auto');
         if (!mapContentWrapper) {
@@ -9980,6 +10238,7 @@
     function renderBullionSection() {
         const wrapper = document.getElementById('bullion-section');
         if (!wrapper) return;
+        wrapper.className = 'max-w-7xl mx-auto mb-4';
         const bullionItems = collectionData.filter(item => item.type === 'Gold Bullion' || item.type === 'Silver Bullion');
         
         // Check if we have any bullion items to show
@@ -10004,7 +10263,7 @@
             </div>`;
         
         if (bullionItems.length > 0) {
-            html += `<div class="overflow-x-auto">
+            html += `<div class="overflow-x-hidden">
                 <table class="w-full text-left data-table">
                     <thead class="bg-gray-700">
                         <tr>
@@ -10081,106 +10340,6 @@
             typeField.addEventListener('change', toggleBullionFields);
             toggleBullionFields(); // Initialize on load
         }
-    }
-
-    // --- Patch Collection Rendering ---
-    function renderCollection(filteredData = collectionData) {
-        console.log('Rendering collection with data:', filteredData);
-        console.log('Number of items to render:', filteredData.length);
-        
-        // Render bullion section above collection
-        let wrapper = document.getElementById('bullion-section');
-        if (!wrapper) {
-            const parent = document.getElementById('content-collection');
-            wrapper = document.createElement('div');
-            wrapper.id = 'bullion-section';
-            parent.insertBefore(wrapper, parent.firstChild);
-        }
-        
-        // Only fetch prices if we don't have them cached or if cache is expired
-        fetchMetalPrices(false); // Use cached prices if available
-        
-        // Force render the bullion section
-        renderBullionSection();
-        
-        // Now call the original renderCollection logic
-        const collectionContent = document.getElementById('content-collection');
-        const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
-        if (!collectionContentWrapper) return;
-
-        if (!isAuthenticated()) {
-            collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
-            return;
-        }
-
-        collectionContentWrapper.innerHTML = `
-            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 space-y-4 sm:space-y-0 sm:space-x-4">
-                <h1 class="text-3xl font-bold text-white">Collection</h1>
-                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                    <div class="relative w-full sm:w-auto">
-                        <input type="text" id="search-input" placeholder="Search... (Ctrl+F)" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2 pr-8">
-                        <button id="clear-search-btn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white hidden" title="Clear search">
-                            <i class="ph ph-x"></i>
-                        </button>
-                    </div>
-                    <select id="region-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
-                    <select id="type-filter" class="bg-gray-800 border-gray-600 rounded-md focus:ring-emerald-500 focus:border-emerald-500 w-full sm:w-auto p-2"></select>
-                    <button id="favorites-filter-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-md transition-colors text-sm" title="Show only favorites">
-                        <i class="ph ph-star mr-1"></i> Favorites
-                    </button>
-                    <button id="clear-filters-btn" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-md transition-colors text-sm" title="Clear all filters">
-                        <i class="ph ph-x-circle mr-1"></i> Clear
-                    </button>
-                </div>
-            </div>
-            <div class="flex-1 flex overflow-hidden">
-                <div class="w-full flex flex-col">
-                    <div class="flex-1 overflow-y-auto overflow-x-auto bg-gray-800 rounded-lg border border-gray-700">
-                        <table class="w-full text-left data-table min-w-max"> <!-- min-w-max to prevent crushing columns -->
-                            <thead class="bg-gray-700 sticky top-0">
-                                <tr>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="id">ID</th>
-                                    <th class="p-4 font-semibold">Photo</th>
-                                    <th class="p-4 font-semibold">Type</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="country">Country</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="year">Year</th>
-                                    <th class="p-4 font-semibold">Denomination</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="quantity">Qty</th>
-                                    <th class="p-4 font-semibold cursor-pointer" data-sort-column="value">Value</th>
-                                    <th class="p-4 font-semibold">Notes & Ref.</th>
-                                    <th class="p-4 font-semibold">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="collection-table-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
-        initializeFilters();
-        if (filteredData.length === 0) {
-            const tableBody = document.getElementById('collection-table-body');
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="10" class="p-8 text-center text-gray-500">
-                        <div class="flex flex-col items-center space-y-4">
-                            <i class="ph ph-coin text-4xl"></i>
-                            <p class="text-lg">Your collection is empty</p>
-                            <p class="text-sm">Click the "Quick Add" button to add your first item!</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        } else {
-            // Sort favorites to top before rendering
-            const sortedData = [...filteredData].sort((a, b) => {
-                if (a.is_favorite && !b.is_favorite) return -1;
-                if (!a.is_favorite && b.is_favorite) return 1;
-                return 0;
-            });
-            renderCollectionTable(sortedData);
-        }
-        attachSortEventListeners();
     }
 
     // --- Manual Price Update Modal ---
@@ -10866,11 +11025,6 @@
             }
           }
         });
-      });
-      
-      // Expand all sections by default
-      document.querySelectorAll('.nav-section-content').forEach(content => {
-        content.classList.remove('collapsed');
       });
       
       // Intercept nav link clicks for SPA routing

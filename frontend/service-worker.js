@@ -1,6 +1,7 @@
 // Service Worker for CoinShelf PWA - Offline Support
-const CACHE_NAME = 'coinshelf-v1';
-const RUNTIME_CACHE = 'coinshelf-runtime-v1';
+// Bump cache versions whenever static assets like index.html change
+const CACHE_NAME = 'coinshelf-v2';
+const RUNTIME_CACHE = 'coinshelf-runtime-v2';
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -70,6 +71,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Always use network-first for main HTML shell to avoid stale UI
+  if (url.origin === self.location.origin && (url.pathname === '/' || url.pathname === '/index.html')) {
+    event.respondWith(networkFirstStrategy(request));
+    return;
+  }
+  
   // Handle static assets - cache-first strategy
   if (url.origin === self.location.origin || EXTERNAL_RESOURCES.some(resource => url.href.includes(resource))) {
     event.respondWith(cacheFirstStrategy(request));
