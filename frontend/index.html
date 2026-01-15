@@ -4496,12 +4496,19 @@
     function updateBullionToggleButton() {
         const btn = document.getElementById('bullion-toggle-btn');
         if (!btn) return;
+        const labelSpan = btn.querySelector('span');
         if (bullionTrackerVisible) {
             btn.classList.remove('bg-gray-700', 'text-gray-300');
             btn.classList.add('bg-emerald-600', 'text-white');
+            if (labelSpan) {
+                labelSpan.textContent = 'Hide Bullion Tracker';
+            }
         } else {
             btn.classList.remove('bg-emerald-600', 'text-white');
             btn.classList.add('bg-gray-700', 'text-gray-300');
+            if (labelSpan) {
+                labelSpan.textContent = 'Show Bullion Tracker';
+            }
         }
     }
 
@@ -10298,7 +10305,14 @@
         
         // Check if we have any bullion items to show
         if (bullionItems.length === 0) {
-            wrapper.innerHTML = '';
+            wrapper.innerHTML = `<div class="mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-yellow-400 mb-1">Bullion / Gold / Silver</h2>
+                        <p class="text-sm text-gray-300">No bullion items found in your collection yet. Add items with type <span class="font-semibold">Gold Bullion</span> or <span class="font-semibold">Silver Bullion</span> to see them here.</p>
+                    </div>
+                </div>
+            </div>`;
             return;
         }
         
