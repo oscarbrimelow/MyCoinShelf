@@ -4613,14 +4613,17 @@
             console.log('Rendering collection with data:', filteredData);
             console.log('Number of items to render:', filteredData.length);
 
+            let collectionContent = document.getElementById('content-collection');
+            if (!collectionContent) {
+                console.error('content-collection element not found');
+                return;
+            }
+
             let bullionWrapper = document.getElementById('bullion-section');
             if (!bullionWrapper) {
-                const parent = document.getElementById('content-collection');
-                if (parent) {
-                    bullionWrapper = document.createElement('div');
-                    bullionWrapper.id = 'bullion-section';
-                    parent.insertBefore(bullionWrapper, parent.firstChild);
-                }
+                bullionWrapper = document.createElement('div');
+                bullionWrapper.id = 'bullion-section';
+                collectionContent.insertBefore(bullionWrapper, collectionContent.firstChild);
             }
             if (bullionWrapper) {
                 if (bullionTrackerVisible) {
@@ -4632,14 +4635,17 @@
                 }
             }
 
-            const collectionContent = document.getElementById('content-collection');
-            const collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
-        if (!collectionContentWrapper) return;
+            let collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
+            if (!collectionContentWrapper) {
+                collectionContentWrapper = document.createElement('div');
+                collectionContentWrapper.className = 'max-w-7xl mx-auto';
+                collectionContent.insertBefore(collectionContentWrapper, collectionContent.firstChild ? collectionContent.firstChild.nextSibling : null);
+            }
 
-        if (!isAuthenticated()) {
-            collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
-            return;
-        }
+            if (!isAuthenticated()) {
+                collectionContentWrapper.innerHTML = `<div class="unauthenticated-overlay"><p class="text-xl text-red-400">Please sign in to manage your collection.</p></div>`;
+                return;
+            }
 
             collectionContentWrapper.innerHTML = `
             <div class="flex flex-col sm:flex-row items-center justify-between mb-2">
