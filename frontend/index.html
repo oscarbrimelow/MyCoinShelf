@@ -10318,6 +10318,11 @@
         if (!wrapper) return;
         wrapper.className = 'max-w-7xl mx-auto mb-4';
         const bullionItems = collectionData.filter(item => item.type === 'Gold Bullion' || item.type === 'Silver Bullion');
+        const totalBullionValue = bullionItems.reduce((sum, item) => {
+            const raw = getItemValueInCurrency(item, currencySetting) * (item.quantity || 1);
+            const value = Number.isFinite(raw) ? raw : 0;
+            return sum + value;
+        }, 0);
         
         // Check if we have any bullion items to show
         if (bullionItems.length === 0) {
@@ -10335,9 +10340,14 @@
         let html = `<div class="mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
             <div class="flex justify-between items-center mb-3">
                 <h2 class="text-xl font-bold text-yellow-400">Bullion / Gold / Silver</h2>
-                <button onclick="fetchMetalPrices(true)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm mr-2">
-                    <i class="ph-bold ph-arrows-clockwise mr-1"></i>Auto Update
-                </button>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm font-semibold text-emerald-400">
+                        Total: ${formatCurrency(totalBullionValue, currencySetting)}
+                    </span>
+                    <button onclick="fetchMetalPrices(true)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm mr-2">
+                        <i class="ph-bold ph-arrows-clockwise mr-1"></i>Auto Update
+                    </button>
+                </div>
             </div>
             <div class="flex flex-wrap gap-6 mb-3 text-sm">
                 <span class="text-gray-300">Gold Price: <span class="font-bold text-yellow-400">${getCurrencySymbol(currencySetting)}${getCurrentPrice('gold', currencySetting, weightUnitSetting)}</span> ${currencySetting}/${weightUnitSetting}</span>
