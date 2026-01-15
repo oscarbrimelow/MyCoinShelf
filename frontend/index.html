@@ -728,7 +728,7 @@
 
             <div id="content-collection" class="content-view flex-grow p-4 sm:p-6 overflow-y-auto hidden relative">
                 <!-- Collection Content Here -->
-                <div class="max-w-7xl mx-auto">
+                <div class="max-w-7xl mx-auto" data-collection-wrapper="true">
                     <!-- Collection content will be rendered inside this centered div -->
                 </div>
                 <!-- Collection Donation Box -->
@@ -4619,11 +4619,20 @@
                 return;
             }
 
+            let collectionContentWrapper = collectionContent.querySelector('[data-collection-wrapper]');
+            if (!collectionContentWrapper) {
+                collectionContentWrapper = document.createElement('div');
+                collectionContentWrapper.className = 'max-w-7xl mx-auto';
+                collectionContentWrapper.setAttribute('data-collection-wrapper', 'true');
+                const donationBox = collectionContent.querySelector('.mt-8.pt-6.mb-12.border-t.border-gray-700');
+                collectionContent.insertBefore(collectionContentWrapper, donationBox || null);
+            }
+
             let bullionWrapper = document.getElementById('bullion-section');
             if (!bullionWrapper) {
                 bullionWrapper = document.createElement('div');
                 bullionWrapper.id = 'bullion-section';
-                collectionContent.insertBefore(bullionWrapper, collectionContent.firstChild);
+                collectionContent.insertBefore(bullionWrapper, collectionContentWrapper);
             }
             if (bullionWrapper) {
                 if (bullionTrackerVisible) {
@@ -4633,13 +4642,6 @@
                     bullionWrapper.innerHTML = '';
                     bullionWrapper.className = 'max-w-7xl mx-auto mb-4 hidden';
                 }
-            }
-
-            let collectionContentWrapper = collectionContent.querySelector('.max-w-7xl.mx-auto');
-            if (!collectionContentWrapper) {
-                collectionContentWrapper = document.createElement('div');
-                collectionContentWrapper.className = 'max-w-7xl mx-auto';
-                collectionContent.insertBefore(collectionContentWrapper, collectionContent.firstChild ? collectionContent.firstChild.nextSibling : null);
             }
 
             if (!isAuthenticated()) {
