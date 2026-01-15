@@ -4493,6 +4493,43 @@
         }
     }
 
+    function updateBullionToggleButton() {
+        const btn = document.getElementById('bullion-toggle-btn');
+        if (!btn) return;
+        if (bullionTrackerVisible) {
+            btn.classList.remove('bg-gray-700', 'text-gray-300');
+            btn.classList.add('bg-emerald-600', 'text-white');
+        } else {
+            btn.classList.remove('bg-emerald-600', 'text-white');
+            btn.classList.add('bg-gray-700', 'text-gray-300');
+        }
+    }
+
+    function setupBullionToggle() {
+        const btn = document.getElementById('bullion-toggle-btn');
+        if (!btn) return;
+        updateBullionToggleButton();
+        if (btn._bullionToggleBound) return;
+        btn._bullionToggleBound = true;
+        btn.addEventListener('click', () => {
+            bullionTrackerVisible = !bullionTrackerVisible;
+            try {
+                window.localStorage.setItem('bullionTrackerVisible', bullionTrackerVisible ? 'true' : 'false');
+            } catch (e) {}
+            const wrapper = document.getElementById('bullion-section');
+            if (wrapper) {
+                if (bullionTrackerVisible) {
+                    fetchMetalPrices(false);
+                    renderBullionSection();
+                } else {
+                    wrapper.innerHTML = '';
+                    wrapper.className = 'max-w-7xl mx-auto mb-4 hidden';
+                }
+            }
+            updateBullionToggleButton();
+        });
+    }
+
     function setupCollectionViewToggle() {
         const tableWrapper = document.getElementById('collection-table-wrapper');
         const gridWrapper = document.getElementById('collection-grid-wrapper');
@@ -4557,6 +4594,14 @@
         let originalFilteredOrder = []; // Store original order for reset
         let currentFilter = null; // Track active filter ('favorites' or null)
 
+        let bullionTrackerVisible = true;
+        try {
+            const storedBullionVisibility = window.localStorage.getItem('bullionTrackerVisible');
+            if (storedBullionVisibility === 'false') {
+                bullionTrackerVisible = false;
+            }
+        } catch (e) {}
+
         function renderCollection(filteredData = collectionData) {
             console.log('Rendering collection with data:', filteredData);
             console.log('Number of items to render:', filteredData.length);
@@ -4571,8 +4616,13 @@
                 }
             }
             if (bullionWrapper) {
-                fetchMetalPrices(false);
-                renderBullionSection();
+                if (bullionTrackerVisible) {
+                    fetchMetalPrices(false);
+                    renderBullionSection();
+                } else {
+                    bullionWrapper.innerHTML = '';
+                    bullionWrapper.className = 'max-w-7xl mx-auto mb-4 hidden';
+                }
             }
 
             const collectionContent = document.getElementById('content-collection');
@@ -4594,6 +4644,10 @@
                     </div>
                 </div>
                 <div class="mt-3 sm:mt-0 flex items-center space-x-1">
+                    <button id="bullion-toggle-btn" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded-md transition-colors text-xs sm:text-sm flex items-center justify-center mr-2" title="Show or hide bullion tracker">
+                        <i class="ph-bold ph-coins mr-1"></i>
+                        <span class="hidden sm:inline">Bullion Tracker</span>
+                    </button>
                     <span class="hidden md:inline text-xs text-gray-400 mr-1">View:</span>
                     <button id="table-view-btn" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded-md transition-colors text-sm flex items-center justify-center" title="Table view">
                         <i class="ph-bold ph-list mr-1"></i>
@@ -4699,6 +4753,7 @@
             attachSortEventListeners();
         }
         setupCollectionViewToggle();
+        setupBullionToggle();
         updateCollectionStats();
     };
 
